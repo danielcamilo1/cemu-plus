@@ -9,6 +9,7 @@ add_library(CemuAndroid SHARED
         NativeActiveSettings.cpp
         NativeEmulatedUSBDevices.cpp
         NativeEmulation.cpp
+        NativeFrameGen.cpp
         NativeGameTitles.cpp
         NativeGraphicPacks.cpp
         NativeInput.cpp

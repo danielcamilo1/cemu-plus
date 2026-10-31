@@ -462,6 +462,15 @@ struct CemuConfig
 
 	ConfigValue<bool> vk_accurate_barriers{ true };
 
+	// Lossless Scaling frame generation (Vulkan, requires a user supplied Lossless.dll)
+	struct
+	{
+		ConfigValue<bool> enabled{ false };
+		ConfigValue<sint32> multiplier{ 2 }; // 2x - 4x
+		ConfigValue<sint32> target_rate{ 0 }; // 0 = fixed multiplier, otherwise adapt the multiplier to reach this rate
+		ConfigValue<sint32> flow_scale{ 0 }; // 0 = auto, otherwise optical flow resolution in percent
+	} frame_gen{};
+
 	struct
 	{
 		ScreenPosition position = ScreenPosition::kDisabled;

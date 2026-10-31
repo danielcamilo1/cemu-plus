@@ -187,6 +187,16 @@ add_library(CemuCafe
   HW/Latte/Renderer/Vulkan/CachedFBOVk.cpp
   HW/Latte/Renderer/Vulkan/CachedFBOVk.h
   HW/Latte/Renderer/Vulkan/CocoaSurface.h
+  HW/Latte/Renderer/Vulkan/FrameGen/FrameGenPacer.cpp
+  HW/Latte/Renderer/Vulkan/FrameGen/FrameGenPacer.h
+  HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.cpp
+  HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h
+  HW/Latte/Renderer/Vulkan/FrameGen/LosslessDll.cpp
+  HW/Latte/Renderer/Vulkan/FrameGen/LosslessDll.h
+  HW/Latte/Renderer/Vulkan/FrameGen/LsfgChain.cpp
+  HW/Latte/Renderer/Vulkan/FrameGen/LsfgChain.h
+  HW/Latte/Renderer/Vulkan/FrameGen/LsfgCommon.cpp
+  HW/Latte/Renderer/Vulkan/FrameGen/LsfgCommon.h
   HW/Latte/Renderer/Vulkan/LatteTextureViewVk.cpp
   HW/Latte/Renderer/Vulkan/LatteTextureViewVk.h
   HW/Latte/Renderer/Vulkan/LatteTextureVk.cpp

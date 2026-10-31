@@ -18,7 +18,11 @@ private val ScalingFilterChoices = listOf(
 )
 
 @Composable
-fun GraphicsSettingsScreen(navigateBack: () -> Unit, goToCustomDriversSettings: () -> Unit) {
+fun GraphicsSettingsScreen(
+    navigateBack: () -> Unit,
+    goToCustomDriversSettings: () -> Unit,
+    goToFrameGenSettings: () -> Unit,
+) {
     val supportsLoadingCustomDrivers = remember { NativeEmulation.supportsLoadingCustomDriver() }
 
     ScreenContent(
@@ -31,6 +35,11 @@ fun GraphicsSettingsScreen(navigateBack: () -> Unit, goToCustomDriversSettings: 
                 onClick = goToCustomDriversSettings
             )
         }
+        Button(
+            label = tr("Frame generation (Lossless Scaling)"),
+            description = tr("Select your Lossless.dll and configure frame generation"),
+            onClick = goToFrameGenSettings
+        )
         Toggle(
             label = tr("Async shader compile"),
             description = tr("Enables async shader and pipeline compilation. Reduces stutter at the cost of objects not rendering for a short time.\nVulkan only"),

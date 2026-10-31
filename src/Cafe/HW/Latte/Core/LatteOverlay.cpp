@@ -1,6 +1,7 @@
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
+#include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h"
 #include "Cafe/Account/Account.h"
 #include "config/CemuConfig.h"
 #include "config/ActiveSettings.h"
@@ -24,6 +25,9 @@ struct OverlayStats
 	std::vector<ProcessorTime> processor_times;
 
 	double fps{};
+	double presented_fps{}; // real + generated frames shown on the TV
+	double frame_gen_ratio{}; // presented frames per real frame
+	bool frame_gen_active{};
 	uint32 draw_calls_per_frame{};
 	uint32 fast_draw_calls_per_frame{};
 	float cpu_usage{}; // cemu cpu usage in %
@@ -32,6 +36,14 @@ struct OverlayStats
 
 	int vramUsage{}, vramTotal{}; // vram usage in mb
 } g_state{};
+
+std::atomic<uint64> g_presented_real_frames{0};
+std::atomic<uint64> g_presented_generated_frames{0};
+
+void LatteOverlay_notifyFramePresented(bool generated)
+{
+	(generated ? g_presented_generated_frames : g_presented_real_frames).fetch_add(1, std::memory_order_relaxed);
+}
 
 extern std::atomic_int g_compiled_shaders_total;
 extern std::atomic_int g_compiled_shaders_async;
@@ -83,7 +95,15 @@ void LatteOverlay_renderOverlay(ImVec2& position, ImVec2& pivot, sint32 directio
 		if (ImGui::Begin("Stats overlay", nullptr, kPopupFlags))
 		{
 			if (config.overlay.fps)
-				ImGui::Text("FPS: %.2lf", g_state.fps);
+			{
+				if (g_state.frame_gen_active)
+				{
+					ImGui::Text("FPS: %.2lf (FG x%.1lf)", g_state.presented_fps, g_state.frame_gen_ratio);
+					ImGui::Text("Base FPS: %.2lf", g_state.fps);
+				}
+				else
+					ImGui::Text("FPS: %.2lf", g_state.fps);
+			}
 
 			if (config.overlay.drawcalls)
 				ImGui::Text("Draws/f: %d (fast: %d)", g_state.draw_calls_per_frame, g_state.fast_draw_calls_per_frame);
@@ -594,12 +614,34 @@ static void UpdateStats_CpuPerCore()
 	}
 }
 
+void UpdateStats_PresentedFrames()
+{
+	static std::chrono::steady_clock::time_point s_lastUpdate = std::chrono::steady_clock::now();
+	static uint64 s_lastReal = 0;
+	static uint64 s_lastGenerated = 0;
+
+	const auto now = std::chrono::steady_clock::now();
+	const uint64 real = g_presented_real_frames.load(std::memory_order_relaxed);
+	const uint64 generated = g_presented_generated_frames.load(std::memory_order_relaxed);
+	const double elapsed = std::chrono::duration<double>(now - s_lastUpdate).count();
+	const uint64 realDelta = real - s_lastReal;
+	const uint64 generatedDelta = generated - s_lastGenerated;
+	s_lastUpdate = now;
+	s_lastReal = real;
+	s_lastGenerated = generated;
+
+	g_state.frame_gen_active = generatedDelta > 0 || FrameGenVk::GetRuntimeStatus() == FrameGenRuntimeStatus::Active;
+	g_state.presented_fps = elapsed > 0.0 ? (double)(realDelta + generatedDelta) / elapsed : 0.0;
+	g_state.frame_gen_ratio = realDelta > 0 ? (double)(realDelta + generatedDelta) / (double)realDelta : 1.0;
+}
+
 void LatteOverlay_updateStats(double fps, sint32 drawcalls, sint32 fastDrawcalls)
 {
 	if (GetConfig().overlay.position == ScreenPosition::kDisabled)
 		return;
 
 	g_state.fps = fps;
+	UpdateStats_PresentedFrames();
 	g_state.draw_calls_per_frame = drawcalls;
 	g_state.fast_draw_calls_per_frame = fastDrawcalls;
 	UpdateStats_CemuCpu();

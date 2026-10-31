@@ -275,11 +275,48 @@ void VulkanRenderer::GetDeviceFeatures()
 		prevStruct = &pprf;
 	}
 
+	// features required by the Lossless Scaling frame generation shaders
+	VkPhysicalDeviceVulkanMemoryModelFeaturesKHR vmmf{};
+	if (m_featureControl.deviceExtensions.vulkan_memory_model)
+	{
+		vmmf.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR;
+		vmmf.pNext = prevStruct;
+		prevStruct = &vmmf;
+	}
+
+	VkPhysicalDeviceShaderFloat16Int8FeaturesKHR f16i8f{};
+	if (m_featureControl.deviceExtensions.shader_float16_int8)
+	{
+		f16i8f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR;
+		f16i8f.pNext = prevStruct;
+		prevStruct = &f16i8f;
+	}
+
+	VkPhysicalDeviceRobustness2FeaturesEXT r2f{};
+	if (m_featureControl.deviceExtensions.robustness2)
+	{
+		r2f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
+		r2f.pNext = prevStruct;
+		prevStruct = &r2f;
+	}
+
 	VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
 	physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 	physicalDeviceFeatures2.pNext = prevStruct;
 
 	vkGetPhysicalDeviceFeatures2(m_physicalDevice, &physicalDeviceFeatures2);
+
+	m_featureControl.deviceFeatures.shader_storage_image_extended_formats = physicalDeviceFeatures2.features.shaderStorageImageExtendedFormats;
+	m_featureControl.deviceFeatures.shader_storage_image_read_without_format = physicalDeviceFeatures2.features.shaderStorageImageReadWithoutFormat;
+	m_featureControl.deviceFeatures.shader_storage_image_write_without_format = physicalDeviceFeatures2.features.shaderStorageImageWriteWithoutFormat;
+	m_featureControl.deviceFeatures.shader_int16 = physicalDeviceFeatures2.features.shaderInt16;
+
+	m_featureControl.frameGen.supported = m_featureControl.deviceExtensions.vulkan_memory_model && vmmf.vulkanMemoryModel &&
+		m_featureControl.deviceExtensions.shader_float16_int8 && f16i8f.shaderFloat16 &&
+		m_featureControl.deviceExtensions.robustness2 && r2f.nullDescriptor;
+	m_featureControl.frameGen.vulkan_memory_model_device_scope = m_featureControl.frameGen.supported && vmmf.vulkanMemoryModelDeviceScope;
+	m_featureControl.frameGen.shader_int8 = m_featureControl.frameGen.supported && f16i8f.shaderInt8;
+	cemuLog_log(LogType::Force, "Vulkan: Frame generation (Lossless Scaling) support: {}", m_featureControl.frameGen.supported ? "supported" : "unsupported");
 
 	cemuLog_log(LogType::Force, "Vulkan: present_wait extension: {}", (pwf.presentWait && pidf.presentId) ? "supported" : "unsupported");
 	m_featureControl.deviceFeatures.geometry_shader = physicalDeviceFeatures2.features.geometryShader;
@@ -635,6 +672,11 @@ VulkanRenderer::VulkanRenderer()
 	deviceFeatures.occlusionQueryPrecise = m_featureControl.deviceFeatures.occlusion_query_precise;
 	deviceFeatures.depthClamp = m_featureControl.deviceFeatures.depth_clamp;
 	deviceFeatures.depthBiasClamp = VK_TRUE;
+	// optional, used by the frame generation shaders
+	deviceFeatures.shaderStorageImageExtendedFormats = m_featureControl.deviceFeatures.shader_storage_image_extended_formats;
+	deviceFeatures.shaderStorageImageReadWithoutFormat = m_featureControl.deviceFeatures.shader_storage_image_read_without_format;
+	deviceFeatures.shaderStorageImageWriteWithoutFormat = m_featureControl.deviceFeatures.shader_storage_image_write_without_format;
+	deviceFeatures.shaderInt16 = m_featureControl.deviceFeatures.shader_int16;
 
 	if (m_featureControl.deviceExtensions.pipeline_robustness)
 	{
@@ -700,6 +742,30 @@ VulkanRenderer::VulkanRenderer()
 		pipelineRobustnessFeature.pipelineRobustness = VK_TRUE;
 	}
 
+	// enable features required by frame generation
+	VkPhysicalDeviceVulkanMemoryModelFeaturesKHR memoryModelFeature{};
+	VkPhysicalDeviceShaderFloat16Int8FeaturesKHR float16Int8Feature{};
+	VkPhysicalDeviceRobustness2FeaturesEXT robustness2Feature{};
+	if (m_featureControl.frameGen.supported)
+	{
+		memoryModelFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR;
+		memoryModelFeature.pNext = deviceExtensionFeatures;
+		memoryModelFeature.vulkanMemoryModel = VK_TRUE;
+		memoryModelFeature.vulkanMemoryModelDeviceScope = m_featureControl.frameGen.vulkan_memory_model_device_scope;
+		deviceExtensionFeatures = &memoryModelFeature;
+
+		float16Int8Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR;
+		float16Int8Feature.pNext = deviceExtensionFeatures;
+		float16Int8Feature.shaderFloat16 = VK_TRUE;
+		float16Int8Feature.shaderInt8 = m_featureControl.frameGen.shader_int8;
+		deviceExtensionFeatures = &float16Int8Feature;
+
+		robustness2Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
+		robustness2Feature.pNext = deviceExtensionFeatures;
+		robustness2Feature.nullDescriptor = VK_TRUE;
+		deviceExtensionFeatures = &robustness2Feature;
+	}
+
 	std::vector<const char*> used_extensions;
 	VkDeviceCreateInfo createInfo = CreateDeviceCreateInfo(queueCreateInfos, deviceFeatures, deviceExtensionFeatures, used_extensions);
 
@@ -714,6 +780,8 @@ VulkanRenderer::VulkanRenderer()
 
 	vkGetDeviceQueue(m_logicalDevice, m_indices.graphicsFamily, 0, &m_graphicsQueue);
 	vkGetDeviceQueue(m_logicalDevice, m_indices.graphicsFamily, 0, &m_presentQueue);
+
+	m_frameGen = std::make_unique<FrameGenVk>(this, m_featureControl.frameGen.supported);
 
 	vkDestroySurfaceKHR(m_instance, surface, nullptr);
 
@@ -811,6 +879,7 @@ VulkanRenderer::~VulkanRenderer()
 	SubmitCommandBuffer();
 	WaitDeviceIdle();
 	WaitCommandBufferFinished(GetCurrentCommandBufferId());
+	m_frameGen.reset();
 	// shut down pipeline save thread
 	m_destructionRequested = true;
 	m_pipeline_cache_semaphore.notify();
@@ -1288,6 +1357,12 @@ VkDeviceCreateInfo VulkanRenderer::CreateDeviceCreateInfo(const std::vector<VkDe
 		used_extensions.emplace_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
 	if (m_featureControl.deviceExtensions.pipeline_robustness)
 		used_extensions.emplace_back(VK_EXT_PIPELINE_ROBUSTNESS_EXTENSION_NAME);
+	if (m_featureControl.frameGen.supported)
+	{
+		used_extensions.emplace_back(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
+		used_extensions.emplace_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+		used_extensions.emplace_back(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
+	}
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1387,6 +1462,9 @@ bool VulkanRenderer::CheckDeviceExtensionSupport(const VkPhysicalDevice device, 
 	info.deviceExtensions.dynamic_rendering = false; // isExtensionAvailable(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 	info.deviceExtensions.depth_clip_enable = isExtensionAvailable(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
 	info.deviceExtensions.pipeline_robustness = isExtensionAvailable(VK_EXT_PIPELINE_ROBUSTNESS_EXTENSION_NAME);
+	info.deviceExtensions.vulkan_memory_model = isExtensionAvailable(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
+	info.deviceExtensions.shader_float16_int8 = isExtensionAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+	info.deviceExtensions.robustness2 = isExtensionAvailable(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
 	// dynamic rendering doesn't provide any benefits for us right now. Driver implementations are very unoptimized as of Feb 2022
 	info.deviceExtensions.present_wait = isExtensionAvailable(VK_KHR_PRESENT_WAIT_EXTENSION_NAME) && isExtensionAvailable(VK_KHR_PRESENT_ID_EXTENSION_NAME);
 
@@ -1856,6 +1934,8 @@ void VulkanRenderer::Shutdown()
 {
 	SubmitCommandBuffer();
 	WaitDeviceIdle();
+	if (m_frameGen)
+		m_frameGen->Release();
 	// stop compilation threads
 	RendererShaderVk::Shutdown();
 	PipelineCompiler::CompileThreadPool_Stop();
@@ -3038,6 +3118,14 @@ bool VulkanRenderer::UpdateSwapchainProperties(bool mainWindow)
 	if(chainInfo.m_vsyncState != configValue)
 		stateChanged = true;
 
+	// generated frames are paced by the display, which requires FIFO presentation
+	const bool forceFifo = mainWindow && m_frameGen && m_frameGen->IsActive();
+	if (chainInfo.m_forceFifo != forceFifo)
+	{
+		chainInfo.m_forceFifo = forceFifo;
+		stateChanged = true;
+	}
+
 	int width, height;
 	if (mainWindow)
 		WindowSystem::GetWindowPhysSize(width, height);
@@ -3077,13 +3165,40 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 
 	auto& chainInfo = GetChainInfo(mainWindow);
 
+	size_t generatedFrames = 0;
 	if (!chainInfo.hasDefinedSwapchainImage)
 	{
 		// set the swapchain image to a defined state
 		VkClearColorValue clearColor{ 0, 0, 0, 0 };
 		ClearColorImageRaw(chainInfo.m_swapchainImages[chainInfo.swapchainImageIndex], 0, 0, clearColor, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 	}
+	else if (mainWindow && m_frameGen && chainInfo.m_supportsTransferSrc)
+	{
+		draw_endRenderPass();
+		generatedFrames = m_frameGen->ProcessFrame(m_state.currentCommandBuffer, chainInfo.m_swapchainImages[chainInfo.swapchainImageIndex], chainInfo.getExtent(), m_tvSourceWidth);
+	}
 
+	// interpolated frames sit between the previous and the current frame, so they are presented first
+	for (size_t generation = 0; generation < generatedFrames; ++generation)
+	{
+		// the first generated frame reuses the swapchain image of the current frame, which ProcessFrame() copied out
+		if (generation > 0 && !AcquireNextSwapchainImage(mainWindow))
+			return;
+		m_frameGen->PresentGenerated(m_state.currentCommandBuffer, generation, chainInfo.m_swapchainImages[chainInfo.swapchainImageIndex], chainInfo.getExtent());
+		PresentSwapchainImage(chainInfo, true);
+	}
+	if (generatedFrames > 0)
+	{
+		if (!AcquireNextSwapchainImage(mainWindow))
+			return;
+		m_frameGen->PresentReal(m_state.currentCommandBuffer, chainInfo.m_swapchainImages[chainInfo.swapchainImageIndex], chainInfo.getExtent());
+	}
+
+	PresentSwapchainImage(chainInfo, false);
+}
+
+void VulkanRenderer::PresentSwapchainImage(SwapchainInfoVk& chainInfo, bool isGeneratedFrame)
+{
 	const size_t currentFrameCmdBufferID = GetCurrentCommandBufferId();
 
 	VkSemaphore presentSemaphore = chainInfo.m_presentSemaphores[chainInfo.swapchainImageIndex];
@@ -3092,8 +3207,11 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	cemu_assert_debug(m_numSubmittedCmdBuffers > 0);
 
 	// wait for the previous frame to finish rendering
-	WaitCommandBufferFinished(m_commandBufferIDOfPrevFrame);
-	m_commandBufferIDOfPrevFrame = currentFrameCmdBufferID;
+	if (!isGeneratedFrame)
+	{
+		WaitCommandBufferFinished(m_commandBufferIDOfPrevFrame);
+		m_commandBufferIDOfPrevFrame = currentFrameCmdBufferID;
+	}
 
 	chainInfo.WaitAvailableFence();
 
@@ -3143,6 +3261,8 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	{
 		chainInfo.m_queueDepth++;
 		chainInfo.m_presentId++;
+		if (chainInfo.mainWindow)
+			LatteOverlay_notifyFramePresented(isGeneratedFrame);
 	}
 
 #if BOOST_PLAT_ANDROID
@@ -3275,6 +3395,8 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 
 	auto& chainInfo = GetChainInfo(!padView);
 	LatteTextureViewVk* texViewVk = (LatteTextureViewVk*)texView;
+	if (!padView)
+		m_tvSourceWidth = (uint32)texView->baseTexture->width;
 	draw_endRenderPass();
 
 	// barrier for input texture
