@@ -21,6 +21,10 @@ guaranteed, and some functionality may be missing compared to the desktop versio
 - **In-game quick menu controls**: toggle frame generation and change every option while playing
 - **Improved FPS overlay**: while frame generation is active it shows the displayed frame rate, the base
   frame rate of the game and the effective multiplier, for example `FPS: 60.00 (FG x2.0)` / `Base FPS: 30.00`
+- **Dual screen layout options** for devices whose second screen has a different aspect ratio than the
+  Wii U GamePad (for example the AYN Thor): align the GamePad image to the top, center or bottom of its screen
+  (Settings → Graphics settings → GamePad screen alignment), and show the performance overlay on both screens,
+  only the TV or only the GamePad screen, either over gameplay or inside the black bars (Settings → Overlay settings)
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
 ## Download

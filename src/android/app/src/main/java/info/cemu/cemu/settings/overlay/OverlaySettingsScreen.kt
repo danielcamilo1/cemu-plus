@@ -64,6 +64,27 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
 
 @Composable
 private fun OverlaySettings() {
+    SingleSelection(
+        label = tr("Show on"),
+        initialChoice = NativeSettings::getOverlayScreen,
+        onChoiceChanged = NativeSettings::setOverlayScreen,
+        choiceToString = { overlayScreenToString(it) },
+        choices = listOf(
+            NativeSettings.OverlayScreen.BOTH,
+            NativeSettings.OverlayScreen.TV,
+            NativeSettings.OverlayScreen.PAD
+        ),
+    )
+    SingleSelection(
+        label = tr("Placement"),
+        initialChoice = NativeSettings::getOverlayPlacement,
+        onChoiceChanged = NativeSettings::setOverlayPlacement,
+        choiceToString = { overlayPlacementToString(it) },
+        choices = listOf(
+            NativeSettings.OverlayPlacement.OVER_GAMEPLAY,
+            NativeSettings.OverlayPlacement.BLACK_BARS
+        ),
+    )
     Slider(
         label = tr("Scale"),
         initialValue = NativeSettings::getOverlayTextScalePercentage,
@@ -145,4 +166,17 @@ private fun overlayScreenPositionToString(overlayScreenPosition: Int) = when (ov
     NativeSettings.OverlayScreenPosition.BOTTOM_CENTER -> tr("Bottom center")
     NativeSettings.OverlayScreenPosition.BOTTOM_RIGHT -> tr("Bottom right")
     else -> throw IllegalArgumentException("Invalid overlay position: $overlayScreenPosition")
+}
+
+private fun overlayScreenToString(overlayScreen: Int) = when (overlayScreen) {
+    NativeSettings.OverlayScreen.BOTH -> tr("Both screens")
+    NativeSettings.OverlayScreen.TV -> tr("TV screen only")
+    NativeSettings.OverlayScreen.PAD -> tr("GamePad screen only")
+    else -> throw IllegalArgumentException("Invalid overlay screen: $overlayScreen")
+}
+
+private fun overlayPlacementToString(overlayPlacement: Int) = when (overlayPlacement) {
+    NativeSettings.OverlayPlacement.OVER_GAMEPLAY -> tr("Over gameplay")
+    NativeSettings.OverlayPlacement.BLACK_BARS -> tr("In the black bars")
+    else -> throw IllegalArgumentException("Invalid overlay placement: $overlayPlacement")
 }

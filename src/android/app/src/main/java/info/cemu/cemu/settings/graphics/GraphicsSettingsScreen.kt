@@ -74,6 +74,17 @@ fun GraphicsSettingsScreen(
             ),
         )
         SingleSelection(
+            label = tr("GamePad screen alignment"),
+            initialChoice = NativeSettings::getPadScreenAlignment,
+            onChoiceChanged = NativeSettings::setPadScreenAlignment,
+            choiceToString = { padScreenAlignmentToString(it) },
+            choices = listOf(
+                NativeSettings.PadScreenAlignment.CENTER,
+                NativeSettings.PadScreenAlignment.TOP,
+                NativeSettings.PadScreenAlignment.BOTTOM
+            ),
+        )
+        SingleSelection(
             label = tr("Upscale filter"),
             initialChoice = NativeSettings::getUpscalingFilter,
             onChoiceChanged = NativeSettings::setUpscalingFilter,
@@ -109,4 +120,11 @@ private fun fullscreenScalingModeToString(fullscreenScaling: Int) = when (fullsc
     NativeSettings.FullscreenScaling.KEEP_ASPECT_RATIO -> tr("Keep aspect ratio")
     NativeSettings.FullscreenScaling.STRETCH -> tr("Stretch")
     else -> throw IllegalArgumentException("Invalid fullscreen scaling mode:  $fullscreenScaling")
+}
+
+private fun padScreenAlignmentToString(alignment: Int) = when (alignment) {
+    NativeSettings.PadScreenAlignment.CENTER -> tr("Center")
+    NativeSettings.PadScreenAlignment.TOP -> tr("Top")
+    NativeSettings.PadScreenAlignment.BOTTOM -> tr("Bottom")
+    else -> throw IllegalArgumentException("Invalid GamePad screen alignment: $alignment")
 }

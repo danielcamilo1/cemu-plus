@@ -118,6 +118,41 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayPosition(value: Int)
 
+    object OverlayScreen {
+        const val BOTH: Int = 0
+        const val TV: Int = 1
+        const val PAD: Int = 2
+    }
+
+    @JvmStatic
+    external fun getOverlayScreen(): Int
+
+    @JvmStatic
+    external fun setOverlayScreen(value: Int)
+
+    object OverlayPlacement {
+        const val OVER_GAMEPLAY: Int = 0
+        const val BLACK_BARS: Int = 1
+    }
+
+    @JvmStatic
+    external fun getOverlayPlacement(): Int
+
+    @JvmStatic
+    external fun setOverlayPlacement(value: Int)
+
+    object PadScreenAlignment {
+        const val CENTER: Int = 0
+        const val TOP: Int = 1
+        const val BOTTOM: Int = 2
+    }
+
+    @JvmStatic
+    external fun getPadScreenAlignment(): Int
+
+    @JvmStatic
+    external fun setPadScreenAlignment(value: Int)
+
     const val OVERLAY_TEXT_SCALE_MIN: Int = 50
     const val OVERLAY_TEXT_SCALE_MAX: Int = 300
 

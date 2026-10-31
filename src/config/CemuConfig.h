@@ -104,6 +104,27 @@ enum class ScreenPosition
 	kBottomRight,
 };
 
+// vertical position of the GamePad image inside the GamePad screen when it keeps its aspect ratio
+enum class PadScreenAlignment
+{
+	kCenter = 0,
+	kTop,
+	kBottom,
+};
+
+enum class OverlayScreen
+{
+	kBoth = 0,
+	kTV,
+	kPad,
+};
+
+enum class OverlayPlacement
+{
+	kOverGameplay = 0,
+	kBlackBars, // inside the empty space around the image, falls back to over gameplay if there is none
+};
+
 enum class PrecompiledShaderOption
 {
 	Auto,
@@ -471,9 +492,13 @@ struct CemuConfig
 		ConfigValue<sint32> flow_scale{ 0 }; // 0 = auto, otherwise optical flow resolution in percent
 	} frame_gen{};
 
+	PadScreenAlignment pad_screen_alignment = PadScreenAlignment::kCenter;
+
 	struct
 	{
 		ScreenPosition position = ScreenPosition::kDisabled;
+		OverlayScreen screen = OverlayScreen::kBoth;
+		OverlayPlacement placement = OverlayPlacement::kOverGameplay;
 		uint32 text_color = 0xFFFFFFFF;
 		sint32 text_scale = 100;
 		bool fps = true;

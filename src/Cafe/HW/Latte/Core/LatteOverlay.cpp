@@ -1,4 +1,5 @@
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
+#include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h"
@@ -78,7 +79,7 @@ struct OverlayList
 const auto kPopupFlags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 
 const float kBackgroundAlpha = 0.65f;
-void LatteOverlay_renderOverlay(ImVec2& position, ImVec2& pivot, sint32 direction, float fontSize, bool pad)
+void LatteOverlay_renderOverlay(ImVec2& position, ImVec2& pivot, sint32 direction, float fontSize, bool pad, bool horizontal)
 {
 	auto& config = GetConfig();
 
@@ -94,11 +95,26 @@ void LatteOverlay_renderOverlay(ImVec2& position, ImVec2& pivot, sint32 directio
 		ImGui::SetNextWindowBgAlpha(kBackgroundAlpha);
 		if (ImGui::Begin("Stats overlay", nullptr, kPopupFlags))
 		{
+			// in horizontal mode (wide, short black bars) the stats are placed next to each other
+			bool firstItem = true;
+			auto beginItem = [&]()
+			{
+				if (horizontal && !firstItem)
+				{
+					ImGui::SameLine();
+					ImGui::TextUnformatted("|");
+					ImGui::SameLine();
+				}
+				firstItem = false;
+			};
+
 			if (config.overlay.fps)
 			{
+				beginItem();
 				if (g_state.frame_gen_active)
 				{
 					ImGui::Text("FPS: %.2lf (FG x%.1lf)", g_state.presented_fps, g_state.frame_gen_ratio);
+					beginItem();
 					ImGui::Text("Base FPS: %.2lf", g_state.fps);
 				}
 				else
@@ -106,24 +122,37 @@ void LatteOverlay_renderOverlay(ImVec2& position, ImVec2& pivot, sint32 directio
 			}
 
 			if (config.overlay.drawcalls)
+			{
+				beginItem();
 				ImGui::Text("Draws/f: %d (fast: %d)", g_state.draw_calls_per_frame, g_state.fast_draw_calls_per_frame);
+			}
 
 			if (config.overlay.cpu_usage)
+			{
+				beginItem();
 				ImGui::Text("CPU: %.2lf%%", g_state.cpu_usage);
+			}
 
 			if (config.overlay.cpu_per_core_usage)
 			{
 				for (sint32 i = 0; i < g_state.processor_count; ++i)
 				{
+					beginItem();
 					ImGui::Text("CPU #%d: %.2lf%%", i + 1, g_state.cpu_per_core[i]);
 				}
 			}
 
 			if (config.overlay.ram_usage)
+			{
+				beginItem();
 				ImGui::Text("RAM: %dMB", g_state.ram_usage);
+			}
 
 			if(config.overlay.vram_usage && g_state.vramUsage != -1 && g_state.vramTotal != -1)
+			{
+				beginItem();
 				ImGui::Text("VRAM: %dMB / %dMB", g_state.vramUsage, g_state.vramTotal);
+			}
 
 			if (config.overlay.debug)
 			{
@@ -531,6 +560,81 @@ void LatteOverlay_translateScreenPosition(ScreenPosition pos, const Vector2f& wi
 	}
 }
 
+// the stats overlay can be limited to the TV or the GamePad screen. If the GamePad screen isn't shown it always goes to the TV screen
+static bool LatteOverlay_isStatsScreen(bool pad_view)
+{
+	switch (GetConfig().overlay.screen)
+	{
+	case OverlayScreen::kTV:
+		return !pad_view;
+	case OverlayScreen::kPad:
+		return pad_view || !WindowSystem::IsPadWindowOpen();
+	default:
+		return true;
+	}
+}
+
+static sint32 LatteOverlay_countStatLines()
+{
+	const auto& config = GetConfig();
+	sint32 lines = 0;
+	if (config.overlay.fps)
+		lines += g_state.frame_gen_active ? 2 : 1;
+	if (config.overlay.drawcalls)
+		lines++;
+	if (config.overlay.cpu_usage)
+		lines++;
+	if (config.overlay.cpu_per_core_usage)
+		lines += g_state.processor_count;
+	if (config.overlay.ram_usage)
+		lines++;
+	if (config.overlay.vram_usage)
+		lines++;
+	return lines;
+}
+
+// finds the empty space left around the game image (letterbox or pillarbox bars) to place the stats overlay in.
+// Keeps the full screen area if no bar is big enough for at least one line of text
+static void LatteOverlay_getBlackBarArea(bool pad_view, ScreenPosition position, float fontSize, ImVec2& areaMin, ImVec2& areaSize, bool& horizontal)
+{
+	sint32 imageX, imageY, imageWidth, imageHeight, fullWidth, fullHeight;
+	LatteRenderTarget_getScreenImageArea(&imageX, &imageY, &imageWidth, &imageHeight, &fullWidth, &fullHeight, pad_view);
+
+	const float minSize = fontSize * 1.5f + 20.0f;
+	const float topBar = (float)imageY;
+	const float bottomBar = (float)(fullHeight - imageY - imageHeight);
+	const float leftBar = (float)imageX;
+	const float rightBar = (float)(fullWidth - imageX - imageWidth);
+
+	const bool prefersTop = position == ScreenPosition::kTopLeft || position == ScreenPosition::kTopCenter || position == ScreenPosition::kTopRight;
+	const bool prefersLeft = position == ScreenPosition::kTopLeft || position == ScreenPosition::kBottomLeft;
+	const bool prefersRight = position == ScreenPosition::kTopRight || position == ScreenPosition::kBottomRight;
+
+	if (std::max(topBar, bottomBar) >= minSize)
+	{
+		// letterbox: use the bar on the side of the selected position when it fits, otherwise the bigger one
+		const float preferred = prefersTop ? topBar : bottomBar;
+		const bool useTop = preferred >= minSize ? prefersTop : topBar > bottomBar;
+		const float barHeight = useTop ? topBar : bottomBar;
+		areaMin = { 0.0f, useTop ? 0.0f : (float)(imageY + imageHeight) };
+		areaSize = { (float)fullWidth, barHeight };
+		// stack the stats like over gameplay if they fit, otherwise put them in a row
+		const float stackedHeight = (float)LatteOverlay_countStatLines() * (fontSize + 4.0f) + 36.0f;
+		horizontal = stackedHeight > barHeight;
+	}
+	else if (std::max(leftBar, rightBar) >= minSize)
+	{
+		// pillarbox
+		bool useLeft = leftBar > rightBar;
+		if (prefersLeft && leftBar >= minSize)
+			useLeft = true;
+		else if (prefersRight && rightBar >= minSize)
+			useLeft = false;
+		areaMin = { useLeft ? 0.0f : (float)(imageX + imageWidth), 0.0f };
+		areaSize = { useLeft ? leftBar : rightBar, (float)fullHeight };
+	}
+}
+
 void LatteOverlay_render(bool pad_view)
 {
 	const auto& config = GetConfig();
@@ -564,16 +668,25 @@ void LatteOverlay_render(bool pad_view)
 	ImVec2 position{}, pivot{};
 	sint32 direction{};
 
-	if (config.overlay.position != ScreenPosition::kDisabled)
+	const bool showStats = config.overlay.position != ScreenPosition::kDisabled && LatteOverlay_isStatsScreen(pad_view);
+	if (showStats)
 	{
-		LatteOverlay_translateScreenPosition(config.overlay.position, window_size, position, pivot, direction);
-		LatteOverlay_renderOverlay(position, pivot, direction, overlayFontSize, pad_view);
+		ImVec2 areaMin{ 0.0f, 0.0f };
+		ImVec2 areaSize{ window_size.x, window_size.y };
+		bool horizontal = false;
+		if (config.overlay.placement == OverlayPlacement::kBlackBars)
+			LatteOverlay_getBlackBarArea(pad_view, config.overlay.position, overlayFontSize, areaMin, areaSize, horizontal);
+
+		LatteOverlay_translateScreenPosition(config.overlay.position, { areaSize.x, areaSize.y }, position, pivot, direction);
+		position.x += areaMin.x;
+		position.y += areaMin.y;
+		LatteOverlay_renderOverlay(position, pivot, direction, overlayFontSize, pad_view, horizontal);
 	}
 	
 
 	if (config.notification.position != ScreenPosition::kDisabled)
 	{
-		if(config.overlay.position != config.notification.position)
+		if(!showStats || config.overlay.position != config.notification.position)
 			LatteOverlay_translateScreenPosition(config.notification.position, window_size, position, pivot, direction);
 
 		LatteOverlay_RenderNotifications(position, pivot, direction, notificationsFontSize, pad_view);

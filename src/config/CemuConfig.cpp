@@ -157,10 +157,14 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		frame_gen.flow_scale = frame_gen_node.get("FlowScale", 0);
 	}
 
+	pad_screen_alignment = graphic.get("PadScreenAlignment", PadScreenAlignment::kCenter);
+
 	auto overlay_node = graphic.get("Overlay");
 	if(overlay_node.valid())
 	{
 		overlay.position = overlay_node.get("Position", ScreenPosition::kDisabled);
+		overlay.screen = overlay_node.get("Screen", OverlayScreen::kBoth);
+		overlay.placement = overlay_node.get("Placement", OverlayPlacement::kOverGameplay);
 		overlay.text_color = overlay_node.get("TextColor", 0xFFFFFFFF);
 		overlay.text_scale = overlay_node.get("TextScale", 100);
 		overlay.fps = overlay_node.get("FPS", true);
@@ -398,8 +402,12 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	frame_gen_node.set("TargetRate", frame_gen.target_rate.GetValue());
 	frame_gen_node.set("FlowScale", frame_gen.flow_scale.GetValue());
 
+	graphic.set("PadScreenAlignment", pad_screen_alignment);
+
 	auto overlay_node = graphic.set("Overlay");
 	overlay_node.set("Position", overlay.position);
+	overlay_node.set("Screen", overlay.screen);
+	overlay_node.set("Placement", overlay.placement);
 	overlay_node.set("TextColor", overlay.text_color);
 	overlay_node.set("TextScale", overlay.text_scale);
 	overlay_node.set("FPS", overlay.fps);
