@@ -830,7 +830,8 @@ sint32 _currentOutputImageHeight = 0;
 void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, sint32* height, sint32* fullWidth, sint32* fullHeight, bool padView)
 {
 	int w, h;
-	if(padView && WindowSystem::IsPadWindowOpen())
+	const bool separatePadWindow = padView && WindowSystem::IsPadWindowOpen();
+	if(separatePadWindow)
 		WindowSystem::GetPadWindowPhysSize(w, h);
 	else
 		WindowSystem::GetWindowPhysSize(w, h);
@@ -856,6 +857,15 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 
 	*x = (w - scaledOutputX) / 2;
 	*y = (h - scaledOutputY) / 2;
+	// a GamePad screen with a different aspect ratio than the GamePad can move the image to free up one of the bars
+	if (separatePadWindow)
+	{
+		const PadScreenAlignment alignment = GetConfig().pad_screen_alignment;
+		if (alignment == PadScreenAlignment::kTop)
+			*y = 0;
+		else if (alignment == PadScreenAlignment::kBottom)
+			*y = h - scaledOutputY;
+	}
 	*width = scaledOutputX;
 	*height = scaledOutputY;
 	if (fullWidth)

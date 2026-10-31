@@ -16,6 +16,42 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayPosition([[maybe_un
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getOverlayScreen([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(GetConfig().overlay.screen);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayScreen([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint screen)
+{
+	GetConfig().overlay.screen = static_cast<OverlayScreen>(screen);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getOverlayPlacement([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(GetConfig().overlay.placement);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayPlacement([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint placement)
+{
+	GetConfig().overlay.placement = static_cast<OverlayPlacement>(placement);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getPadScreenAlignment([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(GetConfig().pad_screen_alignment);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setPadScreenAlignment([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint alignment)
+{
+	GetConfig().pad_screen_alignment = static_cast<PadScreenAlignment>(alignment);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_getOverlayTextScalePercentage([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return GetConfig().overlay.text_scale;
