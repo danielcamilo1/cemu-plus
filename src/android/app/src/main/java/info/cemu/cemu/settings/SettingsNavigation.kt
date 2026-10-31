@@ -19,6 +19,7 @@ import info.cemu.cemu.settings.input.hotkeys.HotkeySettingsScreen
 import info.cemu.cemu.settings.input.InputSettingsScreen
 import info.cemu.cemu.settings.inputoverlay.InputOverlaySettingsScreen
 import info.cemu.cemu.settings.overlay.OverlaySettingsScreen
+import info.cemu.cemu.settings.storage.DataStorageSettingsScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -51,6 +52,9 @@ private object SettingsRoutes {
 
     @Serializable
     object GamePathsScreenRoute
+
+    @Serializable
+    object DataStorageSettingsScreenRoute
 
     @Serializable
     object OverlaySettingsScreenRoute
@@ -181,11 +185,17 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController) {
             composable<SettingsRoutes.GeneralSettingsScreenRoute> {
                 GeneralSettingsScreen(
                     navigateBack = { navController.popBackStack() },
-                    goToGamePathsSettings = { navController.navigate(SettingsRoutes.GamePathsScreenRoute) }
+                    goToGamePathsSettings = { navController.navigate(SettingsRoutes.GamePathsScreenRoute) },
+                    goToDataStorageSettings = { navController.navigate(SettingsRoutes.DataStorageSettingsScreenRoute) },
                 )
             }
             composable<SettingsRoutes.GamePathsScreenRoute> {
                 GamePathsScreen(
+                    navigateBack = { navController.popBackStack() },
+                )
+            }
+            composable<SettingsRoutes.DataStorageSettingsScreenRoute> {
+                DataStorageSettingsScreen(
                     navigateBack = { navController.popBackStack() },
                 )
             }
