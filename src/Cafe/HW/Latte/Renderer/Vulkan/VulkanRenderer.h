@@ -8,6 +8,7 @@
 #include "Cafe/HW/Latte/Renderer/Vulkan/CachedFBOVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VKRMemoryManager.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/SwapchainInfoVk.h"
+#include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h"
 #include "util/math/vector2.h"
 #include "util/helpers/Semaphore.h"
 #include "util/containers/flat_hash_map.hpp"
@@ -468,6 +469,9 @@ private:
 			bool present_wait = false; // VK_KHR_present_wait
 			bool depth_clip_enable = false; // VK_EXT_depth_clip_enable
 			bool pipeline_robustness = false; // VK_EXT_pipeline_robustness
+			bool vulkan_memory_model = false; // VK_KHR_vulkan_memory_model (frame generation)
+			bool shader_float16_int8 = false; // VK_KHR_shader_float16_int8 (frame generation)
+			bool robustness2 = false; // VK_EXT_robustness2 (frame generation, null descriptors)
 		}deviceExtensions;
 
 		struct
@@ -478,7 +482,18 @@ private:
 			bool occlusion_query_precise;
 			bool depth_clamp;
 			bool vertex_pipeline_stores_and_atomics;
+			bool shader_storage_image_extended_formats;
+			bool shader_storage_image_read_without_format;
+			bool shader_storage_image_write_without_format;
+			bool shader_int16;
 		} deviceFeatures;
+
+		struct
+		{
+			bool supported = false; // all features required by the Lossless Scaling shaders are available
+			bool vulkan_memory_model_device_scope = false;
+			bool shader_int8 = false;
+		}frameGen;
 
 		struct
 		{
@@ -511,6 +526,11 @@ private:
 
 	bool UpdateSwapchainProperties(bool mainWindow);
 	void SwapBuffer(bool mainWindow);
+	void PresentSwapchainImage(SwapchainInfoVk& chainInfo, bool isGeneratedFrame);
+
+	// frame generation (TV only)
+	std::unique_ptr<FrameGenVk> m_frameGen;
+	uint32 m_tvSourceWidth = 0; // width of the image last drawn to the TV backbuffer
 
 	VkDescriptorSetLayout m_swapchainDescriptorSetLayout;
 

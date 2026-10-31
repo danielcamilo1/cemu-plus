@@ -309,6 +309,8 @@ private fun EmulationSideMenuContent(
         onCheckedChange = { updateState(sideMenuState.copy(isPadVisible = it)) },
     )
 
+    FrameGenQuickSettings()
+
     TextButtonItem(
         label = tr("Emulated USB Devices"),
         onClick = onShowEmulatedUSBDevices,

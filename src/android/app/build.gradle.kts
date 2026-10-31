@@ -33,6 +33,7 @@ val versionMajor: Int? = System.getenv("EMULATOR_VERSION_MAJOR")?.toIntOrNull()
 val versionMinor: Int? = System.getenv("EMULATOR_VERSION_MINOR")?.toIntOrNull()
 
 fun getVersionName(): String {
+    System.getenv("EMULATOR_VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
     if (versionMajor != null && versionMinor != null)
         return "$versionMajor.$versionMinor"
     return getGitHash() ?: "1.0"
@@ -45,11 +46,11 @@ android {
     compileSdk = 36
     ndkVersion = "29.0.14206865"
     defaultConfig {
-        applicationId = "info.cemu.cemu"
+        applicationId = "info.cemu.cemuplus"
         minSdk = 30
         targetSdk = 35
         versionName = getVersionName()
-        versionCode = 1
+        versionCode = System.getenv("EMULATOR_VERSION_CODE")?.toIntOrNull() ?: 1
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

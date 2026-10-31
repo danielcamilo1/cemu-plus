@@ -148,6 +148,15 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 	force_mesh_shaders = graphic.get("ForceMeshShaders", false);
 #endif
 
+	auto frame_gen_node = graphic.get("FrameGen");
+	if (frame_gen_node.valid())
+	{
+		frame_gen.enabled = frame_gen_node.get("Enabled", false);
+		frame_gen.multiplier = frame_gen_node.get("Multiplier", 2);
+		frame_gen.target_rate = frame_gen_node.get("TargetRate", 0);
+		frame_gen.flow_scale = frame_gen_node.get("FlowScale", 0);
+	}
+
 	auto overlay_node = graphic.get("Overlay");
 	if(overlay_node.valid())
 	{
@@ -382,6 +391,12 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	graphic.set("FullscreenScaling", fullscreen_scaling);
 	graphic.set("AsyncCompile", async_compile.GetValue());
 	graphic.set("vkAccurateBarriers", vk_accurate_barriers);
+
+	auto frame_gen_node = graphic.set("FrameGen");
+	frame_gen_node.set("Enabled", frame_gen.enabled.GetValue());
+	frame_gen_node.set("Multiplier", frame_gen.multiplier.GetValue());
+	frame_gen_node.set("TargetRate", frame_gen.target_rate.GetValue());
+	frame_gen_node.set("FlowScale", frame_gen.flow_scale.GetValue());
 
 	auto overlay_node = graphic.set("Overlay");
 	overlay_node.set("Position", overlay.position);

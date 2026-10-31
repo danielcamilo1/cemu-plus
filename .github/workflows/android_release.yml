@@ -1,0 +1,153 @@
+name: Cemu Plus Android
+
+# - pushes and pull requests build the APK and upload it as a workflow artifact
+# - pushing a tag named v<version> (e.g. v0.1.0 or v0.1.0-beta.1) publishes a GitHub release with the APK.
+#   Tags containing a "-" are published as prereleases
+# - the workflow can also be started manually to publish a release for the selected branch
+on:
+  push:
+    branches:
+      - android-port
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version name without the leading v (e.g. 0.1.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as prerelease"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  VCPKG_ROOT: "${{ github.workspace }}/dependencies/vcpkg"
+  VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+  VCPKG_FORCE_DOWNLOADED_BINARIES: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            PUBLISH=true
+            if [[ "$VERSION" == *-* ]]; then PRERELEASE=true; else PRERELEASE=false; fi
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="${INPUT_VERSION#v}"
+            PUBLISH=true
+            PRERELEASE="$INPUT_PRERELEASE"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+            PUBLISH=false
+            PRERELEASE=false
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION, publish: $PUBLISH, prerelease: $PRERELEASE"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update -qq
+          sudo apt install -y gettext mono-complete
+
+      - name: Uncompile message catalogs
+        run: |
+          for mo_file in bin/resources/*/cemu.mo
+          do
+            language_code=$(basename $(dirname $mo_file))
+            po_file=src/android/app/src/main/assets/translations/$language_code/cemu.po
+            mkdir -p $(dirname $po_file)
+            msgunfmt $mo_file -o $po_file || echo "Failed to uncompile message catalog from $mo_file"
+          done
+
+      - name: Setup vcpkg binary cache
+        uses: ./.github/actions/set-up-vcpkg-binary-cache-action
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Build APK
+        env:
+          ANDROID_STORE_FILE_BASE64: ${{ secrets.ANDROID_STORE_FILE_BASE64 }}
+          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          EMULATOR_VERSION_NAME: ${{ steps.version.outputs.version }}
+          EMULATOR_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          export JAVA_HOME=$JAVA_HOME_21_X64
+          cd ./src/android
+
+          if [[ -n "$ANDROID_STORE_FILE_BASE64" ]]; then
+            base64 --decode <<< "${ANDROID_STORE_FILE_BASE64}" > store.jks
+            export ANDROID_STORE_FILE=$(pwd)/store.jks
+            echo "Android signing store file has been set up."
+          else
+            echo "No Android signing store file provided. The APK will be signed with a debug key."
+          fi
+
+          ./gradlew assembleRelease
+
+      - name: Prepare APK
+        run: |
+          mkdir upload
+          mv ./src/android/app/build/outputs/apk/release/*.apk "upload/Cemu-Plus-${{ steps.version.outputs.version }}.apk"
+          ls -la upload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cemu-Plus-${{ steps.version.outputs.version }}
+          path: upload/*.apk
+
+      - name: Publish release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          cat > release-notes.md <<'EOF'
+          Android build of Cemu Plus, a fork of the Cemu Android port with Lossless Scaling frame generation.
+
+          ### Frame generation setup
+          1. Copy `Lossless.dll` from your own copy of Lossless Scaling (its installation folder on Windows) to your device.
+          2. In Cemu Plus open **Settings → Graphics settings → Frame generation (Lossless Scaling)** and tap **Select Lossless.dll**.
+          3. Enable frame generation there or from the in-game menu, where the multiplier, target frame rate and motion estimation resolution can be changed while playing.
+
+          Frame generation requires the Vulkan memory model, float16 and null descriptor support from the GPU driver.
+          The FPS overlay shows the displayed frame rate together with the base frame rate while frame generation is active.
+          EOF
+
+          ARGS=(--title "Cemu Plus $VERSION" --notes-file release-notes.md --generate-notes --target "$GITHUB_SHA")
+          if [[ "$PRERELEASE" == "true" ]]; then ARGS+=(--prerelease); else ARGS+=(--latest); fi
+
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release upload "v$VERSION" upload/*.apk --clobber
+          else
+            gh release create "v$VERSION" upload/*.apk "${ARGS[@]}"
+          fi

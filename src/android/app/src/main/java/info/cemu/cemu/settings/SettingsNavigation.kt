@@ -9,6 +9,7 @@ import info.cemu.cemu.settings.account.AccountSettingsScreen
 import info.cemu.cemu.settings.audio.AudioSettingsScreen
 import info.cemu.cemu.settings.customdrivers.CustomDriversScreen
 import info.cemu.cemu.settings.emulatedusbdevices.EmulatedUSBDevicesSettingsScreen
+import info.cemu.cemu.settings.framegen.FrameGenSettingsScreen
 import info.cemu.cemu.settings.gamespath.GamePathsScreen
 import info.cemu.cemu.settings.general.GeneralSettingsScreen
 import info.cemu.cemu.settings.graphics.GraphicsSettingsScreen
@@ -44,6 +45,9 @@ private object SettingsRoutes {
 
     @Serializable
     object CustomDriversScreenRoute
+
+    @Serializable
+    object FrameGenSettingsScreenRoute
 
     @Serializable
     object GamePathsScreenRoute
@@ -97,7 +101,15 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController) {
                 navigateBack = { navController.popBackStack() },
                 goToCustomDriversSettings = {
                     navController.navigate(SettingsRoutes.CustomDriversScreenRoute)
-                }
+                },
+                goToFrameGenSettings = {
+                    navController.navigate(SettingsRoutes.FrameGenSettingsScreenRoute)
+                },
+            )
+        }
+        composable<SettingsRoutes.FrameGenSettingsScreenRoute> {
+            FrameGenSettingsScreen(
+                navigateBack = { navController.popBackStack() },
             )
         }
         composable<SettingsRoutes.CustomDriversScreenRoute> {

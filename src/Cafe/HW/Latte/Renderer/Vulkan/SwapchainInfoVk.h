@@ -67,6 +67,8 @@ struct SwapchainInfoVk
 #endif
 
 	bool m_shouldRecreate = false;
+	bool m_forceFifo = false; // set while frame generation is active
+	bool m_supportsTransferSrc = false; // swapchain images can be copied from (required for frame generation)
 	VSync m_vsyncState = VSync::Immediate;
 	bool hasDefinedSwapchainImage{}; // indicates if the swapchain image is in a defined state
 	VkInstance m_instance{};
