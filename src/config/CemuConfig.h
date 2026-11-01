@@ -125,6 +125,12 @@ enum class OverlayPlacement
 	kBlackBars, // inside the empty space around the image, falls back to over gameplay if there is none
 };
 
+enum class OverlayStyle
+{
+	kClassic = 0, // plain text list
+	kGamePad, // tiled panel styled after the black Wii U GamePad
+};
+
 enum class PrecompiledShaderOption
 {
 	Auto,
@@ -499,6 +505,7 @@ struct CemuConfig
 		ScreenPosition position = ScreenPosition::kDisabled;
 		OverlayScreen screen = OverlayScreen::kBoth;
 		OverlayPlacement placement = OverlayPlacement::kOverGameplay;
+		OverlayStyle style = OverlayStyle::kGamePad;
 		uint32 text_color = 0xFFFFFFFF;
 		sint32 text_scale = 100;
 		bool fps = true;
@@ -507,6 +514,10 @@ struct CemuConfig
 		bool cpu_per_core_usage = false;
 		bool ram_usage = false;
 		bool vram_usage = false;
+		bool gpu_usage = false;
+		bool temperature = false;
+		bool battery = false;
+		bool shader_compiling = false; // shows shader compilation in the GamePad panel instead of as a notification
 		bool debug = false;
 	} overlay{};
 

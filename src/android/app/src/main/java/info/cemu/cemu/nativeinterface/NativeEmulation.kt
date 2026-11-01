@@ -58,5 +58,8 @@ object NativeEmulation {
     external fun setSwapScreens(swapped: Boolean)
 
     @JvmStatic
+    external fun setBatteryStatus(level: Int, temperature: Int, charging: Boolean)
+
+    @JvmStatic
     external fun supportsLoadingCustomDriver(): Boolean
 }

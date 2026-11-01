@@ -28,6 +28,12 @@ guaranteed, and some functionality may be missing compared to the desktop versio
   Wii U GamePad (for example the AYN Thor): align the GamePad image to the top, center or bottom of its screen
   (Settings → Graphics settings → GamePad screen alignment), and show the performance overlay on both screens,
   only the TV or only the GamePad screen, either over gameplay or inside the black bars (Settings → Overlay settings)
+- **GamePad panel overlay**: a performance panel styled after the black Wii U GamePad (piano black shell, power LED,
+  speaker grille) with a tile per stat and usage meters. In the black bars it scales up and spreads out to use the
+  free space, for example the area around the GamePad image on the AYN Thor's bottom screen. Each stat has its own
+  toggle: FPS, draw calls, CPU usage and clock, GPU usage and clock, CPU/GPU/battery temperature, battery level and
+  RAM. Shader compilation progress can also be shown inside the panel instead of as a notification, and
+  notifications move out of the black bar so nothing overlaps (Settings → Overlay settings → Style)
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
 ## Download
