@@ -1171,15 +1171,16 @@ static void LatteOverlay_drawVolumeSlider(ImDrawList* dl, float minX, float maxX
 	const ImVec2 k1{ kx + v.knobW * 0.5f, cy + knobH * 0.5f };
 	const float knobRounding = u * 0.16f;
 	dl->AddRectFilled({ k0.x, k0.y + u * 0.08f }, { k1.x, k1.y + u * 0.08f }, IM_COL32(0, 0, 0, 120), knobRounding);
-	dl->AddRectFilled(k0, k1, IM_COL32(72, 72, 80, 255), knobRounding);
-	dl->AddRectFilled({ k0.x + 1.0f, k0.y + 1.0f }, { k1.x - 1.0f, cy }, IM_COL32(255, 255, 255, 18), knobRounding, ImDrawFlags_RoundCornersTop);
+	// light gray, almost white knob
+	dl->AddRectFilled(k0, k1, IM_COL32(212, 212, 218, 255), knobRounding);
+	dl->AddRectFilled({ k0.x + 1.0f, k0.y + 1.0f }, { k1.x - 1.0f, cy }, IM_COL32(255, 255, 255, 90), knobRounding, ImDrawFlags_RoundCornersTop);
 	for (sint32 i = -1; i <= 1; ++i)
 	{
 		const float rx = kx + (float)i * v.knobW * 0.24f;
-		dl->AddLine({ rx, k0.y + knobH * 0.22f }, { rx, k1.y - knobH * 0.22f }, IM_COL32(24, 24, 28, 255), std::max(1.0f, u * 0.07f));
-		dl->AddLine({ rx + 1.0f, k0.y + knobH * 0.22f }, { rx + 1.0f, k1.y - knobH * 0.22f }, IM_COL32(255, 255, 255, 30), 1.0f);
+		dl->AddLine({ rx, k0.y + knobH * 0.22f }, { rx, k1.y - knobH * 0.22f }, IM_COL32(150, 150, 158, 255), std::max(1.0f, u * 0.07f));
+		dl->AddLine({ rx + 1.0f, k0.y + knobH * 0.22f }, { rx + 1.0f, k1.y - knobH * 0.22f }, IM_COL32(255, 255, 255, 140), 1.0f);
 	}
-	dl->AddRect(k0, k1, pressed ? kPanelAccent : kPanelRim, knobRounding, 0, pressed ? std::max(1.5f, u * 0.08f) : 1.0f);
+	dl->AddRect(k0, k1, pressed ? kPanelAccent : IM_COL32(128, 128, 136, 255), knobRounding, 0, pressed ? std::max(1.5f, u * 0.08f) : 1.0f);
 }
 
 static float LatteOverlay_easeInOutCubic(float t)
@@ -1225,7 +1226,7 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 	// the large slider: longer than the small one relative to its size so it is also more precise
 	const ImVec2 display = s_render_display_size;
 	const float margin = f * 0.6f;
-	const float bigU = std::min(f * 2.4f, (display.y - 2.0f * margin) / 2.6f);
+	const float bigU = std::min(f * 2.4f, (display.y - 2.0f * margin) / 3.0f);
 	const float bigW = std::min(display.x - 2.0f * margin - bigU, bigU * 10.0f);
 	const float volume = (float)g_pad_volume.load() / 100.0f;
 	if (!popup.placed)
@@ -1235,7 +1236,8 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 		const float knobX = touchedHere ? g_volume_touch_x.load() : (smallMinX + smallMaxX) * 0.5f;
 		const float minX = knobX - volume * travel - LatteOverlay_volumeSliderLead(bigU);
 		popup.minX = std::clamp(minX, margin + bigU * 0.5f, std::max(margin + bigU * 0.5f, display.x - margin - bigU * 0.5f - bigW));
-		popup.cy = std::clamp(smallCy, margin + bigU * 1.3f, std::max(margin + bigU * 1.3f, display.y - margin - bigU * 1.3f));
+		// room above for the title row
+		popup.cy = std::clamp(smallCy, margin + bigU * 1.95f, std::max(margin + bigU * 1.95f, display.y - margin - bigU * 1.1f));
 		popup.placed = true;
 	}
 
@@ -1249,7 +1251,9 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 	// dim the game a little so the slider stands out, then a piano black shell like the panel around it
 	dl->AddRectFilled({ 0.0f, 0.0f }, display, IM_COL32(0, 0, 0, (int)(90.0f * e)));
 	const float shellPad = u * 0.55f;
-	const ImVec2 sh0{ minX - shellPad, cy - u * 0.95f };
+	// the shell grows a title row on top while it magnifies
+	const float titleH = u * 0.85f * e;
+	const ImVec2 sh0{ minX - shellPad, cy - u * 0.95f - titleH };
 	const ImVec2 sh1{ maxX + shellPad, cy + u * 0.95f };
 	dl->AddRectFilled({ sh0.x, sh0.y + u * 0.1f }, { sh1.x, sh1.y + u * 0.2f }, IM_COL32(0, 0, 0, (int)(90.0f * e)), u * 0.95f);
 	dl->AddRectFilled(sh0, sh1, LatteOverlay_withAlpha(kPanelBody, e), u * 0.95f);
@@ -1258,21 +1262,17 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 
 	LatteOverlay_drawVolumeSlider(dl, minX, maxX, cy, u, volume, held);
 
-	// the value in a bubble above the knob, where the finger doesn't cover it
-	const VolumeSliderLayout v = LatteOverlay_layoutVolumeSlider(minX, maxX, u);
-	const float kx = v.travelMin + (v.travelMax - v.travelMin) * volume;
-	const std::string text = volume <= 0.0f ? "Mute" : fmt::format("{}%", g_pad_volume.load());
-	const float textSize = fontSize * (u / f) * 0.55f;
-	const ImVec2 ts = font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, text.c_str());
-	const float bubbleBottom = sh0.y - u * 0.2f;
-	const ImVec2 b0{ kx - ts.x * 0.5f - u * 0.35f, bubbleBottom - ts.y - u * 0.3f };
-	const ImVec2 b1{ kx + ts.x * 0.5f + u * 0.35f, bubbleBottom };
-	const float bubbleAlpha = std::clamp(e * 1.6f - 0.6f, 0.0f, 1.0f);
-	if (bubbleAlpha > 0.0f && b0.y > 0.0f)
+	// title row so it isn't taken for the game or TV volume, with the value on the right
+	const float textAlpha = std::clamp(e * 1.6f - 0.6f, 0.0f, 1.0f);
+	if (textAlpha > 0.0f)
 	{
-		dl->AddRectFilled(b0, b1, LatteOverlay_withAlpha(kPanelBody, bubbleAlpha), u * 0.25f);
-		dl->AddRect(b0, b1, LatteOverlay_withAlpha(kPanelAccent, bubbleAlpha), u * 0.25f, 0, std::max(1.0f, u * 0.05f));
-		dl->AddText(font, textSize, { kx - ts.x * 0.5f, b0.y + u * 0.15f }, IM_COL32(255, 255, 255, (int)(255.0f * bubbleAlpha)), text.c_str());
+		const float textSize = fontSize * (u / f) * 0.5f;
+		const float textY = sh0.y + u * 0.45f;
+		const char* title = "Wii U GamePad volume";
+		dl->AddText(font, textSize, { minX, textY }, LatteOverlay_withAlpha(IM_COL32(230, 230, 236, 255), textAlpha), title);
+		const std::string value = volume <= 0.0f ? "Mute" : fmt::format("{}%", g_pad_volume.load());
+		const float valueW = font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, value.c_str()).x;
+		dl->AddText(font, textSize, { maxX - valueW, textY }, LatteOverlay_withAlpha(kPanelAccent, textAlpha), value.c_str());
 	}
 
 	// once it is large enough to aim at, the large slider takes the touches, ahead of the panel buttons under it
