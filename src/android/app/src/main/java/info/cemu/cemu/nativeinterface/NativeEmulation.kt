@@ -60,6 +60,31 @@ object NativeEmulation {
     @JvmStatic
     external fun setBatteryStatus(level: Int, temperature: Int, charging: Boolean)
 
+    // touch buttons of the GamePad panel overlay, matches OverlayAction in LatteOverlay.h
+    object OverlayAction {
+        const val NONE: Int = 0
+        const val FRAME_GEN: Int = 1
+        const val SETTINGS: Int = 2
+        const val PAUSE: Int = 3
+        const val FRAME_GEN_MODE: Int = 4
+    }
+
+    @JvmStatic
+    external fun getOverlayActionAt(x: Int, y: Int, isTV: Boolean): Int
+
+    @JvmStatic
+    external fun setOverlayPressedAction(action: Int)
+
+    @JvmStatic
+    external fun setOverlayPaused(paused: Boolean)
+
+    @JvmStatic
+    external fun setOverlaySettingsOpen(open: Boolean)
+
+    // left, top, right, bottom of the panel in surface pixels as drawn in the last frame, null if there is none
+    @JvmStatic
+    external fun getOverlayPanelRect(isTV: Boolean): IntArray?
+
     @JvmStatic
     external fun supportsLoadingCustomDriver(): Boolean
 }

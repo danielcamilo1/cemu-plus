@@ -47,6 +47,9 @@ object NativeSettings {
         const val BICUBIC_FILTER: Int = 1
         const val BICUBIC_HERMITE_FILTER: Int = 2
         const val NEAREST_NEIGHBOR_FILTER: Int = 3
+        const val FSR_FILTER: Int = 4
+        const val SGSR_FILTER: Int = 5
+        const val SGSR_EDGE_FILTER: Int = 6
     }
 
     @JvmStatic
@@ -54,6 +57,12 @@ object NativeSettings {
 
     @JvmStatic
     external fun setUpscalingFilter(value: Int)
+
+    @JvmStatic
+    external fun getUpscalingSharpness(): Int
+
+    @JvmStatic
+    external fun setUpscalingSharpness(value: Int)
 
     @JvmStatic
     external fun getDownscalingFilter(): Int
@@ -220,6 +229,30 @@ object NativeSettings {
 
     @JvmStatic
     external fun setOverlayShaderCompilingEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayFrameGenActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayFrameGenActionEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayFrameGenModeActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayFrameGenModeActionEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlaySettingsActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlaySettingsActionEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayPauseActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayPauseActionEnabled(value: Boolean)
 
     @JvmStatic
     external fun isOverlayDebugEnabled(): Boolean

@@ -75,6 +75,14 @@ public:
 	virtual void DrawBackbufferQuad(LatteTextureView* texView, RendererOutputShader* shader, bool useLinearTexFilter,
 												sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight,
 												bool padView, bool clearBackground) = 0;
+	// draws firstShader into an intermediate image at output size, then secondShader from that image to the backbuffer
+	// renderers without support only run the first pass
+	virtual void DrawBackbufferQuadTwoPass(LatteTextureView* texView, RendererOutputShader* firstShader, RendererOutputShader* secondShader, bool useLinearTexFilter,
+												sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight,
+												bool padView, bool clearBackground)
+	{
+		DrawBackbufferQuad(texView, firstShader, useLinearTexFilter, imageX, imageY, imageWidth, imageHeight, padView, clearBackground);
+	}
 	virtual bool BeginFrame(bool mainWindow) = 0;
 
 	// flush control

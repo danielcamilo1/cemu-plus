@@ -85,6 +85,9 @@ enum UpscalingFilter
 	kBicubicFilter,
 	kBicubicHermiteFilter,
 	kNearestNeighborFilter,
+	kFSRFilter, // AMD FidelityFX Super Resolution 1 (EASU + RCAS), upscaling only
+	kSGSRFilter, // Snapdragon Game Super Resolution 1, mobile variant, upscaling only
+	kSGSREdgeFilter, // Snapdragon Game Super Resolution 1, edge direction variant, upscaling only
 };
 
 enum FullscreenScaling
@@ -498,13 +501,14 @@ struct CemuConfig
 		ConfigValue<sint32> flow_scale{ 0 }; // 0 = auto, otherwise optical flow resolution in percent
 	} frame_gen{};
 
-	PadScreenAlignment pad_screen_alignment = PadScreenAlignment::kCenter;
+	PadScreenAlignment pad_screen_alignment = PadScreenAlignment::kTop;
 
 	struct
 	{
-		ScreenPosition position = ScreenPosition::kDisabled;
-		OverlayScreen screen = OverlayScreen::kBoth;
-		OverlayPlacement placement = OverlayPlacement::kOverGameplay;
+		// by default the GamePad panel fills the black bar below the GamePad image
+		ScreenPosition position = ScreenPosition::kBottomCenter;
+		OverlayScreen screen = OverlayScreen::kPad;
+		OverlayPlacement placement = OverlayPlacement::kBlackBars;
 		OverlayStyle style = OverlayStyle::kGamePad;
 		uint32 text_color = 0xFFFFFFFF;
 		sint32 text_scale = 100;
@@ -518,6 +522,11 @@ struct CemuConfig
 		bool temperature = false;
 		bool battery = false;
 		bool shader_compiling = false; // shows shader compilation in the GamePad panel instead of as a notification
+		// touch buttons in the GamePad panel
+		bool action_frame_gen = true;
+		bool action_frame_gen_mode = true; // cycles the frame generation multiplier
+		bool action_settings = true;
+		bool action_pause = true;
 		bool debug = false;
 	} overlay{};
 
@@ -534,6 +543,7 @@ struct CemuConfig
 
 	ConfigValue<sint32> upscale_filter{kBicubicFilter};
 	ConfigValue<sint32> downscale_filter{kLinearFilter};
+	ConfigValue<sint32> upscale_sharpness{100}; // FSR and SGSR sharpening in percent
 	ConfigValue<sint32> fullscreen_scaling{kKeepAspectRatio};
 
 	// audio

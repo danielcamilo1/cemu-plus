@@ -271,6 +271,7 @@ public:
 	void ClearColorImage(LatteTextureVk* vkTexture, uint32 sliceIndex, uint32 mipIndex, const VkClearColorValue& color, VkImageLayout outputLayout);
 
 	void DrawBackbufferQuad(LatteTextureView* texView, RendererOutputShader* shader, bool useLinearTexFilter, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool padView, bool clearBackground) override;
+	void DrawBackbufferQuadTwoPass(LatteTextureView* texView, RendererOutputShader* firstShader, RendererOutputShader* secondShader, bool useLinearTexFilter, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool padView, bool clearBackground) override;
 	void CreateDescriptorPool();
 	VkDescriptorSet backbufferBlit_createDescriptorSet(VkDescriptorSetLayout descriptor_set_layout, LatteTextureViewVk* texViewVk, bool useLinearTexFilter);
 
@@ -600,7 +601,25 @@ private:
 	// misc
 	void CreatePipelineCache();
 	VkPipelineShaderStageCreateInfo CreatePipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule& module, const char* entryName) const;
-	VkPipeline backbufferBlit_createGraphicsPipeline(VkDescriptorSetLayout descriptorLayout, bool padView, RendererOutputShader* shader);
+	VkPipeline backbufferBlit_createGraphicsPipeline(VkDescriptorSetLayout descriptorLayout, bool padView, RendererOutputShader* shader, VkRenderPass renderPass = VK_NULL_HANDLE);
+	void backbufferBlit_drawToSwapchain(bool padView, RendererOutputShader* shader, VkDescriptorSet descriptorSet, const RendererOutputShader::OutputUniformVariables& uniforms, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool clearBackground);
+
+	// intermediate image for two pass output filters (FSR EASU + RCAS), one per view
+	struct OutputPassTarget
+	{
+		VkImage image = VK_NULL_HANDLE;
+		VkImageMemAllocation* allocation = nullptr;
+		VkImageView view = VK_NULL_HANDLE;
+		VkFramebuffer framebuffer = VK_NULL_HANDLE;
+		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+		uint32 width = 0;
+		uint32 height = 0;
+	};
+	OutputPassTarget m_outputPassTarget[2]; // TV, pad
+	VkRenderPass m_outputPassRenderPass = VK_NULL_HANDLE;
+	VkSampler m_outputPassSampler = VK_NULL_HANDLE;
+	OutputPassTarget& outputPass_getTarget(bool padView, uint32 width, uint32 height);
+	void outputPass_destroyTarget(OutputPassTarget& target);
 	bool AcquireNextSwapchainImage(bool mainWindow);
 	void RecreateSwapchain(bool mainWindow, bool skipCreate = false);
 

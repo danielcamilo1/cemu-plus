@@ -1,6 +1,7 @@
 package info.cemu.cemu.emulation
 
 import android.view.SurfaceHolder
+import androidx.compose.ui.geometry.Rect
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -14,16 +15,21 @@ import info.cemu.cemu.common.either.Success
 import info.cemu.cemu.common.either.attemptWithContext
 import info.cemu.cemu.common.either.bind
 import info.cemu.cemu.common.either.mapError
+import info.cemu.cemu.common.framegen.FrameGenMultiplierChoices
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.settings.InputOverlayRect
 import info.cemu.cemu.common.settings.InputOverlaySettings
 import info.cemu.cemu.common.settings.OverlayInputConfig
 import info.cemu.cemu.nativeinterface.NativeEmulation
+import info.cemu.cemu.nativeinterface.NativeEmulation.OverlayAction
 import info.cemu.cemu.nativeinterface.NativeEmulation.PrepareTitleResult
 import info.cemu.cemu.nativeinterface.NativeException
+import info.cemu.cemu.nativeinterface.NativeFrameGen
+import info.cemu.cemu.nativeinterface.NativeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -169,6 +175,106 @@ class EmulationViewModel(
             null,
         )
 
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused = _isPaused.asStateFlow()
+
+    private val _isSettingsOpen = MutableStateFlow(false)
+    val isSettingsOpen = _isSettingsOpen.asStateFlow()
+
+    private var pauseJob: Job? = null
+    private var pausedForSettings = false
+
+    fun setPaused(paused: Boolean) {
+        if (_isPaused.value == paused) {
+            return
+        }
+        _isPaused.value = paused
+        NativeEmulation.setOverlayPaused(paused)
+        pauseJob?.cancel()
+        if (paused) {
+            // the overlay is only drawn while the game runs, give it a few frames to show the resume button first
+            pauseJob = viewModelScope.launch {
+                delay(PAUSE_DELAY_MS)
+                NativeEmulation.pauseTitle()
+            }
+        } else {
+            NativeEmulation.resumeTitle()
+        }
+    }
+
+    fun openSettings() {
+        if (_isSettingsOpen.value) {
+            return
+        }
+        pausedForSettings = !_isPaused.value
+        // set before pausing so the panel gets drawn with the close button
+        NativeEmulation.setOverlaySettingsOpen(true)
+        setPaused(true)
+        _isSettingsOpen.value = true
+    }
+
+    fun closeSettings() {
+        if (!_isSettingsOpen.value) {
+            return
+        }
+        _isSettingsOpen.value = false
+        NativeEmulation.setOverlaySettingsOpen(false)
+        NativeSettings.saveSettings()
+        if (pausedForSettings) {
+            setPaused(false)
+        }
+        pausedForSettings = false
+    }
+
+    private data class SurfaceLayout(val isTV: Boolean, val bounds: Rect, val dimensions: SurfaceDimensions)
+
+    // where the surfaces inside the activity are drawn and the size of what they show, keyed by isMainCanvas
+    private val surfaceLayouts = HashMap<Boolean, SurfaceLayout>()
+
+    fun setSurfaceLayout(isMainCanvas: Boolean, isTV: Boolean, bounds: Rect, dimensions: SurfaceDimensions) {
+        surfaceLayouts[isMainCanvas] = SurfaceLayout(isTV, bounds, dimensions)
+    }
+
+    fun removeSurfaceLayout(isMainCanvas: Boolean) {
+        surfaceLayouts.remove(isMainCanvas)
+    }
+
+    // bounds of the panel overlay in root coordinates, null if no surface inside the activity draws it
+    fun getPanelBounds(): Rect? {
+        for ((isTV, bounds, dimensions) in surfaceLayouts.values) {
+            val rect = NativeEmulation.getOverlayPanelRect(isTV) ?: continue
+            val scaleX = bounds.width / dimensions.width
+            val scaleY = bounds.height / dimensions.height
+            return Rect(
+                left = bounds.left + rect[0] * scaleX,
+                top = bounds.top + rect[1] * scaleY,
+                right = bounds.left + rect[2] * scaleX,
+                bottom = bounds.top + rect[3] * scaleY,
+            )
+        }
+        return null
+    }
+
+    fun onOverlayAction(action: Int) {
+        when (action) {
+            OverlayAction.FRAME_GEN -> NativeFrameGen.setEnabled(!NativeFrameGen.isEnabled())
+            OverlayAction.FRAME_GEN_MODE -> cycleFrameGenMultiplier()
+            OverlayAction.SETTINGS -> if (_isSettingsOpen.value) closeSettings() else openSettings()
+            OverlayAction.PAUSE -> setPaused(!_isPaused.value)
+        }
+    }
+
+    // x2 -> x3 -> x4 -> x2. A target frame rate switches back to a fixed multiplier
+    private fun cycleFrameGenMultiplier() {
+        if (NativeFrameGen.getTargetRate() > 0) {
+            NativeFrameGen.setTargetRate(0)
+            NativeFrameGen.setMultiplier(FrameGenMultiplierChoices.first())
+            return
+        }
+        val index = FrameGenMultiplierChoices.indexOf(NativeFrameGen.getMultiplier())
+        NativeFrameGen.setMultiplier(FrameGenMultiplierChoices[(index + 1) % FrameGenMultiplierChoices.size])
+    }
+
     val destroyedSurfaces = ConditionFlags()
     var setSurfaces = ConditionFlags()
 
@@ -206,7 +312,8 @@ class EmulationViewModel(
                 NativeEmulation.setSurface(surfaceHolder.surface, isMainCanvas)
                 val mainSurfaceWasDestroyed = destroyedSurfaces.get(isMain = true)
 
-                if (mainSurfaceWasDestroyed && isMainCanvas) {
+                // a game paused by the user stays paused when the app comes back
+                if (mainSurfaceWasDestroyed && isMainCanvas && !_isPaused.value) {
                     NativeEmulation.resumeTitle()
                 }
 
@@ -290,6 +397,7 @@ class EmulationViewModel(
     }
 
     companion object {
+        private const val PAUSE_DELAY_MS = 150L
         val LAUNCH_PATH_KEY = object : CreationExtras.Key<String> {}
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
