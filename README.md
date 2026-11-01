@@ -21,6 +21,9 @@ guaranteed, and some functionality may be missing compared to the desktop versio
 - **In-game quick menu controls**: toggle frame generation and change every option while playing
 - **Improved FPS overlay**: while frame generation is active it shows the displayed frame rate, the base
   frame rate of the game and the effective multiplier, for example `FPS: 60.00 (FG x2.0)` / `Base FPS: 30.00`
+- **Dual screen support** from the upstream dual screen branch: show the Wii U GamePad on a second display
+  (for example the bottom screen of the AYN Thor), swap the screens and rotate the external screen, all from the
+  in-game menu
 - **Dual screen layout options** for devices whose second screen has a different aspect ratio than the
   Wii U GamePad (for example the AYN Thor): align the GamePad image to the top, center or bottom of its screen
   (Settings → Graphics settings → GamePad screen alignment), and show the performance overlay on both screens,
