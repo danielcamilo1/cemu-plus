@@ -101,6 +101,7 @@ private fun Modifier.wiiUMenuBackground() = drawBehind {
 @Composable
 fun WiiUGameGrid(
     games: List<Game>,
+    gridSize: Int,
     startGame: (Game) -> Unit,
     gameMenu: @Composable (game: Game, expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
 ) {
@@ -109,20 +110,30 @@ fun WiiUGameGrid(
             .fillMaxSize()
             .wiiUMenuBackground(),
     ) {
-        val isLandscape = maxWidth > maxHeight
-        val columns = if (isLandscape) 5 else 3
-        val rows = if (isLandscape) 3 else 5
+        // gridSize icons go across the short side and the long side gets as many as fit, so the whole screen is used
+        val gridWidth = maxWidth - PageArrowWidth * 2
+        val gridHeight = maxHeight - BubbleSpace - PageIndicatorSpace
+        val isLandscape = gridWidth > gridHeight
+        val rows = if (isLandscape) gridSize else maxOf(1, (gridHeight / (gridWidth / gridSize)).toInt())
+        val columns = if (isLandscape) maxOf(1, (gridWidth / (gridHeight / gridSize)).toInt()) else gridSize
         val pageSize = columns * rows
         val pageCount = maxOf(1, (games.size + pageSize - 1) / pageSize)
         val currentPageCount by rememberUpdatedState(pageCount)
         val pagerState = rememberPagerState { currentPageCount }
         val scope = rememberCoroutineScope()
 
-        val slot = minOf(
-            (maxWidth - PageArrowWidth * 2) / columns,
-            (maxHeight - BubbleSpace - PageIndicatorSpace) / rows,
-        )
+        val slot = minOf(gridWidth / columns, gridHeight / rows)
         val tileSize = slot * 0.8f
+
+        // after zooming stay on the page that has the first game that was shown before
+        var previousPageSize by remember { mutableStateOf(pageSize) }
+        LaunchedEffect(pageSize) {
+            if (pageSize != previousPageSize) {
+                val firstShownGame = pagerState.currentPage * previousPageSize
+                previousPageSize = pageSize
+                pagerState.scrollToPage((firstShownGame / pageSize).coerceIn(0, pageCount - 1))
+            }
+        }
 
         // index of the game that should get the focus once its page is shown, used when paging with a controller
         var pendingFocus by remember { mutableStateOf<Int?>(null) }

@@ -31,7 +31,13 @@ enum class GameListLayout {
 data class GuiSettings(
     val language: String = DEFAULT_LANGUAGE,
     val gameListLayout: GameListLayout = GameListLayout.GRID,
+    // how many icons fit across the short side of the screen in the grid, the long side is filled to match
+    val gameGridSize: Int = DEFAULT_GAME_GRID_SIZE,
 )
+
+const val DEFAULT_GAME_GRID_SIZE = 3
+const val MIN_GAME_GRID_SIZE = 2
+const val MAX_GAME_GRID_SIZE = 6
 
 @Serializable
 data class StorageSettings(

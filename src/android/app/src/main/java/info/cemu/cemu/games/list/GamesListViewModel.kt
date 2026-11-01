@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.settings.GameListLayout
+import info.cemu.cemu.common.settings.MAX_GAME_GRID_SIZE
+import info.cemu.cemu.common.settings.MIN_GAME_GRID_SIZE
 import info.cemu.cemu.nativeinterface.NativeGameTitles
 import info.cemu.cemu.nativeinterface.NativeGameTitles.Game
 import info.cemu.cemu.nativeinterface.NativeSettings
@@ -32,6 +34,24 @@ class GamesListViewModel(
     fun setLayout(layout: GameListLayout) {
         viewModelScope.launch {
             dataStore.updateData { it.copy(guiSettings = it.guiSettings.copy(gameListLayout = layout)) }
+        }
+    }
+
+    val gridSize: StateFlow<Int?> = dataStore.data.map { it.guiSettings.gameGridSize }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            null,
+        )
+
+    // zooming in shows fewer, bigger icons and zooming out more, smaller ones
+    fun zoomGrid(zoomIn: Boolean) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                val size = (it.guiSettings.gameGridSize + if (zoomIn) -1 else 1)
+                    .coerceIn(MIN_GAME_GRID_SIZE, MAX_GAME_GRID_SIZE)
+                it.copy(guiSettings = it.guiSettings.copy(gameGridSize = size))
+            }
         }
     }
 

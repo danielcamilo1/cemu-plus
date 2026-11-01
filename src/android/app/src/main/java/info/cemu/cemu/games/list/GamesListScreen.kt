@@ -60,7 +60,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import info.cemu.cemu.R
+import info.cemu.cemu.common.settings.DEFAULT_GAME_GRID_SIZE
 import info.cemu.cemu.common.settings.GameListLayout
+import info.cemu.cemu.common.settings.MAX_GAME_GRID_SIZE
+import info.cemu.cemu.common.settings.MIN_GAME_GRID_SIZE
 import info.cemu.cemu.common.ui.components.FilledSearchToolbar
 import info.cemu.cemu.common.ui.extensions.showMessage
 import info.cemu.cemu.common.ui.localization.tr
@@ -94,6 +97,7 @@ fun GamesListScreen(
     val gameSearchQuery by gamesListViewModel.filterText.collectAsStateWithLifecycle()
     val games by gamesListViewModel.games.collectAsStateWithLifecycle()
     val layout by gamesListViewModel.layout.collectAsStateWithLifecycle()
+    val gridSize by gamesListViewModel.gridSize.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val state = rememberPullToRefreshState()
@@ -114,6 +118,14 @@ fun GamesListScreen(
         topBar = {
             FilledSearchToolbar(
                 actions = {
+                    if (layout == GameListLayout.GRID) {
+                        gridSize?.let { size ->
+                            GridZoomButtons(
+                                gridSize = size,
+                                onZoom = gamesListViewModel::zoomGrid,
+                            )
+                        }
+                    }
                     layout?.let { currentLayout ->
                         LayoutToggleButton(
                             layout = currentLayout,
@@ -195,6 +207,7 @@ fun GamesListScreen(
             when (layout) {
                 GameListLayout.GRID -> WiiUGameGrid(
                     games = games,
+                    gridSize = gridSize ?: DEFAULT_GAME_GRID_SIZE,
                     startGame = startGame,
                     gameMenu = { game, expanded, onDismissRequest ->
                         GameMenu(game, expanded, onDismissRequest, gameActions)
@@ -256,6 +269,22 @@ private fun GameMenu(
                 actions.deleteShaderCaches(game)
                 showDeleteShaderConfirmationDialog = false
             },
+        )
+    }
+}
+
+@Composable
+private fun GridZoomButtons(gridSize: Int, onZoom: (zoomIn: Boolean) -> Unit) {
+    IconButton(onClick = { onZoom(false) }, enabled = gridSize < MAX_GAME_GRID_SIZE) {
+        Icon(
+            painter = painterResource(R.drawable.ic_zoom_out),
+            contentDescription = tr("Zoom out, show more games"),
+        )
+    }
+    IconButton(onClick = { onZoom(true) }, enabled = gridSize > MIN_GAME_GRID_SIZE) {
+        Icon(
+            painter = painterResource(R.drawable.ic_zoom_in),
+            contentDescription = tr("Zoom in, show bigger icons"),
         )
     }
 }
