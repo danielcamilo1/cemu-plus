@@ -64,6 +64,20 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
 
 @Composable
 private fun OverlaySettings() {
+    var overlayStyle by rememberSaveable { mutableIntStateOf(NativeSettings.getOverlayStyle()) }
+    SingleSelection(
+        label = tr("Style"),
+        choice = overlayStyle,
+        choices = listOf(
+            NativeSettings.OverlayStyle.GAMEPAD,
+            NativeSettings.OverlayStyle.CLASSIC
+        ),
+        choiceToString = { overlayStyleToString(it) },
+        onChoiceChanged = {
+            overlayStyle = it
+            NativeSettings.setOverlayStyle(it)
+        },
+    )
     SingleSelection(
         label = tr("Show on"),
         initialChoice = NativeSettings::getOverlayScreen,
@@ -118,6 +132,31 @@ private fun OverlaySettings() {
         initialCheckedState = NativeSettings::isOverlayRAMUsageEnabled,
         onCheckedChanged = NativeSettings::setOverlayRAMUsageEnabled,
     )
+    Toggle(
+        label = tr("GPU usage"),
+        description = tr("GPU load and clock speed, if the device exposes them"),
+        initialCheckedState = NativeSettings::isOverlayGPUUsageEnabled,
+        onCheckedChanged = NativeSettings::setOverlayGPUUsageEnabled,
+    )
+    Toggle(
+        label = tr("Device temperature"),
+        description = tr("CPU and GPU temperature, falls back to the battery temperature"),
+        initialCheckedState = NativeSettings::isOverlayTemperatureEnabled,
+        onCheckedChanged = NativeSettings::setOverlayTemperatureEnabled,
+    )
+    Toggle(
+        label = tr("Battery"),
+        description = tr("Battery level and charging state"),
+        initialCheckedState = NativeSettings::isOverlayBatteryEnabled,
+        onCheckedChanged = NativeSettings::setOverlayBatteryEnabled,
+    )
+    if (overlayStyle == NativeSettings.OverlayStyle.GAMEPAD)
+        Toggle(
+            label = tr("Shader compilation in the panel"),
+            description = tr("Shows the shader compilation progress inside the panel instead of as a notification"),
+            initialCheckedState = NativeSettings::isOverlayShaderCompilingEnabled,
+            onCheckedChanged = NativeSettings::setOverlayShaderCompilingEnabled,
+        )
     Toggle(
         label = tr("Debug"),
         description = tr("Displays internal debug information (Vulkan only)"),
@@ -179,4 +218,10 @@ private fun overlayPlacementToString(overlayPlacement: Int) = when (overlayPlace
     NativeSettings.OverlayPlacement.OVER_GAMEPLAY -> tr("Over gameplay")
     NativeSettings.OverlayPlacement.BLACK_BARS -> tr("In the black bars")
     else -> throw IllegalArgumentException("Invalid overlay placement: $overlayPlacement")
+}
+
+private fun overlayStyleToString(overlayStyle: Int) = when (overlayStyle) {
+    NativeSettings.OverlayStyle.CLASSIC -> tr("Classic")
+    NativeSettings.OverlayStyle.GAMEPAD -> tr("GamePad panel")
+    else -> throw IllegalArgumentException("Invalid overlay style: $overlayStyle")
 }

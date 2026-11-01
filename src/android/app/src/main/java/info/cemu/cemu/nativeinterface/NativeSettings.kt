@@ -141,6 +141,17 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayPlacement(value: Int)
 
+    object OverlayStyle {
+        const val CLASSIC: Int = 0
+        const val GAMEPAD: Int = 1
+    }
+
+    @JvmStatic
+    external fun getOverlayStyle(): Int
+
+    @JvmStatic
+    external fun setOverlayStyle(value: Int)
+
     object PadScreenAlignment {
         const val CENTER: Int = 0
         const val TOP: Int = 1
@@ -185,6 +196,30 @@ object NativeSettings {
 
     @JvmStatic
     external fun setOverlayRAMUsageEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayGPUUsageEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayGPUUsageEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayTemperatureEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayTemperatureEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayBatteryEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayBatteryEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayShaderCompilingEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayShaderCompilingEnabled(value: Boolean)
 
     @JvmStatic
     external fun isOverlayDebugEnabled(): Boolean

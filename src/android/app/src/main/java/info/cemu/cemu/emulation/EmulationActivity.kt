@@ -1,12 +1,17 @@
 package info.cemu.cemu.emulation
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -26,6 +31,7 @@ import info.cemu.cemu.emulation.input.DeviceMotionHandler
 import info.cemu.cemu.emulation.input.HotkeyManager
 import info.cemu.cemu.emulation.input.InputHandler
 import info.cemu.cemu.emulation.input.NativeInputDeviceListener
+import info.cemu.cemu.nativeinterface.NativeEmulation
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -142,15 +148,40 @@ class EmulationActivity : AppCompatActivity() {
         }
     }
 
+    // reports the battery state to the performance overlay
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            onBatteryChanged(intent)
+        }
+    }
+
+    private fun onBatteryChanged(intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        NativeEmulation.setBatteryStatus(
+            level = if (level >= 0 && scale > 0) level * 100 / scale else -1,
+            temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1),
+            charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
+        )
+    }
+
     override fun onPause() {
         super.onPause()
 
+        unregisterReceiver(batteryReceiver)
         inputManager.onPause()
     }
 
     override fun onResume() {
         super.onResume()
 
+        ContextCompat.registerReceiver(
+            this,
+            batteryReceiver,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )?.let(::onBatteryChanged)
         inputManager.onResume(display.rotation)
     }
 

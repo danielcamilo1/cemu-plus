@@ -165,6 +165,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.position = overlay_node.get("Position", ScreenPosition::kDisabled);
 		overlay.screen = overlay_node.get("Screen", OverlayScreen::kBoth);
 		overlay.placement = overlay_node.get("Placement", OverlayPlacement::kOverGameplay);
+		overlay.style = overlay_node.get("Style", OverlayStyle::kGamePad);
 		overlay.text_color = overlay_node.get("TextColor", 0xFFFFFFFF);
 		overlay.text_scale = overlay_node.get("TextScale", 100);
 		overlay.fps = overlay_node.get("FPS", true);
@@ -173,6 +174,10 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.cpu_per_core_usage = overlay_node.get("CPUPerCoreUsage", false);
 		overlay.ram_usage = overlay_node.get("RAMUsage", false);
 		overlay.vram_usage = overlay_node.get("VRAMUsage", false);
+		overlay.gpu_usage = overlay_node.get("GPUUsage", false);
+		overlay.temperature = overlay_node.get("Temperature", false);
+		overlay.battery = overlay_node.get("Battery", false);
+		overlay.shader_compiling = overlay_node.get("PanelShaderCompiling", false);
 		overlay.debug = overlay_node.get("Debug", false);
 
 		notification.controller_profiles = overlay_node.get("ControllerProfiles", true);
@@ -408,6 +413,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("Position", overlay.position);
 	overlay_node.set("Screen", overlay.screen);
 	overlay_node.set("Placement", overlay.placement);
+	overlay_node.set("Style", overlay.style);
 	overlay_node.set("TextColor", overlay.text_color);
 	overlay_node.set("TextScale", overlay.text_scale);
 	overlay_node.set("FPS", overlay.fps);
@@ -416,6 +422,10 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("CPUPerCoreUsage", overlay.cpu_per_core_usage);
 	overlay_node.set("RAMUsage", overlay.ram_usage);
 	overlay_node.set("VRAMUsage", overlay.vram_usage);
+	overlay_node.set("GPUUsage", overlay.gpu_usage);
+	overlay_node.set("Temperature", overlay.temperature);
+	overlay_node.set("Battery", overlay.battery);
+	overlay_node.set("PanelShaderCompiling", overlay.shader_compiling);
 	overlay_node.set("Debug", overlay.debug);
 
 	auto notification_node = graphic.set("Notification");

@@ -234,6 +234,12 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_setSwapScreens([[maybe_unuse
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_setBatteryStatus([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint level, jint temperature, jboolean charging)
+{
+	LatteOverlay_setBatteryStatus(level, temperature, charging);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeEmulation_setExternalScreenRotatedLeft([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean rotated)
 {
 	WindowSystem::GetWindowInfo().external_screen_rotated_left = rotated;
