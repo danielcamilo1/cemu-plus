@@ -67,6 +67,7 @@ object NativeEmulation {
         const val SETTINGS: Int = 2
         const val PAUSE: Int = 3
         const val FRAME_GEN_MODE: Int = 4
+        const val MENU: Int = 5
     }
 
     @JvmStatic

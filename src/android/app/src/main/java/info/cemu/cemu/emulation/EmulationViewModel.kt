@@ -30,9 +30,12 @@ import info.cemu.cemu.nativeinterface.NativeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -109,12 +112,22 @@ class EmulationViewModel(
             val settings = dataStore.data.first()
             _sideMenuState.update {
                 it.copy(
-                    isPadVisible = settings.emulationSettings.isPadVisible,
-                    isPadOnExternalDisplay = settings.emulationSettings.isPadOnExternalDisplay,
-                    isExternalScreenRotatedLeft = settings.emulationSettings.isExternalScreenRotatedLeft,
+                    isMotionEnabled = settings.emulationSettings.isMotionEnabled,
                     isInputOverlayVisible = settings.inputOverlaySettings.isOverlayEnabled,
                 )
             }
+            // the screen settings can also be changed from the settings opened in game
+            dataStore.data.map { it.emulationSettings }
+                .distinctUntilChanged()
+                .collect { emulationSettings ->
+                    _sideMenuState.update {
+                        it.copy(
+                            isPadVisible = emulationSettings.isPadVisible,
+                            isPadOnExternalDisplay = emulationSettings.isPadOnExternalDisplay,
+                            isExternalScreenRotatedLeft = emulationSettings.isExternalScreenRotatedLeft,
+                        )
+                    }
+                }
         }
     }
 
@@ -152,7 +165,8 @@ class EmulationViewModel(
 
         if (oldState.isPadVisible != sideMenuState.isPadVisible ||
             oldState.isPadOnExternalDisplay != sideMenuState.isPadOnExternalDisplay ||
-            oldState.isExternalScreenRotatedLeft != sideMenuState.isExternalScreenRotatedLeft
+            oldState.isExternalScreenRotatedLeft != sideMenuState.isExternalScreenRotatedLeft ||
+            oldState.isMotionEnabled != sideMenuState.isMotionEnabled
         ) {
             viewModelScope.launch {
                 dataStore.updateData {
@@ -161,6 +175,7 @@ class EmulationViewModel(
                             isPadVisible = sideMenuState.isPadVisible,
                             isPadOnExternalDisplay = sideMenuState.isPadOnExternalDisplay,
                             isExternalScreenRotatedLeft = sideMenuState.isExternalScreenRotatedLeft,
+                            isMotionEnabled = sideMenuState.isMotionEnabled,
                         )
                     )
                 }
@@ -174,6 +189,10 @@ class EmulationViewModel(
             SharingStarted.WhileSubscribed(5000),
             null,
         )
+
+    // the panel button that opens the quick menu
+    private val _menuRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val menuRequests = _menuRequests.asSharedFlow()
 
     private val _isPaused = MutableStateFlow(false)
     val isPaused = _isPaused.asStateFlow()
@@ -261,6 +280,7 @@ class EmulationViewModel(
             OverlayAction.FRAME_GEN_MODE -> cycleFrameGenMultiplier()
             OverlayAction.SETTINGS -> if (_isSettingsOpen.value) closeSettings() else openSettings()
             OverlayAction.PAUSE -> setPaused(!_isPaused.value)
+            OverlayAction.MENU -> _menuRequests.tryEmit(Unit)
         }
     }
 

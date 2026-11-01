@@ -527,6 +527,7 @@ struct CemuConfig
 		bool action_frame_gen_mode = true; // cycles the frame generation multiplier
 		bool action_settings = true;
 		bool action_pause = true;
+		bool action_menu = false;
 		bool debug = false;
 	} overlay{};
 

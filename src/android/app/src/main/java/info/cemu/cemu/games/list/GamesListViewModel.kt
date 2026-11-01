@@ -1,7 +1,11 @@
 package info.cemu.cemu.games.list
 
+import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import info.cemu.cemu.common.settings.AppSettings
+import info.cemu.cemu.common.settings.AppSettingsStore
+import info.cemu.cemu.common.settings.GameListLayout
 import info.cemu.cemu.nativeinterface.NativeGameTitles
 import info.cemu.cemu.nativeinterface.NativeGameTitles.Game
 import info.cemu.cemu.nativeinterface.NativeSettings
@@ -12,8 +16,25 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
-class GamesListViewModel : ViewModel() {
+class GamesListViewModel(
+    private val dataStore: DataStore<AppSettings> = AppSettingsStore.dataStore,
+) : ViewModel() {
+    // null until the setting is read, so the list doesn't flash before the grid
+    val layout: StateFlow<GameListLayout?> = dataStore.data.map { it.guiSettings.gameListLayout }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            null,
+        )
+
+    fun setLayout(layout: GameListLayout) {
+        viewModelScope.launch {
+            dataStore.updateData { it.copy(guiSettings = it.guiSettings.copy(gameListLayout = layout)) }
+        }
+    }
+
     private var gamePaths = NativeSettings.getGamesPaths().toSet()
 
     private val _filterText = MutableStateFlow("")

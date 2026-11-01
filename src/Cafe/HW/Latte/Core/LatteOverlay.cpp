@@ -743,6 +743,14 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 		tile.on = paused;
 	}
 
+	if (config.overlay.action_menu)
+	{
+		auto& tile = tiles.emplace_back();
+		tile.action = OverlayAction::kMenu;
+		tile.icon = (const char*)ICON_FA_BARS;
+		tile.label = "MENU";
+	}
+
 	return tiles;
 }
 

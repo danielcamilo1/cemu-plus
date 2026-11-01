@@ -17,6 +17,7 @@ enum class OverlayAction : sint32
 	kSettings = 2,
 	kPause = 3,
 	kFrameGenMode = 4,
+	kMenu = 5, // opens the quick menu of the frontend
 };
 // returns the panel button at the given position (in window pixels) of the TV or GamePad screen, as drawn in the last frame
 OverlayAction LatteOverlay_getActionAt(sint32 x, sint32 y, bool padView);

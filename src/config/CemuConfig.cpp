@@ -183,6 +183,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.action_frame_gen_mode = overlay_node.get("ActionFrameGenMode", true);
 		overlay.action_settings = overlay_node.get("ActionSettings", true);
 		overlay.action_pause = overlay_node.get("ActionPause", true);
+		overlay.action_menu = overlay_node.get("ActionMenu", false);
 		overlay.debug = overlay_node.get("Debug", false);
 
 		notification.controller_profiles = overlay_node.get("ControllerProfiles", true);
@@ -436,6 +437,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("ActionFrameGenMode", overlay.action_frame_gen_mode);
 	overlay_node.set("ActionSettings", overlay.action_settings);
 	overlay_node.set("ActionPause", overlay.action_pause);
+	overlay_node.set("ActionMenu", overlay.action_menu);
 	overlay_node.set("Debug", overlay.debug);
 
 	auto notification_node = graphic.set("Notification");

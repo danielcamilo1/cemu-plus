@@ -1,6 +1,16 @@
 package info.cemu.cemu.settings.overlay
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import info.cemu.cemu.common.settings.AppSettingsStore
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,10 +39,22 @@ private const val OVERLAY_TEXT_SCALE_STEPS = 9
 fun OverlaySettingsScreen(navigateBack: () -> Unit) {
     var overlayPosition by rememberSaveable { mutableIntStateOf(NativeSettings.getOverlayPosition()) }
     var notificationsPosition by rememberSaveable { mutableIntStateOf(NativeSettings.getNotificationsPosition()) }
+    val isSecondScreenEnabled by remember {
+        AppSettingsStore.dataStore.data.map { it.emulationSettings.isPadOnExternalDisplay }
+    }.collectAsState(initial = false)
     ScreenContent(
         appBarText = tr("Overlay settings"),
         navigateBack = navigateBack,
     ) {
+        run {
+            Text(
+                text = if (isSecondScreenEnabled) tr("Playing with a second screen? Screen layout has an easier setup for the toolbar in its black bars.")
+                else tr("Screen layout has an easier setup for putting this overlay as a toolbar in the black bars."),
+                fontSize = 14.sp,
+                color = LocalContentColor.current.copy(alpha = 0.8f),
+                modifier = Modifier.padding(8.dp),
+            )
+        }
         Header(tr("Overlay"))
         SingleSelection(
             label = tr("Position"),
@@ -181,6 +203,12 @@ private fun OverlaySettings() {
             description = tr("A button in the panel that pauses and resumes the game"),
             initialCheckedState = NativeSettings::isOverlayPauseActionEnabled,
             onCheckedChanged = NativeSettings::setOverlayPauseActionEnabled,
+        )
+        Toggle(
+            label = tr("Quick menu button"),
+            description = tr("A button in the panel that opens the in-game quick menu"),
+            initialCheckedState = NativeSettings::isOverlayMenuActionEnabled,
+            onCheckedChanged = NativeSettings::setOverlayMenuActionEnabled,
         )
     }
     Toggle(

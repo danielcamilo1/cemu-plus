@@ -48,6 +48,19 @@ class GeneralSettingsViewModel(
         }
     }
 
+    fun setSecondScreenEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(
+                    emulationSettings = it.emulationSettings.copy(
+                        isPadOnExternalDisplay = enabled,
+                        isSecondScreenDefaultApplied = true,
+                    )
+                )
+            }
+        }
+    }
+
     fun setGamePadPosition(gamePadPosition: GamePadPosition) {
         viewModelScope.launch {
             dataStore.updateData {

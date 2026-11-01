@@ -255,6 +255,12 @@ object NativeSettings {
     external fun setOverlayPauseActionEnabled(value: Boolean)
 
     @JvmStatic
+    external fun isOverlayMenuActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayMenuActionEnabled(value: Boolean)
+
+    @JvmStatic
     external fun isOverlayDebugEnabled(): Boolean
 
     @JvmStatic

@@ -15,6 +15,8 @@ fun SettingsHomeScreen(
     goToAudioSettings: () -> Unit,
     goToAccountSettings: () -> Unit,
     goToOverlaySettings: () -> Unit,
+    goToScreenLayoutSettings: () -> Unit,
+    isSecondScreenEnabled: Boolean,
     navigateBack: () -> Unit
 ) {
     ScreenContent(
@@ -28,6 +30,12 @@ fun SettingsHomeScreen(
         Button(
             label = tr("Input settings"),
             onClick = dropUnlessResumed(block = goToInputSettings)
+        )
+        Button(
+            label = tr("Screen layout"),
+            description = if (isSecondScreenEnabled) tr("The Wii U GamePad on your second screen and the toolbar in its black bars")
+            else tr("Where the TV and GamePad images go and the toolbar in the black bars"),
+            onClick = dropUnlessResumed(block = goToScreenLayoutSettings)
         )
         Button(
             label = tr("Graphics settings"),

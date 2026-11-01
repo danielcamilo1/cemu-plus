@@ -17,11 +17,20 @@ data class EmulationSettings(
     val isPadVisible: Boolean = false,
     val isPadOnExternalDisplay: Boolean = false,
     val isExternalScreenRotatedLeft: Boolean = false,
+    // the second screen gets turned on once the first time one is detected, after that it is up to the user
+    val isSecondScreenDefaultApplied: Boolean = false,
+    val isMotionEnabled: Boolean = false,
 )
+
+enum class GameListLayout {
+    GRID,
+    LIST,
+}
 
 @Serializable
 data class GuiSettings(
     val language: String = DEFAULT_LANGUAGE,
+    val gameListLayout: GameListLayout = GameListLayout.GRID,
 )
 
 @Serializable

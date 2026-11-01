@@ -6,10 +6,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
+import info.cemu.cemu.common.android.display.SecondScreenInfo
+import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.GamePadPosition
 import info.cemu.cemu.common.ui.components.Button
 import info.cemu.cemu.common.ui.components.ScreenContent
 import info.cemu.cemu.common.ui.components.SingleSelection
+import info.cemu.cemu.common.ui.components.Toggle
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeSettings
 
@@ -24,6 +27,7 @@ fun GeneralSettingsScreen(
 
     val emulationSettings by viewModel.emulationSettings.collectAsState()
     val guiSettings by viewModel.guiSettings.collectAsState()
+    val secondScreen = rememberSecondScreen()
 
     ScreenContent(
         appBarText = tr("General settings"),
@@ -67,14 +71,27 @@ fun GeneralSettingsScreen(
             ),
         )
 
+        Toggle(
+            label = tr("Use second screen"),
+            description = secondScreenDescription(secondScreen),
+            checked = emulationSettings.isPadOnExternalDisplay,
+            onCheckedChanged = viewModel::setSecondScreenEnabled,
+        )
+
         SingleSelection(
-            label = tr("GamePad position"),
+            label = if (emulationSettings.isPadOnExternalDisplay) tr("GamePad position without a second screen") else tr("GamePad position"),
             choice = emulationSettings.gamePadPosition,
             onChoiceChanged = { viewModel.setGamePadPosition(it) },
             choiceToString = { gamePadPositionToString(it) },
             choices = GamePadPosition.entries,
         )
     }
+}
+
+private fun secondScreenDescription(secondScreen: SecondScreenInfo?) = if (secondScreen != null) {
+    tr("Second screen detected ({0}x{1}). Shows the Wii U GamePad on it, set it up in Screen layout", secondScreen.width.toString(), secondScreen.height.toString())
+} else {
+    tr("No second screen detected. Shows the Wii U GamePad on a second screen, like the bottom screen of the AYN Thor, when one is connected")
 }
 
 private fun gamePadPositionToString(position: GamePadPosition) = when (position) {
