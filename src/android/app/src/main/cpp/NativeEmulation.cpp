@@ -1,5 +1,6 @@
 #include "AndroidFilesystemCallbacks.h"
 #include "AndroidInputHelpers.h"
+#include "audio/IAudioAPI.h"
 #include "Cafe/CafeSystem.h"
 #include "Cafe/Filesystem/fsc.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
@@ -66,6 +67,31 @@ namespace NativeEmulation
 
 		if (!config.pad_device.empty())
 			CreateAudioDevice(IAudioAPI::AudioAPI::Cubeb, config.pad_channels, config.pad_volume, false);
+		LatteOverlay_setPadVolume(config.pad_device.empty() ? 0 : config.pad_volume);
+	}
+
+	// GamePad volume from the slider of the overlay panel, the GamePad audio is turned on when it was off
+	void SetPadVolume(sint32 volume)
+	{
+		auto& config = GetConfig();
+		volume = std::clamp(volume, 0, 100);
+		LatteOverlay_setPadVolume(volume);
+		config.pad_volume = volume;
+		g_padVolume = volume;
+		if (config.pad_device.empty())
+		{
+			if (volume == 0)
+				return;
+			config.pad_device = L"Default";
+			CreateAudioDevice(IAudioAPI::AudioAPI::Cubeb, config.pad_channels, volume, false);
+			std::shared_lock lock(g_audioMutex);
+			if (g_padAudio)
+				g_padAudio->Play();
+			return;
+		}
+		std::shared_lock lock(g_audioMutex);
+		if (g_padAudio)
+			g_padAudio->SetVolume(volume);
 	}
 
 	void SetDefaultDeviceController()
@@ -245,6 +271,14 @@ extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeEmulation_getOverlayActionAt([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
 {
 	return static_cast<jint>(LatteOverlay_getActionAt(x, y, !isTV));
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_onVolumeSliderTouch([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jboolean isTV, jboolean down)
+{
+	const sint32 volume = LatteOverlay_volumeTouch(x, !isTV, down);
+	if (volume >= 0)
+		NativeEmulation::SetPadVolume(volume);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL

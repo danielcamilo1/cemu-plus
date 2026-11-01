@@ -16,10 +16,12 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import info.cemu.cemu.about.AboutCemuRoute
 import info.cemu.cemu.about.aboutCemuNavigation
+import info.cemu.cemu.common.android.display.applySecondScreenDefault
 import info.cemu.cemu.common.input.GamepadInputSource
 import info.cemu.cemu.common.ui.components.ActivityContent
 import info.cemu.cemu.common.ui.localization.TranslatableContent
@@ -34,6 +36,7 @@ import info.cemu.cemu.settings.SettingsRoute
 import info.cemu.cemu.settings.settingsNavigation
 import info.cemu.cemu.titlemanager.TitleManagerRoute
 import info.cemu.cemu.titlemanager.titleManagerNavigation
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
@@ -58,6 +61,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch { applySecondScreenDefault(this@MainActivity) }
         setContent {
             TranslatableContent {
                 ActivityContent {

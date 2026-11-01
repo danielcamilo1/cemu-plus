@@ -60,6 +60,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import info.cemu.cemu.R
+import info.cemu.cemu.common.settings.DEFAULT_GAME_GRID_SIZE
+import info.cemu.cemu.common.settings.GameListLayout
+import info.cemu.cemu.common.settings.MAX_GAME_GRID_SIZE
+import info.cemu.cemu.common.settings.MIN_GAME_GRID_SIZE
 import info.cemu.cemu.common.ui.components.FilledSearchToolbar
 import info.cemu.cemu.common.ui.extensions.showMessage
 import info.cemu.cemu.common.ui.localization.tr
@@ -92,6 +96,8 @@ fun GamesListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val gameSearchQuery by gamesListViewModel.filterText.collectAsStateWithLifecycle()
     val games by gamesListViewModel.games.collectAsStateWithLifecycle()
+    val layout by gamesListViewModel.layout.collectAsStateWithLifecycle()
+    val gridSize by gamesListViewModel.gridSize.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val state = rememberPullToRefreshState()
@@ -112,7 +118,22 @@ fun GamesListScreen(
         topBar = {
             FilledSearchToolbar(
                 actions = {
+                    if (layout == GameListLayout.GRID) {
+                        gridSize?.let { size ->
+                            GridZoomButtons(
+                                gridSize = size,
+                                onZoom = gamesListViewModel::zoomGrid,
+                            )
+                        }
+                    }
+                    layout?.let { currentLayout ->
+                        LayoutToggleButton(
+                            layout = currentLayout,
+                            onLayoutChanged = gamesListViewModel::setLayout,
+                        )
+                    }
                     GameListToolBarActionsMenu(
+                        refreshGames = gamesListViewModel::refreshGames,
                         goToSettings = goToSettings,
                         goToTitleManager = goToTitleManager,
                         goToGraphicPacks = goToGraphicPacks,
@@ -166,14 +187,12 @@ fun GamesListScreen(
                     },
                 ),
         ) {
-            GameList(
-                games = games,
+            val gameActions = GameActions(
                 setFavorite = gamesListViewModel::setGameTitleFavorite,
                 deleteShaderCaches = {
                     gamesListViewModel.removeShadersForGame(it)
                     snackbarHostState.showMessage(coroutineScope, tr("Shader caches removed"))
                 },
-                startGame = startGame,
                 goToGameDetails = goToGameDetails,
                 goToGameEditProfile = goToGameEditProfile,
                 createShortcut = {
@@ -185,6 +204,24 @@ fun GamesListScreen(
                     }
                 },
             )
+            when (layout) {
+                GameListLayout.GRID -> WiiUGameGrid(
+                    games = games,
+                    gridSize = gridSize ?: DEFAULT_GAME_GRID_SIZE,
+                    startGame = startGame,
+                    gameMenu = { game, expanded, onDismissRequest ->
+                        GameMenu(game, expanded, onDismissRequest, gameActions)
+                    },
+                )
+
+                GameListLayout.LIST -> GameList(
+                    games = games,
+                    startGame = startGame,
+                    gameActions = gameActions,
+                )
+
+                null -> {}
+            }
 
             PullToRefreshDefaults.Indicator(
                 modifier = Modifier.align(Alignment.TopCenter),
@@ -197,15 +234,77 @@ fun GamesListScreen(
     }
 }
 
+// what a long press on a game can do, the same in the grid and the list
+private class GameActions(
+    val setFavorite: (Game, Boolean) -> Unit,
+    val deleteShaderCaches: (Game) -> Unit,
+    val goToGameDetails: (Game) -> Unit,
+    val goToGameEditProfile: (Game) -> Unit,
+    val createShortcut: (Game) -> Unit,
+)
+
+@Composable
+private fun GameMenu(
+    game: Game,
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    actions: GameActions,
+) {
+    var showDeleteShaderConfirmationDialog by remember { mutableStateOf(false) }
+    GameContextMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        game = game,
+        onIsFavoriteChanged = { actions.setFavorite(game, it) },
+        onEditGameProfile = { actions.goToGameEditProfile(game) },
+        onRemoveShaderCaches = { showDeleteShaderConfirmationDialog = true },
+        onAboutTitle = { actions.goToGameDetails(game) },
+        onCreateShortcut = { actions.createShortcut(game) },
+    )
+    if (showDeleteShaderConfirmationDialog) {
+        ShaderCachesConfirmationDialog(
+            gameName = game.name ?: "",
+            onDismissRequest = { showDeleteShaderConfirmationDialog = false },
+            onConfirm = {
+                actions.deleteShaderCaches(game)
+                showDeleteShaderConfirmationDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun GridZoomButtons(gridSize: Int, onZoom: (zoomIn: Boolean) -> Unit) {
+    IconButton(onClick = { onZoom(false) }, enabled = gridSize < MAX_GAME_GRID_SIZE) {
+        Icon(
+            painter = painterResource(R.drawable.ic_zoom_out),
+            contentDescription = tr("Zoom out, show more games"),
+        )
+    }
+    IconButton(onClick = { onZoom(true) }, enabled = gridSize > MIN_GAME_GRID_SIZE) {
+        Icon(
+            painter = painterResource(R.drawable.ic_zoom_in),
+            contentDescription = tr("Zoom in, show bigger icons"),
+        )
+    }
+}
+
+@Composable
+private fun LayoutToggleButton(layout: GameListLayout, onLayoutChanged: (GameListLayout) -> Unit) {
+    val isGrid = layout == GameListLayout.GRID
+    IconButton(onClick = { onLayoutChanged(if (isGrid) GameListLayout.LIST else GameListLayout.GRID) }) {
+        Icon(
+            painter = painterResource(if (isGrid) R.drawable.ic_lists else R.drawable.ic_grid_view),
+            contentDescription = if (isGrid) tr("Show as list") else tr("Show as grid"),
+        )
+    }
+}
+
 @Composable
 private fun GameList(
     games: List<Game>,
     startGame: (Game) -> Unit,
-    goToGameDetails: (Game) -> Unit,
-    goToGameEditProfile: (Game) -> Unit,
-    setFavorite: (Game, Boolean) -> Unit,
-    createShortcut: (Game) -> Unit,
-    deleteShaderCaches: (Game) -> Unit,
+    gameActions: GameActions,
 ) {
     LazyVerticalGrid(
         modifier = Modifier
@@ -214,36 +313,14 @@ private fun GameList(
         columns = GridCells.Adaptive(620.dp),
     ) {
         items(items = games, key = { it.path }) { game ->
-            var showDeleteShaderConfirmationDialog by remember { mutableStateOf(false) }
             GameListItem(
                 modifier = Modifier.animateItem(),
                 game = game,
                 onStartGame = startGame,
-                onIsFavoriteChanged = { isFavorite ->
-                    setFavorite(game, isFavorite)
-                },
-                onEditGameProfile = {
-                    goToGameEditProfile(game)
-                },
-                onRemoveShaderCaches = { showDeleteShaderConfirmationDialog = true },
-                onAboutTitle = {
-                    goToGameDetails(game)
-                },
-                onCreateShortcut = {
-                    createShortcut(game)
+                gameMenu = { expanded, onDismissRequest ->
+                    GameMenu(game, expanded, onDismissRequest, gameActions)
                 },
             )
-
-            if (showDeleteShaderConfirmationDialog) {
-                ShaderCachesConfirmationDialog(
-                    gameName = game.name ?: "",
-                    onDismissRequest = { showDeleteShaderConfirmationDialog = false },
-                    onConfirm = {
-                        deleteShaderCaches(game)
-                        showDeleteShaderConfirmationDialog = false
-                    },
-                )
-            }
         }
     }
 }
@@ -266,11 +343,7 @@ private fun ShaderCachesConfirmationDialog(
 @Composable
 private fun GameListItem(
     onStartGame: (Game) -> Unit,
-    onIsFavoriteChanged: (Boolean) -> Unit,
-    onEditGameProfile: () -> Unit,
-    onRemoveShaderCaches: () -> Unit,
-    onAboutTitle: () -> Unit,
-    onCreateShortcut: () -> Unit,
+    gameMenu: @Composable (expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
     game: Game,
     modifier: Modifier = Modifier,
 ) {
@@ -313,16 +386,7 @@ private fun GameListItem(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        GameContextMenu(
-            expanded = contextMenuExpanded,
-            onDismissRequest = { contextMenuExpanded = false },
-            game = game,
-            onIsFavoriteChanged = onIsFavoriteChanged,
-            onEditGameProfile = onEditGameProfile,
-            onRemoveShaderCaches = onRemoveShaderCaches,
-            onAboutTitle = onAboutTitle,
-            onCreateShortcut = onCreateShortcut,
-        )
+        gameMenu(contextMenuExpanded) { contextMenuExpanded = false }
     }
 }
 
@@ -387,6 +451,7 @@ private fun GameContextMenu(
 
 @Composable
 private fun GameListToolBarActionsMenu(
+    refreshGames: () -> Unit,
     openCemuFolder: () -> Unit,
     shareLogFile: () -> Unit,
     goToSettings: () -> Unit,
@@ -423,6 +488,10 @@ private fun GameListToolBarActionsMenu(
         DropdownMenuItem(
             onClick = goToSettings,
             text = tr("Settings")
+        )
+        DropdownMenuItem(
+            onClick = refreshGames,
+            text = tr("Refresh game list")
         )
         DropdownMenuItem(
             onClick = goToGraphicPacks,

@@ -1,5 +1,6 @@
 #include "JNIUtils.h"
 #include "audio/IAudioAPI.h"
+#include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "config/CemuConfig.h"
 #include "config/NetworkSettings.h"
 
@@ -49,6 +50,18 @@ extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayStyle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint style)
 {
 	GetConfig().overlay.style = static_cast<OverlayStyle>(style);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getOverlayTheme([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(GetConfig().overlay.theme);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayTheme([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint theme)
+{
+	GetConfig().overlay.theme = static_cast<OverlayTheme>(theme);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
@@ -145,6 +158,18 @@ extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayPauseActionEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean enabled)
 {
 	GetConfig().overlay.action_pause = enabled;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_isOverlayMenuActionEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().overlay.action_menu;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayMenuActionEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean enabled)
+{
+	GetConfig().overlay.action_menu = enabled;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
@@ -438,6 +463,8 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setAudioDeviceEnabled([[maybe
 		device = L"Default";
 	else
 		device.clear();
+	if (!tv)
+		LatteOverlay_setPadVolume(enabled ? GetConfig().pad_volume : 0);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
@@ -466,6 +493,8 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setAudioDeviceVolume([[maybe_
 {
 	auto& deviceVolume = tv ? GetConfig().tv_volume : GetConfig().pad_volume;
 	deviceVolume = volume;
+	if (!tv && !GetConfig().pad_device.empty())
+		LatteOverlay_setPadVolume(volume);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL

@@ -131,7 +131,13 @@ enum class OverlayPlacement
 enum class OverlayStyle
 {
 	kClassic = 0, // plain text list
-	kGamePad, // tiled panel styled after the black Wii U GamePad
+	kGamePad, // tiled panel styled after the Wii U GamePad
+};
+
+enum class OverlayTheme
+{
+	kBlack = 0, // piano black like the Wii U Deluxe GamePad
+	kWhite, // glossy white like the Wii U Basic GamePad
 };
 
 enum class PrecompiledShaderOption
@@ -510,6 +516,7 @@ struct CemuConfig
 		OverlayScreen screen = OverlayScreen::kPad;
 		OverlayPlacement placement = OverlayPlacement::kBlackBars;
 		OverlayStyle style = OverlayStyle::kGamePad;
+		OverlayTheme theme = OverlayTheme::kBlack;
 		uint32 text_color = 0xFFFFFFFF;
 		sint32 text_scale = 100;
 		bool fps = true;
@@ -527,6 +534,7 @@ struct CemuConfig
 		bool action_frame_gen_mode = true; // cycles the frame generation multiplier
 		bool action_settings = true;
 		bool action_pause = true;
+		bool action_menu = false;
 		bool debug = false;
 	} overlay{};
 

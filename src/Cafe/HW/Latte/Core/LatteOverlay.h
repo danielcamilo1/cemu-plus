@@ -17,9 +17,16 @@ enum class OverlayAction : sint32
 	kSettings = 2,
 	kPause = 3,
 	kFrameGenMode = 4,
+	kMenu = 5, // opens the quick menu of the frontend
+	kVolume = 6, // GamePad volume slider, dragged instead of tapped
 };
 // returns the panel button at the given position (in window pixels) of the TV or GamePad screen, as drawn in the last frame
 OverlayAction LatteOverlay_getActionAt(sint32 x, sint32 y, bool padView);
+// finger on the GamePad volume slider at the given x position, down for the first touch. The slider magnifies while
+// it is used. Returns the new GamePad volume (0-100) or -1 if it stays the same
+sint32 LatteOverlay_volumeTouch(sint32 x, bool padView, bool down);
+// GamePad volume shown by the slider, 0 while the GamePad audio is off
+void LatteOverlay_setPadVolume(sint32 volume);
 // highlights a button while it is held down
 void LatteOverlay_setPressedAction(OverlayAction action);
 // shows the pause button as a resume button
