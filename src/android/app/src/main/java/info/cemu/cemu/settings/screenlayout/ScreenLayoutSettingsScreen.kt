@@ -446,7 +446,7 @@ private fun secondScreenExplanation(screen: SecondScreenInfo, isDetected: Boolea
     }
     val free = freePercent(screenRatio, WII_U_ASPECT_RATIO)
     val bars = if (isLetterboxed) {
-        tr("The Wii U GamePad is 16:9 (1.78:1), so the game image can't fill it and about {0}% of the screen is left as black bars above and below. Choose where the image goes:", free)
+        tr("The Wii U GamePad is 16:9 (1.78:1), so the game image cannot fill it and about {0}% of the screen is left as black bars above and below. Choose where the image goes:", free)
     } else {
         tr("The Wii U GamePad is 16:9 (1.78:1), so about {0}% of the screen is left as black bars on the sides. The toolbar goes into one of them.", free)
     }
