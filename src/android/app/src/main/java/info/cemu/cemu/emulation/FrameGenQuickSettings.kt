@@ -56,6 +56,10 @@ fun FrameGenQuickSettings() {
     LaunchedEffect(Unit) {
         while (true) {
             runtimeStatus = NativeFrameGen.getRuntimeStatus()
+            // the panel buttons can change these while the menu is closed
+            enabled = NativeFrameGen.isEnabled()
+            multiplier = NativeFrameGen.getMultiplier()
+            targetRate = NativeFrameGen.getTargetRate()
             delay(1000)
         }
     }

@@ -157,6 +157,32 @@ private fun OverlaySettings() {
             initialCheckedState = NativeSettings::isOverlayShaderCompilingEnabled,
             onCheckedChanged = NativeSettings::setOverlayShaderCompilingEnabled,
         )
+    if (overlayStyle == NativeSettings.OverlayStyle.GAMEPAD) {
+        Toggle(
+            label = tr("Frame generation button"),
+            description = tr("A button in the panel that turns frame generation on and off"),
+            initialCheckedState = NativeSettings::isOverlayFrameGenActionEnabled,
+            onCheckedChanged = NativeSettings::setOverlayFrameGenActionEnabled,
+        )
+        Toggle(
+            label = tr("Frame generation mode button"),
+            description = tr("A button in the panel that cycles the frame generation multiplier between x2, x3 and x4"),
+            initialCheckedState = NativeSettings::isOverlayFrameGenModeActionEnabled,
+            onCheckedChanged = NativeSettings::setOverlayFrameGenModeActionEnabled,
+        )
+        Toggle(
+            label = tr("Settings button"),
+            description = tr("A button in the panel that pauses the game and opens the emulator settings"),
+            initialCheckedState = NativeSettings::isOverlaySettingsActionEnabled,
+            onCheckedChanged = NativeSettings::setOverlaySettingsActionEnabled,
+        )
+        Toggle(
+            label = tr("Pause button"),
+            description = tr("A button in the panel that pauses and resumes the game"),
+            initialCheckedState = NativeSettings::isOverlayPauseActionEnabled,
+            onCheckedChanged = NativeSettings::setOverlayPauseActionEnabled,
+        )
+    }
     Toggle(
         label = tr("Debug"),
         description = tr("Displays internal debug information (Vulkan only)"),

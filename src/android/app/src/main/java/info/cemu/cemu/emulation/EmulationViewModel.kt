@@ -14,16 +14,21 @@ import info.cemu.cemu.common.either.Success
 import info.cemu.cemu.common.either.attemptWithContext
 import info.cemu.cemu.common.either.bind
 import info.cemu.cemu.common.either.mapError
+import info.cemu.cemu.common.framegen.FrameGenMultiplierChoices
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.settings.InputOverlayRect
 import info.cemu.cemu.common.settings.InputOverlaySettings
 import info.cemu.cemu.common.settings.OverlayInputConfig
 import info.cemu.cemu.nativeinterface.NativeEmulation
+import info.cemu.cemu.nativeinterface.NativeEmulation.OverlayAction
 import info.cemu.cemu.nativeinterface.NativeEmulation.PrepareTitleResult
 import info.cemu.cemu.nativeinterface.NativeException
+import info.cemu.cemu.nativeinterface.NativeFrameGen
+import info.cemu.cemu.nativeinterface.NativeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -169,6 +174,74 @@ class EmulationViewModel(
             null,
         )
 
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused = _isPaused.asStateFlow()
+
+    private val _isSettingsOpen = MutableStateFlow(false)
+    val isSettingsOpen = _isSettingsOpen.asStateFlow()
+
+    private var pauseJob: Job? = null
+    private var pausedForSettings = false
+
+    fun setPaused(paused: Boolean) {
+        if (_isPaused.value == paused) {
+            return
+        }
+        _isPaused.value = paused
+        NativeEmulation.setOverlayPaused(paused)
+        pauseJob?.cancel()
+        if (paused) {
+            // the overlay is only drawn while the game runs, give it a few frames to show the resume button first
+            pauseJob = viewModelScope.launch {
+                delay(PAUSE_DELAY_MS)
+                NativeEmulation.pauseTitle()
+            }
+        } else {
+            NativeEmulation.resumeTitle()
+        }
+    }
+
+    fun openSettings() {
+        if (_isSettingsOpen.value) {
+            return
+        }
+        pausedForSettings = !_isPaused.value
+        setPaused(true)
+        _isSettingsOpen.value = true
+    }
+
+    fun closeSettings() {
+        if (!_isSettingsOpen.value) {
+            return
+        }
+        _isSettingsOpen.value = false
+        NativeSettings.saveSettings()
+        if (pausedForSettings) {
+            setPaused(false)
+        }
+        pausedForSettings = false
+    }
+
+    fun onOverlayAction(action: Int) {
+        when (action) {
+            OverlayAction.FRAME_GEN -> NativeFrameGen.setEnabled(!NativeFrameGen.isEnabled())
+            OverlayAction.FRAME_GEN_MODE -> cycleFrameGenMultiplier()
+            OverlayAction.SETTINGS -> openSettings()
+            OverlayAction.PAUSE -> setPaused(!_isPaused.value)
+        }
+    }
+
+    // x2 -> x3 -> x4 -> x2. A target frame rate switches back to a fixed multiplier
+    private fun cycleFrameGenMultiplier() {
+        if (NativeFrameGen.getTargetRate() > 0) {
+            NativeFrameGen.setTargetRate(0)
+            NativeFrameGen.setMultiplier(FrameGenMultiplierChoices.first())
+            return
+        }
+        val index = FrameGenMultiplierChoices.indexOf(NativeFrameGen.getMultiplier())
+        NativeFrameGen.setMultiplier(FrameGenMultiplierChoices[(index + 1) % FrameGenMultiplierChoices.size])
+    }
+
     val destroyedSurfaces = ConditionFlags()
     var setSurfaces = ConditionFlags()
 
@@ -206,7 +279,8 @@ class EmulationViewModel(
                 NativeEmulation.setSurface(surfaceHolder.surface, isMainCanvas)
                 val mainSurfaceWasDestroyed = destroyedSurfaces.get(isMain = true)
 
-                if (mainSurfaceWasDestroyed && isMainCanvas) {
+                // a game paused by the user stays paused when the app comes back
+                if (mainSurfaceWasDestroyed && isMainCanvas && !_isPaused.value) {
                     NativeEmulation.resumeTitle()
                 }
 
@@ -290,6 +364,7 @@ class EmulationViewModel(
     }
 
     companion object {
+        private const val PAUSE_DELAY_MS = 150L
         val LAUNCH_PATH_KEY = object : CreationExtras.Key<String> {}
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {

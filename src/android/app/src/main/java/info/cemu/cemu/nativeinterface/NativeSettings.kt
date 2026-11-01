@@ -222,6 +222,30 @@ object NativeSettings {
     external fun setOverlayShaderCompilingEnabled(value: Boolean)
 
     @JvmStatic
+    external fun isOverlayFrameGenActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayFrameGenActionEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayFrameGenModeActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayFrameGenModeActionEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlaySettingsActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlaySettingsActionEnabled(value: Boolean)
+
+    @JvmStatic
+    external fun isOverlayPauseActionEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayPauseActionEnabled(value: Boolean)
+
+    @JvmStatic
     external fun isOverlayDebugEnabled(): Boolean
 
     @JvmStatic

@@ -81,11 +81,12 @@ private object SettingsRoutes {
     object AccountSettingsScreenRoute
 }
 
-fun NavGraphBuilder.settingsNavigation(navController: NavHostController) {
+// onExit replaces going back from the settings home screen, used when the settings are opened from a running game
+fun NavGraphBuilder.settingsNavigation(navController: NavHostController, onExit: (() -> Unit)? = null) {
     navigation<SettingsRoute>(startDestination = SettingsRoutes.SettingsHomeScreenRoute) {
         composable<SettingsRoutes.SettingsHomeScreenRoute> {
             SettingsHomeScreen(
-                navigateBack = { navController.popBackStack() },
+                navigateBack = { if (onExit != null) onExit() else navController.popBackStack() },
                 goToGeneralSettings = { navController.navigate(SettingsRoutes.GeneralSettings) },
                 goToInputSettings = { navController.navigate(SettingsRoutes.InputSettingsRoute) },
                 goToGraphicsSettings = { navController.navigate(SettingsRoutes.GraphicsSettingsScreenRoute) },

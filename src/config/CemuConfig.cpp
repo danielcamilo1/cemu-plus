@@ -178,6 +178,10 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.temperature = overlay_node.get("Temperature", false);
 		overlay.battery = overlay_node.get("Battery", false);
 		overlay.shader_compiling = overlay_node.get("PanelShaderCompiling", false);
+		overlay.action_frame_gen = overlay_node.get("ActionFrameGen", false);
+		overlay.action_frame_gen_mode = overlay_node.get("ActionFrameGenMode", false);
+		overlay.action_settings = overlay_node.get("ActionSettings", false);
+		overlay.action_pause = overlay_node.get("ActionPause", false);
 		overlay.debug = overlay_node.get("Debug", false);
 
 		notification.controller_profiles = overlay_node.get("ControllerProfiles", true);
@@ -426,6 +430,10 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("Temperature", overlay.temperature);
 	overlay_node.set("Battery", overlay.battery);
 	overlay_node.set("PanelShaderCompiling", overlay.shader_compiling);
+	overlay_node.set("ActionFrameGen", overlay.action_frame_gen);
+	overlay_node.set("ActionFrameGenMode", overlay.action_frame_gen_mode);
+	overlay_node.set("ActionSettings", overlay.action_settings);
+	overlay_node.set("ActionPause", overlay.action_pause);
 	overlay_node.set("Debug", overlay.debug);
 
 	auto notification_node = graphic.set("Notification");

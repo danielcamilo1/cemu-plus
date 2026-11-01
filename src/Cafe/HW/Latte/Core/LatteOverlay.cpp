@@ -60,6 +60,44 @@ void LatteOverlay_setBatteryStatus(sint32 level, sint32 temperatureDecidegrees, 
 	g_battery_charging = charging;
 }
 
+// panel buttons drawn in the last frame, hit tested by the frontend from its touch thread
+struct OverlayButton
+{
+	OverlayAction action;
+	ImVec2 min, max;
+};
+std::mutex g_buttons_mutex;
+std::vector<OverlayButton> g_buttons[2]; // TV, GamePad
+std::atomic<sint32> g_pressed_action{(sint32)OverlayAction::kNone};
+std::atomic_bool g_title_paused{false};
+
+static void LatteOverlay_publishButtons(bool padView, std::vector<OverlayButton>&& buttons)
+{
+	std::scoped_lock lock(g_buttons_mutex);
+	g_buttons[padView ? 1 : 0] = std::move(buttons);
+}
+
+OverlayAction LatteOverlay_getActionAt(sint32 x, sint32 y, bool padView)
+{
+	std::scoped_lock lock(g_buttons_mutex);
+	for (const auto& button : g_buttons[padView ? 1 : 0])
+	{
+		if ((float)x >= button.min.x && (float)x < button.max.x && (float)y >= button.min.y && (float)y < button.max.y)
+			return button.action;
+	}
+	return OverlayAction::kNone;
+}
+
+void LatteOverlay_setPressedAction(OverlayAction action)
+{
+	g_pressed_action = (sint32)action;
+}
+
+void LatteOverlay_setPaused(bool paused)
+{
+	g_title_paused = paused;
+}
+
 static float LatteOverlay_getBatteryTemperature()
 {
 	const sint32 temp = g_battery_temp_decidegrees.load();
@@ -438,6 +476,8 @@ struct OverlayTile
 	ImU32 meterColor = kPanelAccent;
 	ImU32 iconColor = kPanelAccent;
 	bool coreBars = false; // shows the usage of every core instead of a value
+	OverlayAction action = OverlayAction::kNone; // drawn as a touch button
+	bool on = false; // lit button
 };
 
 static std::vector<OverlayTile> LatteOverlay_buildTiles()
@@ -595,6 +635,60 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 			tile.detail = fmt::format("{:.0f}{}", LatteOverlay_getBatteryTemperature(), kDegree);
 	}
 
+	// touch buttons go after the stats
+	const bool frameGenEnabled = config.frame_gen.enabled.GetValue();
+	if (config.overlay.action_frame_gen)
+	{
+		auto& tile = tiles.emplace_back();
+		tile.action = OverlayAction::kFrameGen;
+		tile.icon = (const char*)ICON_FA_MAGIC;
+		tile.on = frameGenEnabled;
+		tile.label = frameGenEnabled ? "FRAME GEN ON" : "FRAME GEN OFF";
+		if (frameGenEnabled)
+		{
+			switch (FrameGenVk::GetRuntimeStatus())
+			{
+			case FrameGenRuntimeStatus::UnsupportedDevice: tile.detail = "Unsupported GPU"; break;
+			case FrameGenRuntimeStatus::DllUnavailable: tile.detail = "Lossless.dll missing"; break;
+			case FrameGenRuntimeStatus::InitFailed: tile.detail = "Failed to start"; break;
+			default: break;
+			}
+		}
+	}
+
+	if (config.overlay.action_frame_gen_mode)
+	{
+		auto& tile = tiles.emplace_back();
+		tile.action = OverlayAction::kFrameGenMode;
+		tile.icon = (const char*)ICON_FA_LAYER_GROUP;
+		const sint32 targetRate = config.frame_gen.target_rate.GetValue();
+		if (targetRate > 0)
+			tile.label = fmt::format("FG {} FPS", targetRate);
+		else
+			tile.label = fmt::format("FG x{}", config.frame_gen.multiplier.GetValue());
+		tile.on = frameGenEnabled;
+		if (targetRate > 0 && g_state.frame_gen_active)
+			tile.detail = fmt::format("now x{:.1f}", g_state.frame_gen_ratio);
+	}
+
+	if (config.overlay.action_settings)
+	{
+		auto& tile = tiles.emplace_back();
+		tile.action = OverlayAction::kSettings;
+		tile.icon = (const char*)ICON_FA_COG;
+		tile.label = "SETTINGS";
+	}
+
+	if (config.overlay.action_pause)
+	{
+		auto& tile = tiles.emplace_back();
+		tile.action = OverlayAction::kPause;
+		const bool paused = g_title_paused.load();
+		tile.icon = paused ? (const char*)ICON_FA_PLAY : (const char*)ICON_FA_PAUSE;
+		tile.label = paused ? "RESUME" : "PAUSE";
+		tile.on = paused;
+	}
+
 	return tiles;
 }
 
@@ -674,8 +768,56 @@ static bool LatteOverlay_drawShaderStatus(ImDrawList* dl, ImFont* font, float fo
 	return true;
 }
 
+// a raised key like the buttons of the GamePad: big icon with a caption, an LED when it is switched on
+static void LatteOverlay_drawButton(ImDrawList* dl, const OverlayTile& tile, ImVec2 tmin, ImVec2 tmax, float f, ImFont* smallFont, float smallSize, ImFont* valueFont, float valueSize)
+{
+	const float rounding = f * 0.35f;
+	const float ip = f * 0.4f;
+	const bool pressed = g_pressed_action.load() == (sint32)tile.action;
+	dl->AddRectFilled(tmin, tmax, pressed ? IM_COL32(14, 14, 18, 245) : IM_COL32(34, 34, 40, 245), rounding);
+	if (!pressed)
+		dl->AddRectFilled({ tmin.x + 1.0f, tmin.y + 1.0f }, { tmax.x - 1.0f, (tmin.y + tmax.y) * 0.5f }, IM_COL32(255, 255, 255, 9), rounding, ImDrawFlags_RoundCornersTop);
+	dl->AddRect(tmin, tmax, pressed ? kPanelAccent : kPanelTileBorder, rounding, 0, pressed ? std::max(1.5f, f * 0.08f) : 1.0f);
+	dl->PushClipRect(tmin, tmax, true);
+
+	if (tile.on)
+	{
+		const float r = f * 0.13f;
+		const ImVec2 led{ tmax.x - ip - r, tmin.y + ip + r };
+		dl->AddCircleFilled(led, r * 2.2f, IM_COL32(76, 217, 100, 40));
+		dl->AddCircleFilled(led, r, kPanelGood);
+	}
+
+	const float tileW = tmax.x - tmin.x;
+	const float tileH = tmax.y - tmin.y;
+	const float iconW = valueFont->CalcTextSizeA(valueSize, FLT_MAX, 0.0f, tile.icon).x;
+	const float labelW = smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, tile.label.c_str()).x;
+	const float lineGap = f * 0.15f;
+	float blockH = valueSize + lineGap + smallSize;
+	const bool showDetail = !tile.detail.empty() && blockH + lineGap + smallSize <= tileH - 2.0f * ip;
+	if (showDetail)
+		blockH += lineGap + smallSize;
+	float y = tmin.y + std::max(ip * 0.5f, (tileH - blockH) * 0.5f);
+	const ImU32 iconColor = tile.on ? kPanelAccent : IM_COL32(222, 222, 230, 255);
+	dl->AddText(valueFont, valueSize, { tmin.x + (tileW - iconW) * 0.5f, y }, iconColor, tile.icon);
+	y += valueSize + lineGap;
+	dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - labelW) * 0.5f), y }, tile.on ? IM_COL32(222, 222, 230, 255) : kPanelLabel, tile.label.c_str());
+	if (showDetail)
+	{
+		y += smallSize + lineGap;
+		const float detailW = smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, tile.detail.c_str()).x;
+		dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - detailW) * 0.5f), y }, kPanelWarning, tile.detail.c_str());
+	}
+	dl->PopClipRect();
+}
+
 static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec2 tmin, ImVec2 tmax, float f, ImFont* smallFont, float smallSize, ImFont* valueFont, float valueSize, ImU32 valueColor)
 {
+	if (tile.action != OverlayAction::kNone)
+	{
+		LatteOverlay_drawButton(dl, tile, tmin, tmax, f, smallFont, smallSize, valueFont, valueSize);
+		return;
+	}
 	const float rounding = f * 0.35f;
 	const float ip = f * 0.4f;
 	dl->AddRectFilled(tmin, tmax, kPanelTile, rounding);
@@ -722,11 +864,14 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 	}
 	else
 	{
-		dl->AddText(valueFont, valueSize, { tmin.x + ip, valueY }, valueColor, tile.value.c_str());
+		// tiles stretched to fill a black bar get taller, keep the value in the middle of the free space
+		const float spaceBottom = tile.meter >= 0.0f ? tmax.y - ip - meterH - f * 0.1f : tmax.y - ip;
+		const float y = std::max(valueY, valueY + (spaceBottom - valueY - valueSize) * 0.5f);
+		dl->AddText(valueFont, valueSize, { tmin.x + ip, y }, valueColor, tile.value.c_str());
 		if (!tile.suffix.empty())
 		{
 			const float valueW = valueFont->CalcTextSizeA(valueSize, FLT_MAX, 0.0f, tile.value.c_str()).x;
-			dl->AddText(smallFont, smallSize, { tmin.x + ip + valueW + f * 0.25f, valueY + valueSize - smallSize - f * 0.15f }, kPanelLabel, tile.suffix.c_str());
+			dl->AddText(smallFont, smallSize, { tmin.x + ip + valueW + f * 0.25f, y + valueSize - smallSize - f * 0.15f }, kPanelLabel, tile.suffix.c_str());
 		}
 		if (tile.meter >= 0.0f)
 		{
@@ -741,7 +886,7 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 	dl->PopClipRect();
 }
 
-static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std::vector<OverlayTile>& tiles, bool showStatus, ImFont* smallFont, float smallSize, ImFont* valueFont, float valueSize)
+static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std::vector<OverlayTile>& tiles, bool showStatus, ImFont* smallFont, float smallSize, ImFont* valueFont, float valueSize, std::vector<OverlayButton>& buttons)
 {
 	ImDrawList* dl = ImGui::GetForegroundDrawList();
 	const float f = l.f;
@@ -807,11 +952,14 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 	{
 		const sint32 row = i / l.cols;
 		const sint32 col = i % l.cols;
-		// center the last row if it isn't full
+		// the tiles of a last row that isn't full get wider so the row still spans the whole panel
 		const sint32 inRow = row == l.rows - 1 ? count - row * l.cols : l.cols;
-		const float rowOffset = (float)(l.cols - inRow) * (l.tileW + l.gap) * 0.5f;
-		const ImVec2 tmin{ x0 + rowOffset + (float)col * (l.tileW + l.gap), y + (float)row * (l.tileH + l.gap) };
-		LatteOverlay_drawTile(dl, tiles[i], tmin, { tmin.x + l.tileW, tmin.y + l.tileH }, f, smallFont, smallSize, valueFont, valueSize, valueColor);
+		const float tileW = inRow == l.cols ? l.tileW : (x1 - x0 - (float)(inRow - 1) * l.gap) / (float)inRow;
+		const ImVec2 tmin{ x0 + (float)col * (tileW + l.gap), y + (float)row * (l.tileH + l.gap) };
+		const ImVec2 tmax{ tmin.x + tileW, tmin.y + l.tileH };
+		LatteOverlay_drawTile(dl, tiles[i], tmin, tmax, f, smallFont, smallSize, valueFont, valueSize, valueColor);
+		if (tiles[i].action != OverlayAction::kNone)
+			buttons.push_back({ tiles[i].action, tmin, tmax });
 	}
 
 	if (l.statusH > 0.0f)
@@ -838,9 +986,9 @@ enum class OverlayBar
 	kPillarbox, // bars left and right of the image
 };
 
-// renders the stats as a GamePad styled panel, inside the black bar area if one was found and the panel fits.
-// Returns true if the panel was placed in the black bar
-static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar)
+// renders the stats as a GamePad styled panel. When a black bar was found the panel fills all of it, otherwise a
+// compact panel is drawn over gameplay. Returns true if the panel was placed in the black bar
+static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons)
 {
 	const auto tiles = LatteOverlay_buildTiles();
 	const bool statusEnabled = LatteOverlay_isShaderStatusInPanel();
@@ -855,33 +1003,38 @@ static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint
 	{
 		const float margin = fontSize * 0.5f;
 		const ImVec2 avail{ areaSize.x - 2.0f * margin, areaSize.y - 2.0f * margin };
-		// find the biggest scale that fits, preferring a header and as few rows as possible
+		const float minScale = std::max(6.0f, std::floor(fontSize * 0.6f));
+		const float maxScale = std::floor(fontSize * 2.2f);
+		// the panel size grows linearly with the scale, so the biggest scale that fits can be computed for every
+		// column count. Prefer a header, then the arrangement with the biggest text and the fewest empty slots
 		for (sint32 header = 1; header >= 0 && !inBar; --header)
 		{
-			for (sint32 step = 20; step >= 6 && !inBar; --step)
+			float bestScale = 0.0f;
+			sint32 bestEmpty = 0;
+			for (sint32 cols = 1; cols <= std::max(count, 1); ++cols)
 			{
-				const float f = std::floor(fontSize * (float)step / 10.0f);
-				for (sint32 cols = std::max(count, 1); cols >= 1; --cols)
+				const auto unit = LatteOverlay_measurePanel(1.0f, count, cols, header != 0, statusEnabled && header == 0);
+				const float scale = std::min(maxScale, std::floor(std::min(avail.x / unit.size.x, avail.y / unit.size.y)));
+				const sint32 empty = unit.rows * cols - count;
+				if (scale < minScale)
+					continue;
+				if (scale > bestScale * 1.05f || (scale >= bestScale * 0.95f && empty < bestEmpty))
 				{
-					const auto candidate = LatteOverlay_measurePanel(f, count, cols, header != 0, statusEnabled && header == 0);
-					if (candidate.size.x <= avail.x && candidate.size.y <= avail.y)
-					{
-						layout = candidate;
-						inBar = true;
-						break;
-					}
+					bestScale = std::max(scale, bestScale);
+					bestEmpty = empty;
+					layout = LatteOverlay_measurePanel(scale, count, cols, header != 0, statusEnabled && header == 0);
+					inBar = true;
 				}
 			}
 		}
 		if (inBar)
 		{
-			// stretch the tiles to use the width of the bar
-			const float maxTileW = (avail.x - 2.0f * layout.pad - (float)(layout.cols - 1) * layout.gap) / (float)layout.cols;
-			layout.tileW = std::min(maxTileW, layout.tileW * 1.6f);
+			// stretch the tiles so the panel fills the whole bar, whatever the number of tiles
+			layout.tileW = (avail.x - 2.0f * layout.pad - (float)(layout.cols - 1) * layout.gap) / (float)layout.cols;
+			if (layout.rows > 0)
+				layout.tileH = (avail.y - 2.0f * layout.pad - layout.headerH - layout.statusH - (float)(layout.rows - 1) * layout.gap) / (float)layout.rows;
 			LatteOverlay_updatePanelSize(layout);
-			pmin.x = areaMin.x + margin + (avail.x - layout.size.x) * pivot.x;
-			const float alignY = bar == OverlayBar::kLetterbox ? 0.5f : pivot.y;
-			pmin.y = areaMin.y + margin + (avail.y - layout.size.y) * alignY;
+			pmin = { areaMin.x + margin, areaMin.y + margin };
 		}
 	}
 	if (!inBar)
@@ -892,13 +1045,14 @@ static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint
 		pmin = { position.x - layout.size.x * pivot.x, position.y - layout.size.y * pivot.y };
 	}
 
-	// fonts are created on demand, skip this frame if they aren't ready yet
-	const float smallSize = std::floor(layout.f * 0.75f);
-	const float valueSize = std::floor(layout.f * 1.5f);
+	// fonts are created on demand, skip this frame if they aren't ready yet. Taller tiles get bigger text
+	const float growth = std::clamp(layout.tileH / (layout.f * 3.6f), 1.0f, 1.6f);
+	const float smallSize = std::floor(layout.f * 0.75f * std::min(growth, 1.25f));
+	const float valueSize = std::floor(layout.f * 1.5f * growth);
 	ImFont* smallFont = ImGui_GetFont(smallSize);
 	ImFont* valueFont = ImGui_GetFont(valueSize);
 	if (smallFont && valueFont)
-		LatteOverlay_drawPanel(layout, pmin, tiles, statusEnabled, smallFont, smallSize, valueFont, valueSize);
+		LatteOverlay_drawPanel(layout, pmin, tiles, statusEnabled, smallFont, smallSize, valueFont, valueSize, buttons);
 
 	if (!inBar)
 		position.y += (layout.size.y + 10.0f) * (float)direction;
@@ -1356,6 +1510,8 @@ static void LatteOverlay_getBlackBarArea(bool pad_view, ScreenPosition position,
 void LatteOverlay_render(bool pad_view)
 {
 	const auto& config = GetConfig();
+	std::vector<OverlayButton> buttons;
+	LatteOverlay_publishButtons(pad_view, {});
 	if(config.overlay.position == ScreenPosition::kDisabled && config.notification.position == ScreenPosition::kDisabled)
 		return;
 
@@ -1405,7 +1561,8 @@ void LatteOverlay_render(bool pad_view)
 		position.y += areaMin.y;
 		if (config.overlay.style == OverlayStyle::kGamePad)
 		{
-			statsInBar = LatteOverlay_renderPanel(position, pivot, direction, overlayFontSize, areaMin, areaSize, bar);
+			statsInBar = LatteOverlay_renderPanel(position, pivot, direction, overlayFontSize, areaMin, areaSize, bar, buttons);
+			LatteOverlay_publishButtons(pad_view, std::move(buttons));
 			if (config.overlay.debug)
 			{
 				if (statsInBar)

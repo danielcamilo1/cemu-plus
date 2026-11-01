@@ -8,6 +8,8 @@ import android.view.Display
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +38,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -61,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.MutableCreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.rememberNavController
 import info.cemu.cemu.R
 import info.cemu.cemu.common.android.display.DisplayUtils
 import info.cemu.cemu.common.settings.GamePadPosition
@@ -75,6 +81,8 @@ import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.D
 import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_POSITION
 import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_SIZE
 import info.cemu.cemu.nativeinterface.NativeEmulation
+import info.cemu.cemu.settings.SettingsRoute
+import info.cemu.cemu.settings.settingsNavigation
 import kotlinx.coroutines.launch
 
 @Composable
@@ -100,6 +108,8 @@ fun EmulationScreen(
     val sideMenuState by viewModel.sideMenuState.collectAsState()
     val isInputOverlayVisible by viewModel.isInputOverlayVisible.collectAsState()
     val inputOverlaySettings by viewModel.inputOverlaySettings.collectAsState()
+    val isPaused by viewModel.isPaused.collectAsState()
+    val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
 
 
     fun closeDrawer() {
@@ -128,8 +138,8 @@ fun EmulationScreen(
         }
     }
 
-    LaunchedEffect(drawerState.isClosed) {
-        setInputListeningEnabled(drawerState.isClosed)
+    LaunchedEffect(drawerState.isClosed, isSettingsOpen) {
+        setInputListeningEnabled(drawerState.isClosed && !isSettingsOpen)
     }
 
     LaunchedEffect(sideMenuState.areScreensSwapped) {
@@ -222,6 +232,14 @@ fun EmulationScreen(
         }
     }
 
+    if (isPaused && !isSettingsOpen) {
+        PausedIndicator(onResume = { viewModel.setPaused(false) })
+    }
+
+    if (isSettingsOpen) {
+        EmulationSettings(onClose = viewModel::closeSettings)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         SnackbarHost(
             hostState = snackbarHostState,
@@ -253,6 +271,47 @@ fun EmulationScreen(
     }
 
     EmulationTextInputDialog()
+}
+
+@Composable
+private fun PausedIndicator(onResume: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 20.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(tr("Paused"), fontSize = 16.sp)
+                TextButton(onClick = onResume) { Text(tr("Resume")) }
+            }
+        }
+    }
+}
+
+// the emulator settings on top of the paused game, opened from the panel overlay
+@Composable
+private fun EmulationSettings(onClose: () -> Unit) {
+    BackHandler(onBack = onClose)
+    Surface(modifier = Modifier.fillMaxSize()) {
+        val navController = rememberNavController()
+        NavHost(
+            navController = navController,
+            startDestination = SettingsRoute,
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+        ) {
+            settingsNavigation(navController, onExit = onClose)
+        }
+    }
 }
 
 @Composable
@@ -440,9 +499,9 @@ private fun EmulationSurfaces(
     val usePadPresentation =
         isPadVisibleEffective && sideMenuState.isPadOnExternalDisplay && padDisplay != null
 
-    val mainTouchListener = remember { CanvasOnTouchListener() }
-    val padTouchListener = remember { CanvasOnTouchListener() }
-    val padPresentationTouchListener = remember { CanvasOnTouchListener() }
+    val mainTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
+    val padTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
+    val padPresentationTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
 
     val isMainTargetingTV = !sideMenuState.areScreensSwapped
     val mainTargetDimensions =

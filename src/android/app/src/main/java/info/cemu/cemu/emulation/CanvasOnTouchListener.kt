@@ -3,11 +3,17 @@ package info.cemu.cemu.emulation
 import android.annotation.SuppressLint
 import android.view.MotionEvent
 import android.view.View
+import info.cemu.cemu.nativeinterface.NativeEmulation
+import info.cemu.cemu.nativeinterface.NativeEmulation.OverlayAction
 import info.cemu.cemu.nativeinterface.NativeInput
 import kotlin.math.roundToInt
 
-class CanvasOnTouchListener : View.OnTouchListener {
+class CanvasOnTouchListener(
+    private val onOverlayAction: (Int) -> Unit = {},
+) : View.OnTouchListener {
     private var currentPointerId: Int = -1
+    // panel button held down by the current pointer, its touches don't reach the game
+    private var pressedAction: Int = OverlayAction.NONE
     private var isTV: Boolean = false
     private var rotateLeft: Boolean = false
     private var surfaceWidth: Int = 1
@@ -20,6 +26,7 @@ class CanvasOnTouchListener : View.OnTouchListener {
         rotateLeft: Boolean,
     ) {
         currentPointerId = -1
+        releasePressedAction()
         isTV = isTv
         this.rotateLeft = rotateLeft
         this.surfaceWidth = surfaceWidth.coerceAtLeast(1)
@@ -72,12 +79,20 @@ class CanvasOnTouchListener : View.OnTouchListener {
                     return false
                 }
                 currentPointerId = pointerId
+                val action = NativeEmulation.getOverlayActionAt(x, y, isTV)
+                if (action != OverlayAction.NONE) {
+                    pressedAction = action
+                    NativeEmulation.setOverlayPressedAction(action)
+                    return true
+                }
                 NativeInput.onTouchDown(x, y, isTV)
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
-                NativeInput.onTouchMove(x, y, isTV)
+                if (pressedAction == OverlayAction.NONE) {
+                    NativeInput.onTouchMove(x, y, isTV)
+                }
                 return true
             }
 
@@ -88,10 +103,28 @@ class CanvasOnTouchListener : View.OnTouchListener {
                     }
                 }
                 currentPointerId = -1
+                if (pressedAction != OverlayAction.NONE) {
+                    val action = pressedAction
+                    releasePressedAction()
+                    // only fire if the finger is lifted on the same button
+                    if (event.actionMasked != MotionEvent.ACTION_CANCEL &&
+                        NativeEmulation.getOverlayActionAt(x, y, isTV) == action
+                    ) {
+                        onOverlayAction(action)
+                    }
+                    return true
+                }
                 NativeInput.onTouchUp(x, y, isTV)
                 return true
             }
         }
         return false
+    }
+
+    private fun releasePressedAction() {
+        if (pressedAction != OverlayAction.NONE) {
+            pressedAction = OverlayAction.NONE
+            NativeEmulation.setOverlayPressedAction(OverlayAction.NONE)
+        }
     }
 }

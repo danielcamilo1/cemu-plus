@@ -239,6 +239,24 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_setBatteryStatus([[maybe_unu
 	LatteOverlay_setBatteryStatus(level, temperature, charging);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_getOverlayActionAt([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
+{
+	return static_cast<jint>(LatteOverlay_getActionAt(x, y, !isTV));
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_setOverlayPressedAction([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint action)
+{
+	LatteOverlay_setPressedAction(static_cast<OverlayAction>(action));
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_setOverlayPaused([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean paused)
+{
+	LatteOverlay_setPaused(paused);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeEmulation_setExternalScreenRotatedLeft([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean rotated)
 {

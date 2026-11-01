@@ -33,7 +33,11 @@ guaranteed, and some functionality may be missing compared to the desktop versio
   free space, for example the area around the GamePad image on the AYN Thor's bottom screen. Each stat has its own
   toggle: FPS, draw calls, CPU usage and clock, GPU usage and clock, CPU/GPU/battery temperature, battery level and
   RAM. Shader compilation progress can also be shown inside the panel instead of as a notification, and
-  notifications move out of the black bar so nothing overlaps (Settings → Overlay settings → Style)
+  notifications move out of the black bar so nothing overlaps (Settings → Overlay settings → Style). In a black bar the
+  panel always fills the whole bar, however many stats are turned on
+- **Panel buttons**: optional touch buttons in the GamePad panel to turn frame generation on and off, cycle the
+  frame generation multiplier (x2, x3, x4), pause and resume the game, and open the emulator settings (which pauses
+  the game until you leave them)
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
 ## Download

@@ -21,6 +21,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import info.cemu.cemu.BuildConfig
 import info.cemu.cemu.common.android.display.DisplayUtils
 import info.cemu.cemu.common.android.inputevent.isFromPhysicalController
+import info.cemu.cemu.common.input.GamepadInputSource
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.ui.components.ActivityContent
 import info.cemu.cemu.common.ui.localization.TranslatableContent
@@ -78,6 +79,14 @@ class EmulationActivity : AppCompatActivity() {
     private var processInputEvents = true
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        // the controller settings opened from the game listen for input like in the main activity
+        if (!processInputEvents) {
+            GamepadInputSource.emitMotion(event)
+            if (GamepadInputSource.hasMotionSubscribers) {
+                return true
+            }
+        }
+
         if (processInputEvents && InputHandler.onMotionEvent(event)) {
             return true
         }
@@ -87,6 +96,13 @@ class EmulationActivity : AppCompatActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         HotkeyManager.onKeyEvent(event)
+
+        if (!processInputEvents) {
+            GamepadInputSource.emitKey(event)
+            if (GamepadInputSource.hasKeySubscribers) {
+                return true
+            }
+        }
 
         if (processInputEvents && InputHandler.onKeyEvent(event)) {
             return true
