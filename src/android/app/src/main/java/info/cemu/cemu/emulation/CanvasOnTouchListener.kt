@@ -83,6 +83,9 @@ class CanvasOnTouchListener(
                 if (action != OverlayAction.NONE) {
                     pressedAction = action
                     NativeEmulation.setOverlayPressedAction(action)
+                    if (action == OverlayAction.VOLUME) {
+                        NativeEmulation.onVolumeSliderTouch(x, isTV, true)
+                    }
                     return true
                 }
                 NativeInput.onTouchDown(x, y, isTV)
@@ -92,6 +95,8 @@ class CanvasOnTouchListener(
             MotionEvent.ACTION_MOVE -> {
                 if (pressedAction == OverlayAction.NONE) {
                     NativeInput.onTouchMove(x, y, isTV)
+                } else if (pressedAction == OverlayAction.VOLUME) {
+                    NativeEmulation.onVolumeSliderTouch(x, isTV, false)
                 }
                 return true
             }
@@ -106,6 +111,11 @@ class CanvasOnTouchListener(
                 if (pressedAction != OverlayAction.NONE) {
                     val action = pressedAction
                     releasePressedAction()
+                    // the slider is dragged, so it reports wherever the finger is lifted
+                    if (action == OverlayAction.VOLUME) {
+                        onOverlayAction(action)
+                        return true
+                    }
                     // only fire if the finger is lifted on the same button
                     if (event.actionMasked != MotionEvent.ACTION_CANCEL &&
                         NativeEmulation.getOverlayActionAt(x, y, isTV) == action

@@ -116,7 +116,7 @@ class EmulationViewModel(
                     isInputOverlayVisible = settings.inputOverlaySettings.isOverlayEnabled,
                 )
             }
-            // the screen settings can also be changed from the settings opened in game
+            // the screen and motion settings can also be changed from the settings opened in game
             dataStore.data.map { it.emulationSettings }
                 .distinctUntilChanged()
                 .collect { emulationSettings ->
@@ -125,6 +125,7 @@ class EmulationViewModel(
                             isPadVisible = emulationSettings.isPadVisible,
                             isPadOnExternalDisplay = emulationSettings.isPadOnExternalDisplay,
                             isExternalScreenRotatedLeft = emulationSettings.isExternalScreenRotatedLeft,
+                            isMotionEnabled = emulationSettings.isMotionEnabled,
                         )
                     }
                 }
@@ -281,6 +282,7 @@ class EmulationViewModel(
             OverlayAction.SETTINGS -> if (_isSettingsOpen.value) closeSettings() else openSettings()
             OverlayAction.PAUSE -> setPaused(!_isPaused.value)
             OverlayAction.MENU -> _menuRequests.tryEmit(Unit)
+            OverlayAction.VOLUME -> viewModelScope.launch(Dispatchers.IO) { NativeSettings.saveSettings() }
         }
     }
 

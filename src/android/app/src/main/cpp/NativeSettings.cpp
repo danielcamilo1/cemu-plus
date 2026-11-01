@@ -1,5 +1,6 @@
 #include "JNIUtils.h"
 #include "audio/IAudioAPI.h"
+#include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "config/CemuConfig.h"
 #include "config/NetworkSettings.h"
 
@@ -450,6 +451,8 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setAudioDeviceEnabled([[maybe
 		device = L"Default";
 	else
 		device.clear();
+	if (!tv)
+		LatteOverlay_setPadVolume(enabled ? GetConfig().pad_volume : 0);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
@@ -478,6 +481,8 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setAudioDeviceVolume([[maybe_
 {
 	auto& deviceVolume = tv ? GetConfig().tv_volume : GetConfig().pad_volume;
 	deviceVolume = volume;
+	if (!tv && !GetConfig().pad_device.empty())
+		LatteOverlay_setPadVolume(volume);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
