@@ -35,10 +35,13 @@ guaranteed, and some functionality may be missing compared to the desktop versio
   RAM. Shader compilation progress can also be shown inside the panel instead of as a notification, and
   notifications move out of the black bar so nothing overlaps (Settings → Overlay settings → Style). In a black bar the
   panel always fills the whole bar, however many stats are turned on. Its header shows the icon and name of the game
-  you're playing
+  you're playing, and the temperature tile shows the GPU temperature with the CPU temperature next to it. Out of the
+  box the GamePad image is aligned to the top of its screen and the panel fills the black bar below it, with FPS and
+  all the panel buttons turned on
 - **Panel buttons**: optional touch buttons in the GamePad panel to turn frame generation on and off, cycle the
   frame generation multiplier (x2, x3, x4), pause and resume the game, and open the emulator settings (which pauses
-  the game until you leave them)
+  the game until you leave them). While the settings are open the panel stays visible and the same button closes
+  them again
 - **AMD FSR 1 and Snapdragon GSR upscale filters** for a sharper image when the game resolution is lower than the
   screen (Settings → Graphics settings → Upscale filter), set up like in Eden: FSR runs the EASU upscale followed by
   the RCAS sharpening pass, and Snapdragon GSR comes in the fast mobile variant and the EdgeDir variant. One

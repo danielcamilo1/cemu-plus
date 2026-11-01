@@ -260,6 +260,23 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_setOverlayPaused([[maybe_unu
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_setOverlaySettingsOpen([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean open)
+{
+	LatteOverlay_setSettingsOpen(open);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jintArray JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeEmulation_getOverlayPanelRect(JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean isTV)
+{
+	jint rect[4]{};
+	if (!LatteOverlay_getPanelRect(!isTV, rect[0], rect[1], rect[2], rect[3]))
+		return nullptr;
+	jintArray result = env->NewIntArray(4);
+	env->SetIntArrayRegion(result, 0, 4, rect);
+	return result;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeEmulation_setExternalScreenRotatedLeft([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean rotated)
 {
 	WindowSystem::GetWindowInfo().external_screen_rotated_left = rotated;

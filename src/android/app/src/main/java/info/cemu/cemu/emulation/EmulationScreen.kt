@@ -13,13 +13,16 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
@@ -56,9 +59,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,6 +92,7 @@ import info.cemu.cemu.nativeinterface.NativeEmulation
 import info.cemu.cemu.settings.SettingsRoute
 import info.cemu.cemu.settings.settingsNavigation
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun EmulationScreen(
@@ -237,7 +246,8 @@ fun EmulationScreen(
     }
 
     if (isSettingsOpen) {
-        EmulationSettings(onClose = viewModel::closeSettings)
+        val panelBounds = remember { viewModel.getPanelBounds() }
+        EmulationSettings(panelBounds = panelBounds, onClose = viewModel::closeSettings)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -297,19 +307,46 @@ private fun PausedIndicator(onResume: () -> Unit) {
     }
 }
 
-// the emulator settings on top of the paused game, opened from the panel overlay
+// the part of the screen beside the panel, null if that is too small for the settings
+private fun settingsAreaBesidePanel(screen: Rect, panel: Rect?): Rect? {
+    if (panel == null) {
+        return null
+    }
+    val area = listOf(
+        Rect(screen.left, screen.top, screen.right, panel.top),
+        Rect(screen.left, panel.bottom, screen.right, screen.bottom),
+        Rect(screen.left, screen.top, panel.left, screen.bottom),
+        Rect(panel.right, screen.top, screen.right, screen.bottom),
+    ).filter { it.width > 0f && it.height > 0f }
+        .maxByOrNull { it.width * it.height } ?: return null
+    return if (area.width * area.height >= screen.width * screen.height * MIN_SETTINGS_AREA) area else null
+}
+
+private const val MIN_SETTINGS_AREA = 0.35f
+
+// the emulator settings on top of the paused game, opened from the panel overlay. The panel stays visible
+// next to them so its settings button can close them again
 @Composable
-private fun EmulationSettings(onClose: () -> Unit) {
+private fun EmulationSettings(panelBounds: Rect?, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
-    Surface(modifier = Modifier.fillMaxSize()) {
-        val navController = rememberNavController()
-        NavHost(
-            navController = navController,
-            startDestination = SettingsRoute,
-            enterTransition = { EnterTransition.None },
-            exitTransition = { ExitTransition.None },
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screen = Rect(0f, 0f, constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
+        val area = settingsAreaBesidePanel(screen, panelBounds) ?: screen
+        val density = LocalDensity.current
+        Surface(
+            modifier = Modifier
+                .offset { IntOffset(area.left.roundToInt(), area.top.roundToInt()) }
+                .size(with(density) { area.width.toDp() }, with(density) { area.height.toDp() })
         ) {
-            settingsNavigation(navController, onExit = onClose)
+            val navController = rememberNavController()
+            NavHost(
+                navController = navController,
+                startDestination = SettingsRoute,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+            ) {
+                settingsNavigation(navController, onExit = onClose)
+            }
         }
     }
 }
@@ -546,7 +583,9 @@ private fun EmulationSurfaces(
 
     LinearLayout(currentGamePadPosition) { itemModifier ->
         EmulationSurface(
-            modifier = itemModifier,
+            modifier = itemModifier.onGloballyPositioned {
+                viewModel.setSurfaceLayout(true, isMainTargetingTV, it.boundsInRoot(), mainTargetDimensions)
+            },
             holderCallback = viewModel.mainHolderCallback,
             touchListener = mainTouchListener,
             touchIsTv = isMainTargetingTV,
@@ -556,8 +595,13 @@ private fun EmulationSurfaces(
         )
 
         if (isPadVisibleEffective && !usePadPresentation) {
+            DisposableEffect(Unit) {
+                onDispose { viewModel.removeSurfaceLayout(false) }
+            }
             EmulationSurface(
-                modifier = itemModifier,
+                modifier = itemModifier.onGloballyPositioned {
+                    viewModel.setSurfaceLayout(false, isPadTargetingTV, it.boundsInRoot(), padTargetDimensions)
+                },
                 holderCallback = viewModel.padHolderCallback,
                 touchListener = padTouchListener,
                 touchIsTv = isPadTargetingTV,

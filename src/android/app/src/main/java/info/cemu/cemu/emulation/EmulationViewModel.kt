@@ -1,6 +1,7 @@
 package info.cemu.cemu.emulation
 
 import android.view.SurfaceHolder
+import androidx.compose.ui.geometry.Rect
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -206,6 +207,8 @@ class EmulationViewModel(
             return
         }
         pausedForSettings = !_isPaused.value
+        // set before pausing so the panel gets drawn with the close button
+        NativeEmulation.setOverlaySettingsOpen(true)
         setPaused(true)
         _isSettingsOpen.value = true
     }
@@ -215,6 +218,7 @@ class EmulationViewModel(
             return
         }
         _isSettingsOpen.value = false
+        NativeEmulation.setOverlaySettingsOpen(false)
         NativeSettings.saveSettings()
         if (pausedForSettings) {
             setPaused(false)
@@ -222,11 +226,40 @@ class EmulationViewModel(
         pausedForSettings = false
     }
 
+    private data class SurfaceLayout(val isTV: Boolean, val bounds: Rect, val dimensions: SurfaceDimensions)
+
+    // where the surfaces inside the activity are drawn and the size of what they show, keyed by isMainCanvas
+    private val surfaceLayouts = HashMap<Boolean, SurfaceLayout>()
+
+    fun setSurfaceLayout(isMainCanvas: Boolean, isTV: Boolean, bounds: Rect, dimensions: SurfaceDimensions) {
+        surfaceLayouts[isMainCanvas] = SurfaceLayout(isTV, bounds, dimensions)
+    }
+
+    fun removeSurfaceLayout(isMainCanvas: Boolean) {
+        surfaceLayouts.remove(isMainCanvas)
+    }
+
+    // bounds of the panel overlay in root coordinates, null if no surface inside the activity draws it
+    fun getPanelBounds(): Rect? {
+        for ((isTV, bounds, dimensions) in surfaceLayouts.values) {
+            val rect = NativeEmulation.getOverlayPanelRect(isTV) ?: continue
+            val scaleX = bounds.width / dimensions.width
+            val scaleY = bounds.height / dimensions.height
+            return Rect(
+                left = bounds.left + rect[0] * scaleX,
+                top = bounds.top + rect[1] * scaleY,
+                right = bounds.left + rect[2] * scaleX,
+                bottom = bounds.top + rect[3] * scaleY,
+            )
+        }
+        return null
+    }
+
     fun onOverlayAction(action: Int) {
         when (action) {
             OverlayAction.FRAME_GEN -> NativeFrameGen.setEnabled(!NativeFrameGen.isEnabled())
             OverlayAction.FRAME_GEN_MODE -> cycleFrameGenMultiplier()
-            OverlayAction.SETTINGS -> openSettings()
+            OverlayAction.SETTINGS -> if (_isSettingsOpen.value) closeSettings() else openSettings()
             OverlayAction.PAUSE -> setPaused(!_isPaused.value)
         }
     }

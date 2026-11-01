@@ -79,5 +79,12 @@ object NativeEmulation {
     external fun setOverlayPaused(paused: Boolean)
 
     @JvmStatic
+    external fun setOverlaySettingsOpen(open: Boolean)
+
+    // left, top, right, bottom of the panel in surface pixels as drawn in the last frame, null if there is none
+    @JvmStatic
+    external fun getOverlayPanelRect(isTV: Boolean): IntArray?
+
+    @JvmStatic
     external fun supportsLoadingCustomDriver(): Boolean
 }

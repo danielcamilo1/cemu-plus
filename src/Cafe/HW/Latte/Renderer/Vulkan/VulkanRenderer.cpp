@@ -1013,6 +1013,9 @@ void VulkanRenderer::InitializeSurface(const Vector2i& size, bool mainWindow)
 	}
 	else
 	{
+		// a release that timed out in StopUsingPadAndWait must not destroy the new swapchain
+		m_destroyPadSwapchainNextAcquire.clear();
+		m_destroyPadSwapchainNextAcquire.notify_all();
 		m_padSwapchainInfo = std::make_unique<SwapchainInfoVk>(mainWindow, size);
 		// todo: figure out a way to exclusively create swapchain on main LatteThread
 		m_padSwapchainInfo->Create();
@@ -1032,7 +1035,19 @@ SwapchainInfoVk& VulkanRenderer::GetChainInfo(bool mainWindow) const
 void VulkanRenderer::StopUsingPadAndWait()
 {
 	m_destroyPadSwapchainNextAcquire.test_and_set();
-	m_destroyPadSwapchainNextAcquire.wait(true);
+	// the GPU thread releases the swapchain when it acquires the next image or goes idle. It can be stuck waiting for a
+	// paused title, so don't block the UI thread forever. The Vulkan surface keeps its own reference to the window and a
+	// lost surface is handled when presenting
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (m_destroyPadSwapchainNextAcquire.test())
+	{
+		if (std::chrono::steady_clock::now() >= deadline)
+		{
+			cemuLog_log(LogType::Force, "Vulkan: Timed out waiting for the GamePad swapchain to be released");
+			break;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 }
 
 bool VulkanRenderer::IsPadWindowActive()
@@ -3302,6 +3317,15 @@ void VulkanRenderer::NotifyLatteCommandProcessorIdle()
 {
 	if (m_submitOnIdle)
 		SubmitCommandBuffer();
+	// no frames are presented while the title is paused, so release the GamePad swapchain here as well. Otherwise
+	// StopUsingPadAndWait blocks the UI thread forever when the GamePad surface goes away, like when the device sleeps
+	if (m_destroyPadSwapchainNextAcquire.test())
+	{
+		if (GetChainInfoPtr(false))
+			RecreateSwapchain(false, true);
+		m_destroyPadSwapchainNextAcquire.clear();
+		m_destroyPadSwapchainNextAcquire.notify_all();
+	}
 }
 
 void VulkanBenchmarkPrintResults();

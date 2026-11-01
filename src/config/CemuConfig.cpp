@@ -158,14 +158,14 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		frame_gen.flow_scale = frame_gen_node.get("FlowScale", 0);
 	}
 
-	pad_screen_alignment = graphic.get("PadScreenAlignment", PadScreenAlignment::kCenter);
+	pad_screen_alignment = graphic.get("PadScreenAlignment", PadScreenAlignment::kTop);
 
 	auto overlay_node = graphic.get("Overlay");
 	if(overlay_node.valid())
 	{
-		overlay.position = overlay_node.get("Position", ScreenPosition::kDisabled);
-		overlay.screen = overlay_node.get("Screen", OverlayScreen::kBoth);
-		overlay.placement = overlay_node.get("Placement", OverlayPlacement::kOverGameplay);
+		overlay.position = overlay_node.get("Position", ScreenPosition::kBottomCenter);
+		overlay.screen = overlay_node.get("Screen", OverlayScreen::kPad);
+		overlay.placement = overlay_node.get("Placement", OverlayPlacement::kBlackBars);
 		overlay.style = overlay_node.get("Style", OverlayStyle::kGamePad);
 		overlay.text_color = overlay_node.get("TextColor", 0xFFFFFFFF);
 		overlay.text_scale = overlay_node.get("TextScale", 100);
@@ -179,10 +179,10 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.temperature = overlay_node.get("Temperature", false);
 		overlay.battery = overlay_node.get("Battery", false);
 		overlay.shader_compiling = overlay_node.get("PanelShaderCompiling", false);
-		overlay.action_frame_gen = overlay_node.get("ActionFrameGen", false);
-		overlay.action_frame_gen_mode = overlay_node.get("ActionFrameGenMode", false);
-		overlay.action_settings = overlay_node.get("ActionSettings", false);
-		overlay.action_pause = overlay_node.get("ActionPause", false);
+		overlay.action_frame_gen = overlay_node.get("ActionFrameGen", true);
+		overlay.action_frame_gen_mode = overlay_node.get("ActionFrameGenMode", true);
+		overlay.action_settings = overlay_node.get("ActionSettings", true);
+		overlay.action_pause = overlay_node.get("ActionPause", true);
 		overlay.debug = overlay_node.get("Debug", false);
 
 		notification.controller_profiles = overlay_node.get("ControllerProfiles", true);
@@ -192,7 +192,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 	else
 	{
 		// legacy support
-		overlay.position = graphic.get("OverlayPosition", ScreenPosition::kDisabled);
+		overlay.position = graphic.get("OverlayPosition", ScreenPosition::kBottomCenter);
 		overlay.text_color = graphic.get("OverlayTextColor", 0xFFFFFFFF);
 		overlay.fps = graphic.get("OverlayFPS", true);
 		overlay.drawcalls = graphic.get("OverlayDrawCalls", false);

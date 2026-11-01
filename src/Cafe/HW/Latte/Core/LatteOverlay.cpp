@@ -68,13 +68,29 @@ struct OverlayButton
 };
 std::mutex g_buttons_mutex;
 std::vector<OverlayButton> g_buttons[2]; // TV, GamePad
+ImVec4 g_panel_rect[2]{}; // min x, min y, max x, max y of the panel, empty if there is none
 std::atomic<sint32> g_pressed_action{(sint32)OverlayAction::kNone};
 std::atomic_bool g_title_paused{false};
+std::atomic_bool g_settings_open{false};
 
-static void LatteOverlay_publishButtons(bool padView, std::vector<OverlayButton>&& buttons)
+static void LatteOverlay_publishButtons(bool padView, std::vector<OverlayButton>&& buttons, ImVec4 panelRect = {})
 {
 	std::scoped_lock lock(g_buttons_mutex);
 	g_buttons[padView ? 1 : 0] = std::move(buttons);
+	g_panel_rect[padView ? 1 : 0] = panelRect;
+}
+
+bool LatteOverlay_getPanelRect(bool padView, sint32& minX, sint32& minY, sint32& maxX, sint32& maxY)
+{
+	std::scoped_lock lock(g_buttons_mutex);
+	const ImVec4& rect = g_panel_rect[padView ? 1 : 0];
+	if (rect.z <= rect.x || rect.w <= rect.y)
+		return false;
+	minX = (sint32)std::floor(rect.x);
+	minY = (sint32)std::floor(rect.y);
+	maxX = (sint32)std::ceil(rect.z);
+	maxY = (sint32)std::ceil(rect.w);
+	return true;
 }
 
 OverlayAction LatteOverlay_getActionAt(sint32 x, sint32 y, bool padView)
@@ -96,6 +112,11 @@ void LatteOverlay_setPressedAction(OverlayAction action)
 void LatteOverlay_setPaused(bool paused)
 {
 	g_title_paused = paused;
+}
+
+void LatteOverlay_setSettingsOpen(bool open)
+{
+	g_settings_open = open;
 }
 
 // name and icon of the running game, shown in the panel header
@@ -469,6 +490,9 @@ const ImU32 kPanelGood = IM_COL32(76, 217, 100, 255);
 const ImU32 kPanelWarning = IM_COL32(255, 176, 32, 255);
 const ImU32 kPanelCritical = IM_COL32(255, 77, 77, 255);
 
+// the bundled icon font is Font Awesome 4, these are its glyphs for icons the Font Awesome 5 header maps elsewhere
+const char* const kIconTachometer = "\xEF\x83\xA4"; // U+F0E4
+
 static ImU32 LatteOverlay_usageColor(float fraction)
 {
 	if (fraction >= 0.9f)
@@ -510,7 +534,7 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	if (config.overlay.fps)
 	{
 		auto& tile = tiles.emplace_back();
-		tile.icon = (const char*)ICON_FA_TACHOMETER_ALT;
+		tile.icon = kIconTachometer;
 		tile.label = "FPS";
 		if (g_state.frame_gen_active)
 		{
@@ -550,7 +574,7 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	if (config.overlay.cpu_per_core_usage && g_state.processor_count > 0)
 	{
 		auto& tile = tiles.emplace_back();
-		tile.icon = (const char*)ICON_FA_LAYER_GROUP;
+		tile.icon = (const char*)ICON_FA_TH;
 		tile.label = "CORES";
 		tile.detail = fmt::format("{}", g_state.processor_count);
 		tile.coreBars = true;
@@ -576,7 +600,7 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	if (config.overlay.ram_usage)
 	{
 		auto& tile = tiles.emplace_back();
-		tile.icon = (const char*)ICON_FA_MEMORY;
+		tile.icon = (const char*)ICON_FA_DATABASE;
 		tile.label = "RAM";
 		tile.value = fmt::format("{}", g_state.ram_usage);
 		tile.suffix = "MB";
@@ -585,7 +609,7 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	if (config.overlay.vram_usage && g_state.vramUsage != -1 && g_state.vramTotal > 0)
 	{
 		auto& tile = tiles.emplace_back();
-		tile.icon = (const char*)ICON_FA_MEMORY;
+		tile.icon = (const char*)ICON_FA_DATABASE;
 		tile.label = "VRAM";
 		tile.value = fmt::format("{}", g_state.vramUsage);
 		tile.suffix = "MB";
@@ -600,9 +624,14 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 		tile.icon = (const char*)ICON_FA_THERMOMETER_HALF;
 		tile.label = "TEMP";
 		const float batteryTemp = LatteOverlay_getBatteryTemperature();
-		// the CPU sensor is the most useful one, devices that don't expose it still report the battery temperature
-		float temp = g_device.cpu_temp;
-		const char* source = "CPU";
+		// the GPU is what heats up the most while emulating, devices that don't expose it fall back to the CPU and then the battery
+		float temp = g_device.gpu_temp;
+		const char* source = "GPU";
+		if (temp < 0.0f)
+		{
+			temp = g_device.cpu_temp;
+			source = "CPU";
+		}
 		if (temp < 0.0f)
 		{
 			temp = batteryTemp;
@@ -618,9 +647,9 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 		}
 		else
 			tile.value = "N/A";
-		if (g_device.gpu_temp >= 0.0f)
-			tile.detail = fmt::format("GPU {:.0f}{}", g_device.gpu_temp, kDegree);
-		else if (g_device.cpu_temp >= 0.0f && batteryTemp >= 0.0f)
+		if (g_device.gpu_temp >= 0.0f && g_device.cpu_temp >= 0.0f)
+			tile.detail = fmt::format("CPU {:.0f}{}", g_device.cpu_temp, kDegree);
+		else if ((g_device.gpu_temp >= 0.0f || g_device.cpu_temp >= 0.0f) && batteryTemp >= 0.0f)
 			tile.detail = fmt::format("BAT {:.0f}{}", batteryTemp, kDegree);
 	}
 
@@ -682,7 +711,7 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	{
 		auto& tile = tiles.emplace_back();
 		tile.action = OverlayAction::kFrameGenMode;
-		tile.icon = (const char*)ICON_FA_LAYER_GROUP;
+		tile.icon = (const char*)ICON_FA_FILM;
 		const sint32 targetRate = config.frame_gen.target_rate.GetValue();
 		if (targetRate > 0)
 			tile.label = fmt::format("FG {} FPS", targetRate);
@@ -697,8 +726,11 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	{
 		auto& tile = tiles.emplace_back();
 		tile.action = OverlayAction::kSettings;
-		tile.icon = (const char*)ICON_FA_COG;
-		tile.label = "SETTINGS";
+		// while the settings are open the same button closes them again
+		const bool settingsOpen = g_settings_open.load();
+		tile.icon = settingsOpen ? (const char*)ICON_FA_TIMES : (const char*)ICON_FA_COG;
+		tile.label = settingsOpen ? "CLOSE" : "SETTINGS";
+		tile.on = settingsOpen;
 	}
 
 	if (config.overlay.action_pause)
@@ -1123,7 +1155,7 @@ enum class OverlayBar
 
 // renders the stats as a GamePad styled panel. When a black bar was found the panel fills all of it, otherwise a
 // compact panel is drawn over gameplay. Returns true if the panel was placed in the black bar
-static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons)
+static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
 {
 	const auto tiles = LatteOverlay_buildTiles();
 	const bool statusEnabled = LatteOverlay_isShaderStatusInPanel();
@@ -1187,7 +1219,10 @@ static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint
 	ImFont* smallFont = ImGui_GetFont(smallSize);
 	ImFont* valueFont = ImGui_GetFont(valueSize);
 	if (smallFont && valueFont)
+	{
 		LatteOverlay_drawPanel(layout, pmin, tiles, statusEnabled, smallFont, smallSize, valueFont, valueSize, buttons);
+		panelRect = { pmin.x, pmin.y, pmin.x + layout.size.x, pmin.y + layout.size.y };
+	}
 
 	if (!inBar)
 		position.y += (layout.size.y + 10.0f) * (float)direction;
@@ -1696,8 +1731,9 @@ void LatteOverlay_render(bool pad_view)
 		position.y += areaMin.y;
 		if (config.overlay.style == OverlayStyle::kGamePad)
 		{
-			statsInBar = LatteOverlay_renderPanel(position, pivot, direction, overlayFontSize, areaMin, areaSize, bar, buttons);
-			LatteOverlay_publishButtons(pad_view, std::move(buttons));
+			ImVec4 panelRect{};
+			statsInBar = LatteOverlay_renderPanel(position, pivot, direction, overlayFontSize, areaMin, areaSize, bar, buttons, panelRect);
+			LatteOverlay_publishButtons(pad_view, std::move(buttons), panelRect);
 			if (config.overlay.debug)
 			{
 				if (statsInBar)
