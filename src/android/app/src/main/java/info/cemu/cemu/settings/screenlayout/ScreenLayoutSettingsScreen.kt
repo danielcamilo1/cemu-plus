@@ -31,7 +31,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -123,6 +127,19 @@ fun ScreenLayoutSettingsScreen(
         enableToolbar(screen, if (screen == NativeSettings.OverlayScreen.PAD) align else NativeSettings.PadScreenAlignment.CENTER)
     }
 
+    // the first option of the layout section, so the previews below show what the toolbar takes
+    val toolbarToggle: @Composable () -> Unit = {
+        Toggle(
+            label = tr("Toolbar in the black bars"),
+            description = tr("Uses the empty space around the game for a toolbar with performance info and touch buttons. It never covers the game"),
+            checked = toolbarEnabled,
+            onCheckedChanged = {
+                toolbarEnabled = it
+                applyToolbar(enabled = it)
+            },
+        )
+    }
+
     ScreenContent(
         appBarText = tr("Screen layout"),
         navigateBack = navigateBack,
@@ -146,6 +163,7 @@ fun ScreenLayoutSettingsScreen(
                 onRotatedLeftChanged = viewModel::setExternalScreenRotatedLeft,
                 alignment = alignment,
                 showToolbar = toolbarEnabled,
+                toolbarToggle = toolbarToggle,
                 onAlignmentChanged = {
                     alignment = it
                     NativeSettings.setPadScreenAlignment(it)
@@ -164,19 +182,20 @@ fun ScreenLayoutSettingsScreen(
                 onGamePadPositionChanged = viewModel::setGamePadPosition,
                 showToolbar = toolbarEnabled,
                 toolbarOnPad = effectiveToolbarScreen == NativeSettings.OverlayScreen.PAD,
+                toolbarToggle = toolbarToggle,
             )
         }
 
-        Header(tr("Toolbar"))
-        Toggle(
-            label = tr("Toolbar in the black bars"),
-            description = tr("Uses the empty space around the game for a toolbar with performance info and touch buttons. It never covers the game"),
-            checked = toolbarEnabled,
-            onCheckedChanged = {
-                toolbarEnabled = it
-                applyToolbar(enabled = it)
-            },
-        )
+        if (toolbarEnabled) {
+            Header(tr("Toolbar style"))
+            SingleSelection(
+                label = tr("Theme"),
+                initialChoice = NativeSettings::getOverlayTheme,
+                onChoiceChanged = NativeSettings::setOverlayTheme,
+                choiceToString = { toolbarThemeToString(it) },
+                choices = listOf(NativeSettings.OverlayTheme.BLACK, NativeSettings.OverlayTheme.WHITE),
+            )
+        }
         if (toolbarEnabled && !useSecondScreen && emulationSettings.isPadVisible) {
             SingleSelection(
                 label = tr("Toolbar goes around"),
@@ -205,6 +224,7 @@ private fun SecondScreenLayout(
     onRotatedLeftChanged: (Boolean) -> Unit,
     alignment: Int,
     showToolbar: Boolean,
+    toolbarToggle: @Composable () -> Unit,
     onAlignmentChanged: (Int) -> Unit,
 ) {
     // a screen wider than the GamePad gets the bars on the sides instead, there is nothing to align then
@@ -218,6 +238,7 @@ private fun SecondScreenLayout(
     )
 
     Header(tr("Layout"))
+    toolbarToggle()
     InfoText(secondScreenExplanation(screen, isDetected, isLetterboxed))
     if (!isLetterboxed) {
         return
@@ -235,8 +256,8 @@ private fun SecondScreenLayout(
                 label = alignmentToString(choice),
                 selected = alignment == choice,
                 onClick = { onAlignmentChanged(choice) },
-            ) { imageColor, toolbarColor ->
-                drawSecondScreenPreview(choice, showToolbar, imageColor, toolbarColor)
+            ) { paint ->
+                drawSecondScreenPreview(choice, showToolbar, paint)
             }
         }
     }
@@ -254,8 +275,10 @@ private fun SingleScreenLayout(
     onGamePadPositionChanged: (GamePadPosition) -> Unit,
     showToolbar: Boolean,
     toolbarOnPad: Boolean,
+    toolbarToggle: @Composable () -> Unit,
 ) {
     Header(tr("Layout"))
+    toolbarToggle()
     InfoText(singleScreenExplanation(screen, isPadVisible))
     Toggle(
         label = tr("Show the GamePad on this screen too"),
@@ -264,8 +287,8 @@ private fun SingleScreenLayout(
         onCheckedChanged = onPadVisibleChanged,
     )
     if (!isPadVisible) {
-        PreviewCard(screen) { imageColor, toolbarColor ->
-            drawSingleScreenPreview(null, showToolbar, false, imageColor, toolbarColor)
+        PreviewCard(screen) { paint ->
+            drawSingleScreenPreview(null, showToolbar, false, paint)
         }
         return
     }
@@ -288,8 +311,8 @@ private fun SingleScreenLayout(
                 label = gamePadPositionToString(position),
                 selected = gamePadPosition == position,
                 onClick = { onGamePadPositionChanged(position) },
-            ) { imageColor, toolbarColor ->
-                drawSingleScreenPreview(position, showToolbar, toolbarOnPad, imageColor, toolbarColor)
+            ) { paint ->
+                drawSingleScreenPreview(position, showToolbar, toolbarOnPad, paint)
             }
         }
     }
@@ -297,7 +320,6 @@ private fun SingleScreenLayout(
 
 @Composable
 private fun ToolbarSettings() {
-    Header(tr("Toolbar style"))
     Slider(
         label = tr("Size"),
         initialValue = NativeSettings::getOverlayTextScalePercentage,
@@ -469,6 +491,12 @@ private fun alignmentToString(alignment: Int) = when (alignment) {
     else -> throw IllegalArgumentException("Invalid GamePad screen alignment: $alignment")
 }
 
+private fun toolbarThemeToString(theme: Int) = when (theme) {
+    NativeSettings.OverlayTheme.BLACK -> tr("Black, like the Wii U Deluxe")
+    NativeSettings.OverlayTheme.WHITE -> tr("White, like the Wii U Basic")
+    else -> throw IllegalArgumentException("Invalid toolbar theme: $theme")
+}
+
 private fun gamePadPositionToString(position: GamePadPosition) = when (position) {
     GamePadPosition.ABOVE -> tr("Above")
     GamePadPosition.BELOW -> tr("Below")
@@ -476,22 +504,38 @@ private fun gamePadPositionToString(position: GamePadPosition) = when (position)
     GamePadPosition.RIGHT -> tr("Right")
 }
 
+// what the previews are drawn with, the game image is white with a label so it reads as the gameplay
+private class PreviewPaint(
+    val toolbarColor: Color,
+    val textMeasurer: TextMeasurer,
+    val gameplayLabel: String,
+    val padLabel: String,
+)
+
+private val PreviewGameplayColor = Color.White
+private val PreviewPadColor = Color(0xFFDCDCE2)
+private val PreviewLabelColor = Color(0xFF202024)
+
 @Composable
-private fun PreviewCanvas(screen: SecondScreenInfo, draw: DrawScope.(imageColor: Color, toolbarColor: Color) -> Unit) {
-    val imageColor = MaterialTheme.colorScheme.primary
-    val toolbarColor = MaterialTheme.colorScheme.tertiary
+private fun PreviewCanvas(screen: SecondScreenInfo, draw: DrawScope.(PreviewPaint) -> Unit) {
+    val paint = PreviewPaint(
+        toolbarColor = MaterialTheme.colorScheme.tertiary,
+        textMeasurer = rememberTextMeasurer(),
+        gameplayLabel = tr("Gameplay"),
+        padLabel = tr("GamePad"),
+    )
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(screen.width.toFloat() / screen.height)
     ) {
         drawRoundRect(color = Color.Black, cornerRadius = CornerRadius(4.dp.toPx()))
-        draw(imageColor, toolbarColor)
+        draw(paint)
     }
 }
 
 @Composable
-private fun PreviewCard(screen: SecondScreenInfo, draw: DrawScope.(imageColor: Color, toolbarColor: Color) -> Unit) {
+private fun PreviewCard(screen: SecondScreenInfo, draw: DrawScope.(PreviewPaint) -> Unit) {
     Card(
         modifier = Modifier
             .padding(8.dp)
@@ -512,7 +556,7 @@ private fun PreviewChoice(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    draw: DrawScope.(imageColor: Color, toolbarColor: Color) -> Unit,
+    draw: DrawScope.(PreviewPaint) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     Card(
@@ -596,12 +640,24 @@ private fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color) {
     }
 }
 
-private fun DrawScope.drawSecondScreenPreview(alignment: Int, showToolbar: Boolean, imageColor: Color, toolbarColor: Color) {
+// the game image with its label centered, as big as the image allows
+private fun DrawScope.drawGameImage(image: Rect, color: Color, label: String, paint: PreviewPaint) {
+    drawRect(color = color, topLeft = image.topLeft, size = image.size)
+    val style = TextStyle(color = PreviewLabelColor, fontWeight = FontWeight.Medium, fontSize = (image.height * 0.2f).toSp())
+    var text = paint.textMeasurer.measure(label, style)
+    val maxWidth = image.width * 0.85f
+    if (text.size.width > maxWidth) {
+        text = paint.textMeasurer.measure(label, style.copy(fontSize = style.fontSize * (maxWidth / text.size.width)))
+    }
+    drawText(text, topLeft = Offset(image.center.x - text.size.width / 2f, image.center.y - text.size.height / 2f))
+}
+
+private fun DrawScope.drawSecondScreenPreview(alignment: Int, showToolbar: Boolean, paint: PreviewPaint) {
     val area = Rect(Offset.Zero, size)
     val image = fitImage(area, alignment)
-    drawRect(color = imageColor, topLeft = image.topLeft, size = image.size)
+    drawGameImage(image, PreviewGameplayColor, paint.gameplayLabel, paint)
     if (showToolbar) {
-        drawToolbar(biggestBar(area, image), toolbarColor)
+        drawToolbar(biggestBar(area, image), paint.toolbarColor)
     }
 }
 
@@ -610,15 +666,14 @@ private fun DrawScope.drawSingleScreenPreview(
     position: GamePadPosition?,
     showToolbar: Boolean,
     toolbarOnPad: Boolean,
-    imageColor: Color,
-    toolbarColor: Color,
+    paint: PreviewPaint,
 ) {
     val full = Rect(Offset.Zero, size)
     if (position == null) {
         val image = fitImage(full)
-        drawRect(color = imageColor, topLeft = image.topLeft, size = image.size)
+        drawGameImage(image, PreviewGameplayColor, paint.gameplayLabel, paint)
         if (showToolbar) {
-            drawToolbar(biggestBar(full, image), toolbarColor)
+            drawToolbar(biggestBar(full, image), paint.toolbarColor)
         }
         return
     }
@@ -627,10 +682,10 @@ private fun DrawScope.drawSingleScreenPreview(
     val (tvArea, padArea) = if (position.appearsAfterTV()) first to second else second to first
     val tvImage = fitImage(tvArea)
     val padImage = fitImage(padArea)
-    drawRect(color = imageColor, topLeft = tvImage.topLeft, size = tvImage.size)
-    // the GamePad image a bit lighter to tell them apart
-    drawRect(color = imageColor.copy(alpha = 0.55f), topLeft = padImage.topLeft, size = padImage.size)
+    drawGameImage(tvImage, PreviewGameplayColor, paint.gameplayLabel, paint)
+    // the GamePad image a light gray to tell them apart
+    drawGameImage(padImage, PreviewPadColor, paint.padLabel, paint)
     if (showToolbar) {
-        drawToolbar(if (toolbarOnPad) biggestBar(padArea, padImage) else biggestBar(tvArea, tvImage), toolbarColor)
+        drawToolbar(if (toolbarOnPad) biggestBar(padArea, padImage) else biggestBar(tvArea, tvImage), paint.toolbarColor)
     }
 }

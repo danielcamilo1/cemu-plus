@@ -100,6 +100,14 @@ private fun OverlaySettings() {
             NativeSettings.setOverlayStyle(it)
         },
     )
+    if (overlayStyle == NativeSettings.OverlayStyle.GAMEPAD)
+        SingleSelection(
+            label = tr("Theme"),
+            initialChoice = NativeSettings::getOverlayTheme,
+            onChoiceChanged = NativeSettings::setOverlayTheme,
+            choiceToString = { overlayThemeToString(it) },
+            choices = listOf(NativeSettings.OverlayTheme.BLACK, NativeSettings.OverlayTheme.WHITE),
+        )
     SingleSelection(
         label = tr("Show on"),
         initialChoice = NativeSettings::getOverlayScreen,
@@ -278,4 +286,10 @@ private fun overlayStyleToString(overlayStyle: Int) = when (overlayStyle) {
     NativeSettings.OverlayStyle.CLASSIC -> tr("Classic")
     NativeSettings.OverlayStyle.GAMEPAD -> tr("GamePad panel")
     else -> throw IllegalArgumentException("Invalid overlay style: $overlayStyle")
+}
+
+private fun overlayThemeToString(overlayTheme: Int) = when (overlayTheme) {
+    NativeSettings.OverlayTheme.BLACK -> tr("Black, like the Wii U Deluxe")
+    NativeSettings.OverlayTheme.WHITE -> tr("White, like the Wii U Basic")
+    else -> throw IllegalArgumentException("Invalid overlay theme: $overlayTheme")
 }

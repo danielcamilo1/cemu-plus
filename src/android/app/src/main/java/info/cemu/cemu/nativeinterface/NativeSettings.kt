@@ -161,6 +161,17 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayStyle(value: Int)
 
+    object OverlayTheme {
+        const val BLACK: Int = 0
+        const val WHITE: Int = 1
+    }
+
+    @JvmStatic
+    external fun getOverlayTheme(): Int
+
+    @JvmStatic
+    external fun setOverlayTheme(value: Int)
+
     object PadScreenAlignment {
         const val CENTER: Int = 0
         const val TOP: Int = 1

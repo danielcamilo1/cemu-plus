@@ -546,17 +546,86 @@ void LatteOverlay_renderOverlay(ImVec2& position, ImVec2& pivot, sint32 directio
 	ImGui::PopFont();
 }
 
-// GamePad panel style, a piano black shell with a glossy reflection and matte stat tiles like the black Wii U GamePad
-const ImU32 kPanelBody = IM_COL32(10, 10, 12, 238);
-const ImU32 kPanelRim = IM_COL32(58, 58, 64, 255);
-const ImU32 kPanelTile = IM_COL32(24, 24, 28, 240);
-const ImU32 kPanelTileBorder = IM_COL32(46, 46, 52, 255);
-const ImU32 kPanelLabel = IM_COL32(142, 142, 152, 255);
-const ImU32 kPanelGrille = IM_COL32(52, 52, 58, 255);
-const ImU32 kPanelAccent = IM_COL32(0, 162, 217, 255); // Wii U blue
-const ImU32 kPanelGood = IM_COL32(76, 217, 100, 255);
-const ImU32 kPanelWarning = IM_COL32(255, 176, 32, 255);
-const ImU32 kPanelCritical = IM_COL32(255, 77, 77, 255);
+// GamePad panel themes, styled after the shells of the black Wii U Deluxe GamePad and the white Wii U Basic GamePad
+struct PanelTheme
+{
+	ImU32 body, rim, tile, tileBorder, label, grille, accent, good, warning, critical;
+	ImU32 text; // values and the game name while the text color is left at its default
+	ImU32 shine; // gloss on the shell and the raised keys
+	ImU32 track; // empty part of meters and spinners
+	ImU32 shadow;
+	ImU32 key, keyPressed, keyIcon;
+	ImU32 iconRim;
+	ImU32 slot, slotShade, sliderFill, knob, knobGloss, knobRidge, knobOutline, knobPressed;
+	ImU32 title, titleValue; // magnified volume slider
+};
+
+// a piano black shell with a glossy reflection and matte stat tiles
+const PanelTheme kBlackPanel{
+	.body = IM_COL32(10, 10, 12, 238),
+	.rim = IM_COL32(58, 58, 64, 255),
+	.tile = IM_COL32(24, 24, 28, 240),
+	.tileBorder = IM_COL32(46, 46, 52, 255),
+	.label = IM_COL32(142, 142, 152, 255),
+	.grille = IM_COL32(52, 52, 58, 255),
+	.accent = IM_COL32(0, 162, 217, 255), // Wii U blue
+	.good = IM_COL32(76, 217, 100, 255),
+	.warning = IM_COL32(255, 176, 32, 255),
+	.critical = IM_COL32(255, 77, 77, 255),
+	.text = IM_COL32(255, 255, 255, 255),
+	.shine = IM_COL32(255, 255, 255, 5),
+	.track = IM_COL32(255, 255, 255, 18),
+	.shadow = IM_COL32(0, 0, 0, 80),
+	.key = IM_COL32(34, 34, 40, 245),
+	.keyPressed = IM_COL32(14, 14, 18, 245),
+	.keyIcon = IM_COL32(222, 222, 230, 255),
+	.iconRim = IM_COL32(255, 255, 255, 40),
+	.slot = IM_COL32(2, 2, 4, 255),
+	.slotShade = IM_COL32(0, 0, 0, 255),
+	.sliderFill = IM_COL32(168, 168, 176, 255),
+	.knob = IM_COL32(212, 212, 218, 255), // light gray, almost white
+	.knobGloss = IM_COL32(255, 255, 255, 90),
+	.knobRidge = IM_COL32(150, 150, 158, 255),
+	.knobOutline = IM_COL32(128, 128, 136, 255),
+	.knobPressed = IM_COL32(255, 255, 255, 255),
+	.title = IM_COL32(230, 230, 236, 255),
+	.titleValue = IM_COL32(190, 190, 198, 255),
+};
+
+// a glossy white shell with soft gray tiles, darker status colors so they read on the light background
+const PanelTheme kWhitePanel{
+	.body = IM_COL32(246, 246, 248, 242),
+	.rim = IM_COL32(200, 200, 206, 255),
+	.tile = IM_COL32(234, 234, 238, 245),
+	.tileBorder = IM_COL32(208, 208, 214, 255),
+	.label = IM_COL32(112, 112, 122, 255),
+	.grille = IM_COL32(186, 186, 194, 255),
+	.accent = IM_COL32(0, 144, 200, 255),
+	.good = IM_COL32(36, 168, 70, 255),
+	.warning = IM_COL32(222, 132, 0, 255),
+	.critical = IM_COL32(220, 50, 50, 255),
+	.text = IM_COL32(36, 36, 42, 255),
+	.shine = IM_COL32(255, 255, 255, 40),
+	.track = IM_COL32(0, 0, 0, 22),
+	.shadow = IM_COL32(0, 0, 0, 60),
+	.key = IM_COL32(252, 252, 253, 250),
+	.keyPressed = IM_COL32(218, 218, 224, 250),
+	.keyIcon = IM_COL32(62, 62, 70, 255),
+	.iconRim = IM_COL32(0, 0, 0, 40),
+	.slot = IM_COL32(204, 204, 210, 255),
+	.slotShade = IM_COL32(176, 176, 184, 255),
+	.sliderFill = IM_COL32(150, 150, 160, 255),
+	.knob = IM_COL32(252, 252, 253, 255),
+	.knobGloss = IM_COL32(255, 255, 255, 120),
+	.knobRidge = IM_COL32(176, 176, 184, 255),
+	.knobOutline = IM_COL32(150, 150, 158, 255),
+	.knobPressed = IM_COL32(90, 90, 100, 255),
+	.title = IM_COL32(40, 40, 46, 255),
+	.titleValue = IM_COL32(100, 100, 110, 255),
+};
+
+// the theme the panel is drawn with, picked from the config every frame
+const PanelTheme* s_panel = &kBlackPanel;
 
 // the bundled icon font is Font Awesome 4, these are its glyphs for icons the Font Awesome 5 header maps elsewhere
 const char* const kIconTachometer = "\xEF\x83\xA4"; // U+F0E4
@@ -564,19 +633,19 @@ const char* const kIconTachometer = "\xEF\x83\xA4"; // U+F0E4
 static ImU32 LatteOverlay_usageColor(float fraction)
 {
 	if (fraction >= 0.9f)
-		return kPanelCritical;
+		return s_panel->critical;
 	if (fraction >= 0.7f)
-		return kPanelWarning;
-	return kPanelAccent;
+		return s_panel->warning;
+	return s_panel->accent;
 }
 
 static ImU32 LatteOverlay_temperatureColor(float celsius)
 {
 	if (celsius >= 75.0f)
-		return kPanelCritical;
+		return s_panel->critical;
 	if (celsius >= 55.0f)
-		return kPanelWarning;
-	return kPanelAccent;
+		return s_panel->warning;
+	return s_panel->accent;
 }
 
 struct OverlayTile
@@ -587,8 +656,8 @@ struct OverlayTile
 	std::string value;
 	std::string suffix; // smaller text after the value
 	float meter = -1.0f; // 0 - 1, no meter if negative
-	ImU32 meterColor = kPanelAccent;
-	ImU32 iconColor = kPanelAccent;
+	ImU32 meterColor = s_panel->accent;
+	ImU32 iconColor = s_panel->accent;
 	bool coreBars = false; // shows the usage of every core instead of a value
 	OverlayAction action = OverlayAction::kNone; // drawn as a touch button
 	bool on = false; // lit button
@@ -743,8 +812,8 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 		{
 			tile.value = fmt::format("{}%", level);
 			tile.meter = std::clamp((float)level / 100.0f, 0.0f, 1.0f);
-			tile.meterColor = level <= 15 ? kPanelCritical : (level <= 30 ? kPanelWarning : kPanelGood);
-			tile.iconColor = charging ? kPanelWarning : tile.meterColor;
+			tile.meterColor = level <= 15 ? s_panel->critical : (level <= 30 ? s_panel->warning : s_panel->good);
+			tile.iconColor = charging ? s_panel->warning : tile.meterColor;
 			if (charging)
 				tile.suffix = "charging";
 		}
@@ -888,12 +957,12 @@ static bool LatteOverlay_drawShaderStatus(ImDrawList* dl, ImFont* font, float fo
 	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(tick_cached().time_since_epoch()).count();
 	const float angle = (float)(ms % 100000) * 0.006f;
 	const ImVec2 center{ x + radius, centerY };
-	dl->AddCircle(center, radius, IM_COL32(255, 255, 255, 30), 20, fontSize * 0.12f);
+	dl->AddCircle(center, radius, s_panel->track, 20, fontSize * 0.12f);
 	dl->PathArcTo(center, radius, angle, angle + 4.2f, 20);
-	dl->PathStroke(kPanelAccent, 0, fontSize * 0.12f);
+	dl->PathStroke(s_panel->accent, 0, fontSize * 0.12f);
 
 	dl->PushClipRect({ minX, centerY - fontSize }, { maxX, centerY + fontSize }, true);
-	dl->AddText(font, fontSize, { x + spinnerW, centerY - fontSize * 0.5f }, kPanelLabel, text.c_str());
+	dl->AddText(font, fontSize, { x + spinnerW, centerY - fontSize * 0.5f }, s_panel->label, text.c_str());
 	dl->PopClipRect();
 	return true;
 }
@@ -904,10 +973,10 @@ static void LatteOverlay_drawButton(ImDrawList* dl, const OverlayTile& tile, ImV
 	const float rounding = f * 0.35f;
 	const float ip = f * 0.4f;
 	const bool pressed = g_pressed_action.load() == (sint32)tile.action;
-	dl->AddRectFilled(tmin, tmax, pressed ? IM_COL32(14, 14, 18, 245) : IM_COL32(34, 34, 40, 245), rounding);
+	dl->AddRectFilled(tmin, tmax, pressed ? s_panel->keyPressed : s_panel->key, rounding);
 	if (!pressed)
 		dl->AddRectFilled({ tmin.x + 1.0f, tmin.y + 1.0f }, { tmax.x - 1.0f, (tmin.y + tmax.y) * 0.5f }, IM_COL32(255, 255, 255, 9), rounding, ImDrawFlags_RoundCornersTop);
-	dl->AddRect(tmin, tmax, pressed ? kPanelAccent : kPanelTileBorder, rounding, 0, pressed ? std::max(1.5f, f * 0.08f) : 1.0f);
+	dl->AddRect(tmin, tmax, pressed ? s_panel->accent : s_panel->tileBorder, rounding, 0, pressed ? std::max(1.5f, f * 0.08f) : 1.0f);
 	dl->PushClipRect(tmin, tmax, true);
 
 	if (tile.on)
@@ -915,7 +984,7 @@ static void LatteOverlay_drawButton(ImDrawList* dl, const OverlayTile& tile, ImV
 		const float r = f * 0.13f;
 		const ImVec2 led{ tmax.x - ip - r, tmin.y + ip + r };
 		dl->AddCircleFilled(led, r * 2.2f, IM_COL32(76, 217, 100, 40));
-		dl->AddCircleFilled(led, r, kPanelGood);
+		dl->AddCircleFilled(led, r, s_panel->good);
 	}
 
 	const float tileW = tmax.x - tmin.x;
@@ -928,15 +997,15 @@ static void LatteOverlay_drawButton(ImDrawList* dl, const OverlayTile& tile, ImV
 	if (showDetail)
 		blockH += lineGap + smallSize;
 	float y = tmin.y + std::max(ip * 0.5f, (tileH - blockH) * 0.5f);
-	const ImU32 iconColor = tile.on ? kPanelAccent : IM_COL32(222, 222, 230, 255);
+	const ImU32 iconColor = tile.on ? s_panel->accent : s_panel->keyIcon;
 	dl->AddText(valueFont, valueSize, { tmin.x + (tileW - iconW) * 0.5f, y }, iconColor, tile.icon);
 	y += valueSize + lineGap;
-	dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - labelW) * 0.5f), y }, tile.on ? IM_COL32(222, 222, 230, 255) : kPanelLabel, tile.label.c_str());
+	dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - labelW) * 0.5f), y }, tile.on ? s_panel->keyIcon : s_panel->label, tile.label.c_str());
 	if (showDetail)
 	{
 		y += smallSize + lineGap;
 		const float detailW = smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, tile.detail.c_str()).x;
-		dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - detailW) * 0.5f), y }, kPanelWarning, tile.detail.c_str());
+		dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - detailW) * 0.5f), y }, s_panel->warning, tile.detail.c_str());
 	}
 	dl->PopClipRect();
 }
@@ -950,8 +1019,8 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 	}
 	const float rounding = f * 0.35f;
 	const float ip = f * 0.4f;
-	dl->AddRectFilled(tmin, tmax, kPanelTile, rounding);
-	dl->AddRect(tmin, tmax, kPanelTileBorder, rounding, 0, 1.0f);
+	dl->AddRectFilled(tmin, tmax, s_panel->tile, rounding);
+	dl->AddRect(tmin, tmax, s_panel->tileBorder, rounding, 0, 1.0f);
 	dl->PushClipRect(tmin, tmax, true);
 
 	// label row: icon, name and an optional detail on the right
@@ -962,14 +1031,14 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 		dl->AddText(smallFont, smallSize, { x, labelY }, tile.iconColor, tile.icon);
 		x += smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, tile.icon).x + f * 0.25f;
 	}
-	dl->AddText(smallFont, smallSize, { x, labelY }, kPanelLabel, tile.label.c_str());
+	dl->AddText(smallFont, smallSize, { x, labelY }, s_panel->label, tile.label.c_str());
 	x += smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, tile.label.c_str()).x;
 	if (!tile.detail.empty())
 	{
 		const float detailW = smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, tile.detail.c_str()).x;
 		const float detailX = tmax.x - ip - detailW;
 		if (detailX >= x + f * 0.4f)
-			dl->AddText(smallFont, smallSize, { detailX, labelY }, kPanelLabel, tile.detail.c_str());
+			dl->AddText(smallFont, smallSize, { detailX, labelY }, s_panel->label, tile.detail.c_str());
 	}
 
 	const float valueY = labelY + smallSize + f * 0.1f;
@@ -987,7 +1056,7 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 		{
 			const float bx = tmin.x + ip + (float)i * (barW + barGap);
 			const float usage = std::clamp(g_state.cpu_per_core[i] / 100.0f, 0.0f, 1.0f);
-			dl->AddRectFilled({ bx, areaTop }, { bx + barW, areaBottom }, IM_COL32(255, 255, 255, 18), barW * 0.25f);
+			dl->AddRectFilled({ bx, areaTop }, { bx + barW, areaBottom }, s_panel->track, barW * 0.25f);
 			if (usage > 0.0f)
 				dl->AddRectFilled({ bx, areaBottom - (areaBottom - areaTop) * usage }, { bx + barW, areaBottom }, LatteOverlay_usageColor(usage), barW * 0.25f);
 		}
@@ -1001,13 +1070,13 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 		if (!tile.suffix.empty())
 		{
 			const float valueW = valueFont->CalcTextSizeA(valueSize, FLT_MAX, 0.0f, tile.value.c_str()).x;
-			dl->AddText(smallFont, smallSize, { tmin.x + ip + valueW + f * 0.25f, y + valueSize - smallSize - f * 0.15f }, kPanelLabel, tile.suffix.c_str());
+			dl->AddText(smallFont, smallSize, { tmin.x + ip + valueW + f * 0.25f, y + valueSize - smallSize - f * 0.15f }, s_panel->label, tile.suffix.c_str());
 		}
 		if (tile.meter >= 0.0f)
 		{
 			const ImVec2 m0{ tmin.x + ip, tmax.y - ip - meterH };
 			const ImVec2 m1{ tmax.x - ip, tmax.y - ip };
-			dl->AddRectFilled(m0, m1, IM_COL32(255, 255, 255, 18), meterH * 0.5f);
+			dl->AddRectFilled(m0, m1, s_panel->track, meterH * 0.5f);
 			const float fillX = m0.x + (m1.x - m0.x) * tile.meter;
 			if (fillX - m0.x >= meterH)
 				dl->AddRectFilled(m0, { fillX, m1.y }, tile.meterColor, meterH * 0.5f);
@@ -1079,7 +1148,7 @@ static bool LatteOverlay_drawTitleIcon(ImDrawList* dl, ImVec2 pmin, float size)
 		}
 	}
 	// anti-aliased rim smooths the stepped corners and lifts the icon off the black shell
-	dl->AddRect(pmin, { pmin.x + size, pmin.y + size }, IM_COL32(255, 255, 255, 40), radius, 0, std::max(1.0f, size * 0.03f));
+	dl->AddRect(pmin, { pmin.x + size, pmin.y + size }, s_panel->iconRim, radius, 0, std::max(1.0f, size * 0.03f));
 	return true;
 }
 
@@ -1144,43 +1213,42 @@ static float LatteOverlay_volumeSliderLead(float u)
 static void LatteOverlay_drawVolumeSlider(ImDrawList* dl, float minX, float maxX, float cy, float u, float volume, bool pressed)
 {
 	const VolumeSliderLayout v = LatteOverlay_layoutVolumeSlider(minX, maxX, u);
-	LatteOverlay_drawSpeaker(dl, { minX + v.iconSize * 0.5f, cy }, v.iconSize, 0, kPanelLabel);
-	LatteOverlay_drawSpeaker(dl, { maxX - v.iconSize * 0.75f, cy }, v.iconSize, 2, kPanelLabel);
+	LatteOverlay_drawSpeaker(dl, { minX + v.iconSize * 0.5f, cy }, v.iconSize, 0, s_panel->label);
+	LatteOverlay_drawSpeaker(dl, { maxX - v.iconSize * 0.75f, cy }, v.iconSize, 2, s_panel->label);
 
 	// recessed slot
 	const float slotH = u * 0.42f;
 	const ImVec2 s0{ v.slotMinX, cy - slotH * 0.5f };
 	const ImVec2 s1{ v.slotMaxX, cy + slotH * 0.5f };
-	dl->AddRectFilled(s0, s1, IM_COL32(2, 2, 4, 255), slotH * 0.5f);
-	dl->AddLine({ s0.x + slotH * 0.5f, s0.y + 1.0f }, { s1.x - slotH * 0.5f, s0.y + 1.0f }, IM_COL32(0, 0, 0, 255), 1.0f);
-	dl->AddRect(s0, s1, kPanelTileBorder, slotH * 0.5f, 0, 1.0f);
+	dl->AddRectFilled(s0, s1, s_panel->slot, slotH * 0.5f);
+	dl->AddLine({ s0.x + slotH * 0.5f, s0.y + 1.0f }, { s1.x - slotH * 0.5f, s0.y + 1.0f }, s_panel->slotShade, 1.0f);
+	dl->AddRect(s0, s1, s_panel->tileBorder, slotH * 0.5f, 0, 1.0f);
 	// notches along the slot like the printed scale next to the real slider
 	for (sint32 i = 0; i <= 10; ++i)
 	{
 		const float nx = v.travelMin + (v.travelMax - v.travelMin) * (float)i / 10.0f;
 		const float nh = (i % 5 == 0 ? 0.22f : 0.12f) * u;
-		dl->AddLine({ nx, s1.y + u * 0.12f }, { nx, s1.y + u * 0.12f + nh }, kPanelGrille, std::max(1.0f, u * 0.05f));
+		dl->AddLine({ nx, s1.y + u * 0.12f }, { nx, s1.y + u * 0.12f + nh }, s_panel->grille, std::max(1.0f, u * 0.05f));
 	}
 
 	// ridged knob
 	const float knobH = u * 1.05f;
 	const float kx = v.travelMin + (v.travelMax - v.travelMin) * volume;
 	if (volume > 0.0f)
-		dl->AddRectFilled({ s0.x + 1.0f, s0.y + 1.0f }, { kx, s1.y - 1.0f }, IM_COL32(168, 168, 176, 255), slotH * 0.5f, ImDrawFlags_RoundCornersLeft);
+		dl->AddRectFilled({ s0.x + 1.0f, s0.y + 1.0f }, { kx, s1.y - 1.0f }, s_panel->sliderFill, slotH * 0.5f, ImDrawFlags_RoundCornersLeft);
 	const ImVec2 k0{ kx - v.knobW * 0.5f, cy - knobH * 0.5f };
 	const ImVec2 k1{ kx + v.knobW * 0.5f, cy + knobH * 0.5f };
 	const float knobRounding = u * 0.16f;
 	dl->AddRectFilled({ k0.x, k0.y + u * 0.08f }, { k1.x, k1.y + u * 0.08f }, IM_COL32(0, 0, 0, 120), knobRounding);
-	// light gray, almost white knob
-	dl->AddRectFilled(k0, k1, IM_COL32(212, 212, 218, 255), knobRounding);
-	dl->AddRectFilled({ k0.x + 1.0f, k0.y + 1.0f }, { k1.x - 1.0f, cy }, IM_COL32(255, 255, 255, 90), knobRounding, ImDrawFlags_RoundCornersTop);
+	dl->AddRectFilled(k0, k1, s_panel->knob, knobRounding);
+	dl->AddRectFilled({ k0.x + 1.0f, k0.y + 1.0f }, { k1.x - 1.0f, cy }, s_panel->knobGloss, knobRounding, ImDrawFlags_RoundCornersTop);
 	for (sint32 i = -1; i <= 1; ++i)
 	{
 		const float rx = kx + (float)i * v.knobW * 0.24f;
-		dl->AddLine({ rx, k0.y + knobH * 0.22f }, { rx, k1.y - knobH * 0.22f }, IM_COL32(150, 150, 158, 255), std::max(1.0f, u * 0.07f));
+		dl->AddLine({ rx, k0.y + knobH * 0.22f }, { rx, k1.y - knobH * 0.22f }, s_panel->knobRidge, std::max(1.0f, u * 0.07f));
 		dl->AddLine({ rx + 1.0f, k0.y + knobH * 0.22f }, { rx + 1.0f, k1.y - knobH * 0.22f }, IM_COL32(255, 255, 255, 140), 1.0f);
 	}
-	dl->AddRect(k0, k1, pressed ? IM_COL32(255, 255, 255, 255) : IM_COL32(128, 128, 136, 255), knobRounding, 0, pressed ? std::max(1.5f, u * 0.08f) : 1.0f);
+	dl->AddRect(k0, k1, pressed ? s_panel->knobPressed : s_panel->knobOutline, knobRounding, 0, pressed ? std::max(1.5f, u * 0.08f) : 1.0f);
 }
 
 static float LatteOverlay_easeInOutCubic(float t)
@@ -1248,7 +1316,7 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 	const float maxX = lerp(smallMaxX, popup.minX + bigW);
 	const float cy = lerp(smallCy, popup.cy);
 
-	// dim the game a little so the slider stands out, then a piano black shell like the panel around it
+	// dim the game a little so the slider stands out, then a shell like the panel around it
 	dl->AddRectFilled({ 0.0f, 0.0f }, display, IM_COL32(0, 0, 0, (int)(90.0f * e)));
 	const float shellPad = u * 0.55f;
 	// the shell grows a title row on top while it magnifies
@@ -1256,9 +1324,9 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 	const ImVec2 sh0{ minX - shellPad, cy - u * 0.95f - titleH };
 	const ImVec2 sh1{ maxX + shellPad, cy + u * 0.95f };
 	dl->AddRectFilled({ sh0.x, sh0.y + u * 0.1f }, { sh1.x, sh1.y + u * 0.2f }, IM_COL32(0, 0, 0, (int)(90.0f * e)), u * 0.95f);
-	dl->AddRectFilled(sh0, sh1, LatteOverlay_withAlpha(kPanelBody, e), u * 0.95f);
+	dl->AddRectFilled(sh0, sh1, LatteOverlay_withAlpha(s_panel->body, e), u * 0.95f);
 	dl->AddRectFilled({ sh0.x + 1.0f, sh0.y + 1.0f }, { sh1.x - 1.0f, cy }, IM_COL32(255, 255, 255, (int)(8.0f * e)), u * 0.95f, ImDrawFlags_RoundCornersTop);
-	dl->AddRect(sh0, sh1, LatteOverlay_withAlpha(kPanelRim, e), u * 0.95f, 0, std::max(1.5f, u * 0.06f));
+	dl->AddRect(sh0, sh1, LatteOverlay_withAlpha(s_panel->rim, e), u * 0.95f, 0, std::max(1.5f, u * 0.06f));
 
 	LatteOverlay_drawVolumeSlider(dl, minX, maxX, cy, u, volume, held);
 
@@ -1269,10 +1337,10 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 		const float textSize = fontSize * (u / f) * 0.5f;
 		const float textY = sh0.y + u * 0.45f;
 		const char* title = "WiiU Gamepad Volume";
-		dl->AddText(font, textSize, { minX, textY }, LatteOverlay_withAlpha(IM_COL32(230, 230, 236, 255), textAlpha), title);
+		dl->AddText(font, textSize, { minX, textY }, LatteOverlay_withAlpha(s_panel->title, textAlpha), title);
 		const std::string value = volume <= 0.0f ? "Mute" : fmt::format("{}%", g_pad_volume.load());
 		const float valueW = font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, value.c_str()).x;
-		dl->AddText(font, textSize, { maxX - valueW, textY }, LatteOverlay_withAlpha(IM_COL32(190, 190, 198, 255), textAlpha), value.c_str());
+		dl->AddText(font, textSize, { maxX - valueW, textY }, LatteOverlay_withAlpha(s_panel->titleValue, textAlpha), value.c_str());
 	}
 
 	// once it is large enough to aim at, the large slider takes the touches, ahead of the panel buttons under it
@@ -1296,12 +1364,14 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 	const float rounding = f * 0.9f;
 	const float rim = std::max(1.5f, f * 0.08f);
 	const float innerRounding = std::max(0.0f, rounding - rim);
-	const ImU32 valueColor = GetConfig().overlay.text_color;
+	// the default white text follows the theme, it would vanish on the white shell
+	const uint32 textColor = GetConfig().overlay.text_color;
+	const ImU32 valueColor = textColor == 0xFFFFFFFF ? s_panel->text : textColor;
 
 	// soft drop shadow
-	dl->AddRectFilled({ pmin.x, pmin.y + f * 0.15f }, { pmax.x, pmax.y + f * 0.3f }, IM_COL32(0, 0, 0, 80), rounding);
-	// piano black shell
-	dl->AddRectFilled(pmin, pmax, kPanelBody, rounding);
+	dl->AddRectFilled({ pmin.x, pmin.y + f * 0.15f }, { pmax.x, pmax.y + f * 0.3f }, s_panel->shadow, rounding);
+	// glossy shell
+	dl->AddRectFilled(pmin, pmax, s_panel->body, rounding);
 	// glossy reflection on the upper part of the shell, fading out towards the middle
 	for (sint32 i = 0; i < 4; ++i)
 	{
@@ -1309,7 +1379,7 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 		dl->AddRectFilled({ pmin.x + rim, pmin.y + rim }, { pmax.x - rim, pmin.y + h }, IM_COL32(255, 255, 255, 5), innerRounding, ImDrawFlags_RoundCornersTop);
 	}
 	// rim with a thin highlight on the inside
-	dl->AddRect(pmin, pmax, kPanelRim, rounding, 0, rim);
+	dl->AddRect(pmin, pmax, s_panel->rim, rounding, 0, rim);
 	dl->AddRect({ pmin.x + rim, pmin.y + rim }, { pmax.x - rim, pmax.y - rim }, IM_COL32(255, 255, 255, 16), innerRounding, 0, 1.0f);
 
 	const float x0 = pmin.x + l.pad;
@@ -1340,7 +1410,7 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 			const ImVec2 led{ x0 + r * 2.0f, cy };
 			dl->AddCircleFilled(led, r * 2.6f, IM_COL32(0, 162, 217, 35));
 			dl->AddCircleFilled(led, r * 1.6f, IM_COL32(0, 162, 217, 70));
-			dl->AddCircleFilled(led, r, kPanelAccent);
+			dl->AddCircleFilled(led, r, s_panel->accent);
 			dl->AddCircleFilled({ led.x - r * 0.3f, led.y - r * 0.3f }, r * 0.35f, IM_COL32(255, 255, 255, 170));
 			titleX = led.x + r * 3.0f;
 		}
@@ -1351,7 +1421,7 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 		if (gameName.empty())
 		{
 			const char* title = "CEMU PLUS";
-			dl->AddText(smallFont, smallSize, { titleX, cy - smallSize * 0.5f }, kPanelLabel, title);
+			dl->AddText(smallFont, smallSize, { titleX, cy - smallSize * 0.5f }, s_panel->label, title);
 			titleEnd += smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, title).x + f;
 		}
 		else
@@ -1387,7 +1457,7 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 				{
 					const ImVec2 c{ x1 - dot - (float)col * spacing, cy + ((float)row - 0.5f) * spacing };
 					if (c.x - dot > titleEnd)
-						dl->AddCircleFilled(c, dot, kPanelGrille);
+						dl->AddCircleFilled(c, dot, s_panel->grille);
 				}
 			}
 		}
@@ -1415,13 +1485,13 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 		const float stripH = f * 1.2f;
 		const ImVec2 s0{ x0, pmax.y - l.pad - stripH };
 		const ImVec2 s1{ x1, pmax.y - l.pad };
-		dl->AddRectFilled(s0, s1, kPanelTile, f * 0.35f);
-		dl->AddRect(s0, s1, kPanelTileBorder, f * 0.35f, 0, 1.0f);
+		dl->AddRectFilled(s0, s1, s_panel->tile, f * 0.35f);
+		dl->AddRect(s0, s1, s_panel->tileBorder, f * 0.35f, 0, 1.0f);
 		const float cy = (s0.y + s1.y) * 0.5f;
 		if (!LatteOverlay_drawShaderStatus(dl, smallFont, smallSize, s0.x + f * 0.4f, s1.x - f * 0.4f, cy, false))
 		{
-			dl->AddCircleFilled({ s0.x + f * 0.4f + f * 0.15f, cy }, f * 0.12f, kPanelGood);
-			dl->AddText(smallFont, smallSize, { s0.x + f * 0.4f + f * 0.55f, cy - smallSize * 0.5f }, kPanelLabel, "Shaders idle");
+			dl->AddCircleFilled({ s0.x + f * 0.4f + f * 0.15f, cy }, f * 0.12f, s_panel->good);
+			dl->AddText(smallFont, smallSize, { s0.x + f * 0.4f + f * 0.55f, cy - smallSize * 0.5f }, s_panel->label, "Shaders idle");
 		}
 	}
 
@@ -1440,6 +1510,7 @@ enum class OverlayBar
 // compact panel is drawn over gameplay. Returns true if the panel was placed in the black bar
 static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
 {
+	s_panel = GetConfig().overlay.theme == OverlayTheme::kWhite ? &kWhitePanel : &kBlackPanel;
 	const auto tiles = LatteOverlay_buildTiles();
 	const bool statusEnabled = LatteOverlay_isShaderStatusInPanel();
 	const sint32 count = (sint32)tiles.size();

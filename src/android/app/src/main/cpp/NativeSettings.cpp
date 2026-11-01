@@ -52,6 +52,18 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayStyle([[maybe_unuse
 	GetConfig().overlay.style = static_cast<OverlayStyle>(style);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getOverlayTheme([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(GetConfig().overlay.theme);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayTheme([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint theme)
+{
+	GetConfig().overlay.theme = static_cast<OverlayTheme>(theme);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_isOverlayGPUUsageEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
