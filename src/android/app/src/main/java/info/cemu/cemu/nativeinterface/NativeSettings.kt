@@ -49,6 +49,7 @@ object NativeSettings {
         const val NEAREST_NEIGHBOR_FILTER: Int = 3
         const val FSR_FILTER: Int = 4
         const val SGSR_FILTER: Int = 5
+        const val SGSR_EDGE_FILTER: Int = 6
     }
 
     @JvmStatic
@@ -56,6 +57,12 @@ object NativeSettings {
 
     @JvmStatic
     external fun setUpscalingFilter(value: Int)
+
+    @JvmStatic
+    external fun getUpscalingSharpness(): Int
+
+    @JvmStatic
+    external fun setUpscalingSharpness(value: Int)
 
     @JvmStatic
     external fun getDownscalingFilter(): Int

@@ -98,6 +98,28 @@ void LatteOverlay_setPaused(bool paused)
 	g_title_paused = paused;
 }
 
+// name and icon of the running game, shown in the panel header
+std::mutex g_title_mutex;
+std::string g_title_name;
+std::vector<uint32> g_title_icon;
+sint32 g_title_icon_width = 0;
+sint32 g_title_icon_height = 0;
+// the icon resampled to one cell per screen pixel, rebuilt when the drawn size changes
+std::vector<ImU32> g_title_icon_cells;
+sint32 g_title_icon_cell_count = 0;
+
+void LatteOverlay_setTitleInfo(const std::string& name, std::vector<uint32> iconRGBA, sint32 iconWidth, sint32 iconHeight)
+{
+	std::scoped_lock lock(g_title_mutex);
+	g_title_name = name;
+	const bool valid = iconWidth > 0 && iconHeight > 0 && iconRGBA.size() >= (size_t)iconWidth * (size_t)iconHeight;
+	g_title_icon = valid ? std::move(iconRGBA) : std::vector<uint32>{};
+	g_title_icon_width = valid ? iconWidth : 0;
+	g_title_icon_height = valid ? iconHeight : 0;
+	g_title_icon_cells.clear();
+	g_title_icon_cell_count = 0;
+}
+
 static float LatteOverlay_getBatteryTemperature()
 {
 	const sint32 temp = g_battery_temp_decidegrees.load();
@@ -719,7 +741,7 @@ static PanelLayout LatteOverlay_measurePanel(float f, sint32 tileCount, sint32 c
 	l.tileH = f * 3.6f;
 	l.gap = f * 0.45f;
 	l.pad = f * 0.7f;
-	l.headerH = header ? f * 1.5f : 0.0f;
+	l.headerH = header ? f * 1.9f : 0.0f;
 	l.statusH = statusRow ? f * 1.2f + (l.rows > 0 ? l.gap : 0.0f) : 0.0f;
 	LatteOverlay_updatePanelSize(l);
 	return l;
@@ -886,6 +908,93 @@ static void LatteOverlay_drawTile(ImDrawList* dl, const OverlayTile& tile, ImVec
 	dl->PopClipRect();
 }
 
+// box filters the game icon down to cells x cells, called with g_title_mutex held
+static void LatteOverlay_resampleTitleIcon(sint32 cells)
+{
+	g_title_icon_cells.assign((size_t)cells * (size_t)cells, 0);
+	g_title_icon_cell_count = cells;
+	for (sint32 cy = 0; cy < cells; ++cy)
+	{
+		const sint32 sy0 = cy * g_title_icon_height / cells;
+		const sint32 sy1 = std::max(sy0 + 1, (cy + 1) * g_title_icon_height / cells);
+		for (sint32 cx = 0; cx < cells; ++cx)
+		{
+			const sint32 sx0 = cx * g_title_icon_width / cells;
+			const sint32 sx1 = std::max(sx0 + 1, (cx + 1) * g_title_icon_width / cells);
+			uint32 r = 0, g = 0, b = 0, n = 0;
+			for (sint32 sy = sy0; sy < sy1; ++sy)
+			{
+				for (sint32 sx = sx0; sx < sx1; ++sx)
+				{
+					const uint32 c = g_title_icon[(size_t)sy * g_title_icon_width + sx];
+					// composite on black so transparent pixels blend into the panel
+					const uint32 a = (c >> 24) & 0xFF;
+					r += (c & 0xFF) * a / 255;
+					g += ((c >> 8) & 0xFF) * a / 255;
+					b += ((c >> 16) & 0xFF) * a / 255;
+					++n;
+				}
+			}
+			g_title_icon_cells[(size_t)cy * cells + cx] = IM_COL32(r / n, g / n, b / n, 255);
+		}
+	}
+}
+
+// draws the game icon as a rounded square of solid pixel quads, which needs no texture upload. Returns false if there is no icon
+static bool LatteOverlay_drawTitleIcon(ImDrawList* dl, ImVec2 pmin, float size)
+{
+	std::scoped_lock lock(g_title_mutex);
+	if (g_title_icon.empty() || size < 4.0f)
+		return false;
+	const sint32 cells = std::clamp((sint32)std::lround(size), 4, std::min(96, std::min(g_title_icon_width, g_title_icon_height)));
+	if (cells != g_title_icon_cell_count)
+		LatteOverlay_resampleTitleIcon(cells);
+
+	const float radius = size * 0.2f;
+	const float cellSize = size / (float)cells;
+	for (sint32 cy = 0; cy < cells; ++cy)
+	{
+		// edges are computed from the index so neighboring quads share them exactly and leave no seams
+		const float y0 = pmin.y + size * (float)cy / (float)cells;
+		const float y1 = pmin.y + size * (float)(cy + 1) / (float)cells;
+		const float centerY = ((float)cy + 0.5f) * cellSize;
+		const float dy = std::max({ radius - centerY, centerY - (size - radius), 0.0f });
+		for (sint32 cx = 0; cx < cells; ++cx)
+		{
+			const float centerX = ((float)cx + 0.5f) * cellSize;
+			const float dx = std::max({ radius - centerX, centerX - (size - radius), 0.0f });
+			if (dx * dx + dy * dy > radius * radius)
+				continue; // outside the rounded corner
+			const float x0 = pmin.x + size * (float)cx / (float)cells;
+			const float x1 = pmin.x + size * (float)(cx + 1) / (float)cells;
+			dl->AddRectFilled({ x0, y0 }, { x1, y1 }, g_title_icon_cells[(size_t)cy * cells + cx]);
+		}
+	}
+	// anti-aliased rim smooths the stepped corners and lifts the icon off the black shell
+	dl->AddRect(pmin, { pmin.x + size, pmin.y + size }, IM_COL32(255, 255, 255, 40), radius, 0, std::max(1.0f, size * 0.03f));
+	return true;
+}
+
+// shortens text with an ellipsis until it fits maxWidth
+static std::string LatteOverlay_fitText(ImFont* font, float fontSize, std::string text, float maxWidth)
+{
+	if (font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str()).x <= maxWidth)
+		return text;
+	while (!text.empty())
+	{
+		// drop a whole UTF-8 character
+		do
+			text.pop_back();
+		while (!text.empty() && ((uint8)text.back() & 0xC0) == 0x80);
+		while (!text.empty() && text.back() == ' ')
+			text.pop_back();
+		const std::string candidate = text + "...";
+		if (font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, candidate.c_str()).x <= maxWidth)
+			return candidate;
+	}
+	return {};
+}
+
 static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std::vector<OverlayTile>& tiles, bool showStatus, ImFont* smallFont, float smallSize, ImFont* valueFont, float valueSize, std::vector<OverlayButton>& buttons)
 {
 	ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -916,18 +1025,44 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 
 	if (l.headerH > 0.0f)
 	{
-		const float cy = y + f * 0.5f;
-		// power LED
-		const float r = f * 0.17f;
-		const ImVec2 led{ x0 + r * 2.0f, cy };
-		dl->AddCircleFilled(led, r * 2.6f, IM_COL32(0, 162, 217, 35));
-		dl->AddCircleFilled(led, r * 1.6f, IM_COL32(0, 162, 217, 70));
-		dl->AddCircleFilled(led, r, kPanelAccent);
-		dl->AddCircleFilled({ led.x - r * 0.3f, led.y - r * 0.3f }, r * 0.35f, IM_COL32(255, 255, 255, 170));
-		const char* title = "CEMU PLUS";
-		const float titleX = led.x + r * 3.0f;
-		dl->AddText(smallFont, smallSize, { titleX, cy - smallSize * 0.5f }, kPanelLabel, title);
-		const float titleEnd = titleX + smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, title).x + f;
+		const float cy = y + f * 0.65f;
+		std::string gameName;
+		{
+			std::scoped_lock lock(g_title_mutex);
+			gameName = g_title_name;
+		}
+		// the game icon leads the header with its name next to it. Without an icon the power LED takes its place
+		float titleX;
+		const float iconSize = f * 1.3f;
+		if (LatteOverlay_drawTitleIcon(dl, { x0, cy - iconSize * 0.5f }, iconSize))
+		{
+			titleX = x0 + iconSize + f * 0.5f;
+		}
+		else
+		{
+			const float r = f * 0.17f;
+			const ImVec2 led{ x0 + r * 2.0f, cy };
+			dl->AddCircleFilled(led, r * 2.6f, IM_COL32(0, 162, 217, 35));
+			dl->AddCircleFilled(led, r * 1.6f, IM_COL32(0, 162, 217, 70));
+			dl->AddCircleFilled(led, r, kPanelAccent);
+			dl->AddCircleFilled({ led.x - r * 0.3f, led.y - r * 0.3f }, r * 0.35f, IM_COL32(255, 255, 255, 170));
+			titleX = led.x + r * 3.0f;
+		}
+		float titleEnd = titleX;
+		if (gameName.empty())
+		{
+			const char* title = "CEMU PLUS";
+			dl->AddText(smallFont, smallSize, { titleX, cy - smallSize * 0.5f }, kPanelLabel, title);
+			titleEnd += smallFont->CalcTextSizeA(smallSize, FLT_MAX, 0.0f, title).x + f;
+		}
+		else
+		{
+			// the name keeps most of the header, the shader status or grille gets the rest
+			const float nameSize = smallSize * 1.15f;
+			const std::string name = LatteOverlay_fitText(smallFont, nameSize, gameName, (x1 - titleX) * 0.62f);
+			dl->AddText(smallFont, nameSize, { titleX, cy - nameSize * 0.5f }, valueColor, name.c_str());
+			titleEnd += smallFont->CalcTextSizeA(nameSize, FLT_MAX, 0.0f, name.c_str()).x + f;
+		}
 
 		// the shader status takes the right side of the header while compiling, the speaker grille is shown otherwise
 		if (!showStatus || !LatteOverlay_drawShaderStatus(dl, smallFont, smallSize, titleEnd, x1, cy, true))

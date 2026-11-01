@@ -1,6 +1,7 @@
 #include "AndroidFilesystemCallbacks.h"
 #include "AndroidInputHelpers.h"
 #include "Cafe/CafeSystem.h"
+#include "Cafe/Filesystem/fsc.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
@@ -19,6 +20,7 @@
 #endif // HAS_CUBEB
 
 #include <android/native_window_jni.h>
+#include <stb_image.h>
 
 // forward declaration from main.cpp
 void CemuCommonInit();
@@ -368,6 +370,32 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeSystems([[maybe_un
 	NativeEmulation::InitializeAudioDevices();
 }
 
+// hands the game name and its meta/iconTex.tga to the GamePad panel header
+static void SetOverlayTitleInfo(TitleId baseTitleId, TitleInfo& titleInfo)
+{
+	std::string name;
+	if (!GetConfig().GetGameListCustomName(baseTitleId, name))
+		name = CafeSystem::GetForegroundTitleName();
+
+	std::vector<uint32> icon;
+	int width = 0, height = 0;
+	const std::string mountPath = TitleInfo::GetUniqueTempMountingPath();
+	if (titleInfo.Mount(mountPath, "", FSC_PRIORITY_BASE))
+	{
+		auto tgaData = fsc_extractFile((mountPath + "/meta/iconTex.tga").c_str());
+		titleInfo.Unmount(mountPath);
+		int channels = 0;
+		stbi_uc* pixels = tgaData && tgaData->size() > 16 ? stbi_load_from_memory(tgaData->data(), (int)tgaData->size(), &width, &height, &channels, STBI_rgb_alpha) : nullptr;
+		if (pixels)
+		{
+			icon.resize((size_t)width * (size_t)height);
+			std::memcpy(icon.data(), pixels, icon.size() * sizeof(uint32));
+			stbi_image_free(pixels);
+		}
+	}
+	LatteOverlay_setTitleInfo(name, std::move(icon), width, height);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeEmulation_prepareTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jstring launchPathJava)
 {
@@ -392,6 +420,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_prepareTitle([[maybe_unused]
 		{
 			return ERROR_UNKNOWN;
 		}
+		SetOverlayTitleInfo(baseTitleId, launchTitle);
 	}
 	else // if (launchTitle.GetFormat() == TitleInfo::TitleDataFormat::INVALID_STRUCTURE )
 	{
@@ -405,6 +434,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_prepareTitle([[maybe_unused]
 			{
 				return ERROR_UNKNOWN;
 			}
+			LatteOverlay_setTitleInfo(_pathToUtf8(launchPath.stem()), {}, 0, 0);
 		}
 		else if (launchTitle.GetInvalidReason() == TitleInfo::InvalidReason::NO_DISC_KEY)
 		{

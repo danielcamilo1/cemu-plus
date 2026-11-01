@@ -34,12 +34,15 @@ guaranteed, and some functionality may be missing compared to the desktop versio
   toggle: FPS, draw calls, CPU usage and clock, GPU usage and clock, CPU/GPU/battery temperature, battery level and
   RAM. Shader compilation progress can also be shown inside the panel instead of as a notification, and
   notifications move out of the black bar so nothing overlaps (Settings → Overlay settings → Style). In a black bar the
-  panel always fills the whole bar, however many stats are turned on
+  panel always fills the whole bar, however many stats are turned on. Its header shows the icon and name of the game
+  you're playing
 - **Panel buttons**: optional touch buttons in the GamePad panel to turn frame generation on and off, cycle the
   frame generation multiplier (x2, x3, x4), pause and resume the game, and open the emulator settings (which pauses
   the game until you leave them)
 - **AMD FSR 1 and Snapdragon GSR upscale filters** for a sharper image when the game resolution is lower than the
-  screen (Settings → Graphics settings → Upscale filter)
+  screen (Settings → Graphics settings → Upscale filter), set up like in Eden: FSR runs the EASU upscale followed by
+  the RCAS sharpening pass, and Snapdragon GSR comes in the fast mobile variant and the EdgeDir variant. One
+  sharpness slider controls both, 0% turns the extra sharpening off
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
 ## Download

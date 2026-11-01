@@ -1,10 +1,14 @@
 package info.cemu.cemu.settings.graphics
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import info.cemu.cemu.common.ui.components.Button
 import info.cemu.cemu.common.ui.components.ScreenContent
 import info.cemu.cemu.common.ui.components.SingleSelection
+import info.cemu.cemu.common.ui.components.Slider
 import info.cemu.cemu.common.ui.components.Toggle
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeEmulation
@@ -21,6 +25,13 @@ private val ScalingFilterChoices = listOf(
 private val UpscalingFilterChoices = ScalingFilterChoices + listOf(
     NativeSettings.ScalingFilter.FSR_FILTER,
     NativeSettings.ScalingFilter.SGSR_FILTER,
+    NativeSettings.ScalingFilter.SGSR_EDGE_FILTER,
+)
+
+private val SharpenedUpscalingFilters = setOf(
+    NativeSettings.ScalingFilter.FSR_FILTER,
+    NativeSettings.ScalingFilter.SGSR_FILTER,
+    NativeSettings.ScalingFilter.SGSR_EDGE_FILTER,
 )
 
 @Composable
@@ -30,6 +41,7 @@ fun GraphicsSettingsScreen(
     goToFrameGenSettings: () -> Unit,
 ) {
     val supportsLoadingCustomDrivers = remember { NativeEmulation.supportsLoadingCustomDriver() }
+    var upscalingFilter by remember { mutableIntStateOf(NativeSettings.getUpscalingFilter()) }
 
     ScreenContent(
         appBarText = tr("Graphics settings"),
@@ -92,11 +104,25 @@ fun GraphicsSettingsScreen(
         )
         SingleSelection(
             label = tr("Upscale filter"),
-            initialChoice = NativeSettings::getUpscalingFilter,
-            onChoiceChanged = NativeSettings::setUpscalingFilter,
+            initialChoice = { upscalingFilter },
+            onChoiceChanged = {
+                NativeSettings.setUpscalingFilter(it)
+                upscalingFilter = it
+            },
             choiceToString = { scalingFilterToString(it) },
             choices = UpscalingFilterChoices,
         )
+        if (upscalingFilter in SharpenedUpscalingFilters) {
+            Slider(
+                label = tr("FSR/GSR sharpness"),
+                initialValue = NativeSettings::getUpscalingSharpness,
+                valueFrom = 0,
+                valueTo = 100,
+                steps = 19,
+                labelFormatter = { "$it%" },
+                onValueChange = NativeSettings::setUpscalingSharpness,
+            )
+        }
         SingleSelection(
             label = tr("Downscale filter"),
             initialChoice = NativeSettings::getDownscalingFilter,
@@ -114,6 +140,7 @@ private fun scalingFilterToString(scalingFilter: Int) = when (scalingFilter) {
     NativeSettings.ScalingFilter.NEAREST_NEIGHBOR_FILTER -> tr("Nearest neighbor")
     NativeSettings.ScalingFilter.FSR_FILTER -> tr("AMD FSR 1")
     NativeSettings.ScalingFilter.SGSR_FILTER -> tr("Snapdragon GSR")
+    NativeSettings.ScalingFilter.SGSR_EDGE_FILTER -> tr("Snapdragon GSR EdgeDir")
     else -> throw IllegalArgumentException("Invalid scaling filter:  $scalingFilter")
 }
 

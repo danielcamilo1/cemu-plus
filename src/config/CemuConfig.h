@@ -85,8 +85,9 @@ enum UpscalingFilter
 	kBicubicFilter,
 	kBicubicHermiteFilter,
 	kNearestNeighborFilter,
-	kFSRFilter, // AMD FidelityFX Super Resolution 1 (EASU), upscaling only
-	kSGSRFilter, // Snapdragon Game Super Resolution 1, upscaling only
+	kFSRFilter, // AMD FidelityFX Super Resolution 1 (EASU + RCAS), upscaling only
+	kSGSRFilter, // Snapdragon Game Super Resolution 1, mobile variant, upscaling only
+	kSGSREdgeFilter, // Snapdragon Game Super Resolution 1, edge direction variant, upscaling only
 };
 
 enum FullscreenScaling
@@ -541,6 +542,7 @@ struct CemuConfig
 
 	ConfigValue<sint32> upscale_filter{kBicubicFilter};
 	ConfigValue<sint32> downscale_filter{kLinearFilter};
+	ConfigValue<sint32> upscale_sharpness{100}; // FSR and SGSR sharpening in percent
 	ConfigValue<sint32> fullscreen_scaling{kKeepAspectRatio};
 
 	// audio

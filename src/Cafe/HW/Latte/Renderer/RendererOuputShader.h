@@ -16,6 +16,7 @@ public:
 		uint32 applySRGBEncoding;
 		float targetGamma;
 		float displayGamma;
+		float sharpness; // FSR and SGSR sharpening, 0 to 1
 	};
 	enum Shader
 	{
@@ -56,6 +57,13 @@ public:
 	static RendererOutputShader* s_sgsr_shader;
 	static RendererOutputShader* s_sgsr_shader_ud;
 
+	static RendererOutputShader* s_sgsr_edge_shader;
+	static RendererOutputShader* s_sgsr_edge_shader_ud;
+
+	// sharpening pass that runs on the output of s_fsr_shader
+	static RendererOutputShader* s_rcas_shader;
+	static RendererOutputShader* s_rcas_shader_ud;
+
 	static std::string GetOpenGlVertexSource(bool render_upside_down);
 	static std::string GetVulkanVertexSource(bool render_upside_down);
 	static std::string GetMetalVertexSource(bool render_upside_down);
@@ -73,6 +81,8 @@ private:
 	static const std::string s_hermite_shader_source;
 	static const std::string s_fsr_shader_source;
 	static const std::string s_sgsr_shader_source;
+	static const std::string s_sgsr_edge_shader_source;
+	static const std::string s_rcas_shader_source;
 
 	static const std::string s_bicubic_shader_source_vk;
 	static const std::string s_hermite_shader_source_vk;

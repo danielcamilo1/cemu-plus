@@ -901,6 +901,7 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 	const bool downscaling = (imageWidth <= effectiveWidth || imageHeight <= effectiveHeight);
 	// check for graphic pack shaders
 	RendererOutputShader* shader = nullptr;
+	RendererOutputShader* sharpenShader = nullptr; // optional second pass at output resolution
 	LatteTextureView::MagFilter filter = LatteTextureView::MagFilter::kLinear;
 	for(const auto& gp : GraphicPack2::GetActiveGraphicPacks())
 	{
@@ -962,12 +963,19 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 
 			filter = LatteTextureView::MagFilter::kLinear;
 		}
-		else if ((scaling_filter == kFSRFilter || scaling_filter == kSGSRFilter) && RendererOutputShader::s_fsr_shader)
+		else if ((scaling_filter == kFSRFilter || scaling_filter == kSGSRFilter || scaling_filter == kSGSREdgeFilter) && RendererOutputShader::s_fsr_shader)
 		{
 			if (scaling_filter == kFSRFilter)
+			{
+				// EASU upscales, then RCAS sharpens at output resolution like Eden does. 0% sharpness skips RCAS
 				shader = renderUpsideDown ? RendererOutputShader::s_fsr_shader_ud : RendererOutputShader::s_fsr_shader;
-			else
+				if (GetConfig().upscale_sharpness > 0)
+					sharpenShader = renderUpsideDown ? RendererOutputShader::s_rcas_shader_ud : RendererOutputShader::s_rcas_shader;
+			}
+			else if (scaling_filter == kSGSRFilter)
 				shader = renderUpsideDown ? RendererOutputShader::s_sgsr_shader_ud : RendererOutputShader::s_sgsr_shader;
+			else
+				shader = renderUpsideDown ? RendererOutputShader::s_sgsr_edge_shader_ud : RendererOutputShader::s_sgsr_edge_shader;
 
 			// the shaders do their own filtering on exact texel centers
 			filter = LatteTextureView::MagFilter::kLinear;
@@ -989,7 +997,10 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 		}
 	}
 	cemu_assert(shader);
-	g_renderer->DrawBackbufferQuad(textureView, shader, filter==LatteTextureView::MagFilter::kLinear, imageX, imageY, imageWidth, imageHeight, isPadView, clearBackground);
+	if (sharpenShader)
+		g_renderer->DrawBackbufferQuadTwoPass(textureView, shader, sharpenShader, filter==LatteTextureView::MagFilter::kLinear, imageX, imageY, imageWidth, imageHeight, isPadView, clearBackground);
+	else
+		g_renderer->DrawBackbufferQuad(textureView, shader, filter==LatteTextureView::MagFilter::kLinear, imageX, imageY, imageWidth, imageHeight, isPadView, clearBackground);
 	g_renderer->HandleScreenshotRequest(textureView, isPadView);
 	if (!g_renderer->ImguiBegin(!isPadView))
 		return;

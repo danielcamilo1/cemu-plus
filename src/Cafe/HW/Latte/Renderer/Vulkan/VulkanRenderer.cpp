@@ -897,6 +897,13 @@ VulkanRenderer::~VulkanRenderer()
 		vkFreeDescriptorSets(m_logicalDevice, m_descriptorPool, freeVector.size(), freeVector.data());
 	}
 
+	for (auto& target : m_outputPassTarget)
+		outputPass_destroyTarget(target);
+	if (m_outputPassRenderPass != VK_NULL_HANDLE)
+		vkDestroyRenderPass(m_logicalDevice, m_outputPassRenderPass, nullptr);
+	if (m_outputPassSampler != VK_NULL_HANDLE)
+		vkDestroySampler(m_logicalDevice, m_outputPassSampler, nullptr);
+
 	vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
 
 	for(auto& i : m_backbufferBlitPipelineCache)
@@ -2933,7 +2940,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::CreatePipelineShaderStageCreateI
 	return shaderStageInfo;
 }
 
-VkPipeline VulkanRenderer::backbufferBlit_createGraphicsPipeline(VkDescriptorSetLayout descriptorLayout, bool padView, RendererOutputShader* shader)
+VkPipeline VulkanRenderer::backbufferBlit_createGraphicsPipeline(VkDescriptorSetLayout descriptorLayout, bool padView, RendererOutputShader* shader, VkRenderPass renderPass)
 {
 	auto& chainInfo = GetChainInfo(!padView);
 
@@ -2944,6 +2951,9 @@ VkPipeline VulkanRenderer::backbufferBlit_createGraphicsPipeline(VkDescriptorSet
 	hash += (uint64)vertexRendererShader;
 	hash += (uint64)fragmentRendererShader;
 	hash += ((uint64)padView) << 1;
+	hash += (uint64)renderPass;
+	if (renderPass == VK_NULL_HANDLE)
+		renderPass = chainInfo.m_swapchainRenderPass;
 
 	const auto it = m_backbufferBlitPipelineCache.find(hash);
 	if (it != m_backbufferBlitPipelineCache.cend())
@@ -3033,7 +3043,7 @@ VkPipeline VulkanRenderer::backbufferBlit_createGraphicsPipeline(VkDescriptorSet
 	pipelineInfo.pMultisampleState = &multisampling;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.layout = m_pipelineLayout;
-	pipelineInfo.renderPass = chainInfo.m_swapchainRenderPass;
+	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -3393,7 +3403,6 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 	if(!AcquireNextSwapchainImage(!padView))
 		return;
 
-	auto& chainInfo = GetChainInfo(!padView);
 	LatteTextureViewVk* texViewVk = (LatteTextureViewVk*)texView;
 	if (!padView)
 		m_tvSourceWidth = (uint32)texView->baseTexture->width;
@@ -3407,6 +3416,93 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 	memoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 	memoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
 	vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+
+	auto descriptSet = backbufferBlit_createDescriptorSet(m_swapchainDescriptorSetLayout, texViewVk, useLinearTexFilter);
+	auto outputUniforms = shader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
+	backbufferBlit_drawToSwapchain(padView, shader, descriptSet, outputUniforms, imageX, imageY, imageWidth, imageHeight, clearBackground);
+}
+
+void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, RendererOutputShader* firstShader, RendererOutputShader* secondShader, bool useLinearTexFilter, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool padView, bool clearBackground)
+{
+	if (imageWidth <= 0 || imageHeight <= 0)
+		return;
+	if(!AcquireNextSwapchainImage(!padView))
+		return;
+
+	LatteTextureViewVk* texViewVk = (LatteTextureViewVk*)texView;
+	if (!padView)
+		m_tvSourceWidth = (uint32)texView->baseTexture->width;
+	draw_endRenderPass();
+
+	OutputPassTarget& target = outputPass_getTarget(padView, (uint32)imageWidth, (uint32)imageHeight);
+
+	// input texture writes must be done, and the last read of the intermediate image must be done before it is overwritten
+	VkMemoryBarrier memoryBarrier{};
+	memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	memoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+	memoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+
+	// first pass, into the intermediate image without any gamma conversion
+	auto firstPipeline = backbufferBlit_createGraphicsPipeline(m_swapchainDescriptorSetLayout, padView, firstShader, m_outputPassRenderPass);
+	auto firstDescriptorSet = backbufferBlit_createDescriptorSet(m_swapchainDescriptorSetLayout, texViewVk, useLinearTexFilter);
+
+	auto firstUniforms = firstShader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
+	firstUniforms.applySRGBEncoding = 0;
+	firstUniforms.targetGamma = 1.0f;
+	firstUniforms.displayGamma = 1.0f;
+	auto firstUniformOffset = uniformData_uploadUniformDataBufferGetOffset({(uint8*)&firstUniforms, sizeof(firstUniforms)});
+
+	VkRenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = m_outputPassRenderPass;
+	renderPassInfo.framebuffer = target.framebuffer;
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = { target.width, target.height };
+	renderPassInfo.clearValueCount = 0;
+
+	VkViewport viewport{};
+	viewport.width = (float)target.width;
+	viewport.height = (float)target.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(m_state.currentCommandBuffer, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.extent = { target.width, target.height };
+	vkCmdSetScissor(m_state.currentCommandBuffer, 0, 1, &scissor);
+
+	vkCmdBeginRenderPass(m_state.currentCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBindPipeline(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, firstPipeline);
+	m_state.currentPipeline = firstPipeline;
+	vkCmdBindDescriptorSets(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &firstDescriptorSet, 1, &firstUniformOffset);
+	vkCmdDraw(m_state.currentCommandBuffer, 6, 1, 0, 0);
+	vkCmdEndRenderPass(m_state.currentCommandBuffer);
+
+	// intermediate image becomes the input of the second pass
+	VkImageMemoryBarrier imageBarrier{};
+	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	imageBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+	imageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageBarrier.image = target.image;
+	imageBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier);
+
+	// second pass, from the intermediate image to the swapchain with the usual gamma handling
+	auto secondUniforms = secondShader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
+	secondUniforms.textureSrcResolution = {(float)target.width, (float)target.height};
+	backbufferBlit_drawToSwapchain(padView, secondShader, target.descriptorSet, secondUniforms, imageX, imageY, imageWidth, imageHeight, clearBackground);
+}
+
+void VulkanRenderer::backbufferBlit_drawToSwapchain(bool padView, RendererOutputShader* shader, VkDescriptorSet descriptorSet, const RendererOutputShader::OutputUniformVariables& uniforms, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool clearBackground)
+{
+	auto& chainInfo = GetChainInfo(!padView);
 
 	auto pipeline = backbufferBlit_createGraphicsPipeline(m_swapchainDescriptorSetLayout, padView, shader);
 
@@ -3431,8 +3527,6 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 	scissor.extent = chainInfo.getExtent();
 	vkCmdSetScissor(m_state.currentCommandBuffer, 0, 1, &scissor);
 
-	auto descriptSet = backbufferBlit_createDescriptorSet(m_swapchainDescriptorSetLayout, texViewVk, useLinearTexFilter);
-
 	vkCmdBeginRenderPass(m_state.currentCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	if (clearBackground)
@@ -3448,11 +3542,9 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 	vkCmdBindPipeline(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	m_state.currentPipeline = pipeline;
 
-	auto outputUniforms = shader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
+	auto outputUniformOffset = uniformData_uploadUniformDataBufferGetOffset({(uint8*)&uniforms, sizeof(uniforms)});
 
-	auto outputUniformOffset = uniformData_uploadUniformDataBufferGetOffset({(uint8*)&outputUniforms, sizeof(decltype(outputUniforms))});
-
-	vkCmdBindDescriptorSets(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &descriptSet,
+	vkCmdBindDescriptorSets(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &descriptorSet,
 		1, &outputUniformOffset);
 
 	vkCmdDraw(m_state.currentCommandBuffer, 6, 1, 0, 0);
@@ -3464,6 +3556,156 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 
 	// mark current swapchain image as well defined
 	chainInfo.hasDefinedSwapchainImage = true;
+}
+
+VulkanRenderer::OutputPassTarget& VulkanRenderer::outputPass_getTarget(bool padView, uint32 width, uint32 height)
+{
+	constexpr VkFormat format = VK_FORMAT_R16G16B16A16_SFLOAT;
+	OutputPassTarget& target = m_outputPassTarget[padView ? 1 : 0];
+	if (target.image != VK_NULL_HANDLE && target.width == width && target.height == height)
+		return target;
+
+	if (m_outputPassRenderPass == VK_NULL_HANDLE)
+	{
+		VkAttachmentDescription colorAttachment{};
+		colorAttachment.format = format;
+		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		VkAttachmentReference colorAttachmentRef{};
+		colorAttachmentRef.attachment = 0;
+		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass{};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &colorAttachmentRef;
+
+		VkRenderPassCreateInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = 1;
+		renderPassInfo.pAttachments = &colorAttachment;
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpass;
+		if (vkCreateRenderPass(m_logicalDevice, &renderPassInfo, nullptr, &m_outputPassRenderPass) != VK_SUCCESS)
+			UnrecoverableError("Failed to create render pass for the output filter");
+
+		// the second pass reads exact texels
+		VkSamplerCreateInfo samplerInfo{};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = VK_FILTER_NEAREST;
+		samplerInfo.minFilter = VK_FILTER_NEAREST;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
+		samplerInfo.maxAnisotropy = 1.0f;
+		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+		if (vkCreateSampler(m_logicalDevice, &samplerInfo, nullptr, &m_outputPassSampler) != VK_SUCCESS)
+			UnrecoverableError("Failed to create sampler for the output filter");
+	}
+
+	if (target.image != VK_NULL_HANDLE)
+	{
+		// the output size changed, which is rare (window resize), so just wait for the GPU
+		SubmitCommandBuffer();
+		WaitDeviceIdle();
+		outputPass_destroyTarget(target);
+	}
+
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.format = format;
+	imageInfo.extent = { width, height, 1 };
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 1;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	if (vkCreateImage(m_logicalDevice, &imageInfo, nullptr, &target.image) != VK_SUCCESS)
+		UnrecoverableError("Failed to create image for the output filter");
+	target.allocation = memoryManager->imageMemoryAllocate(target.image);
+
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = target.image;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewInfo.format = format;
+	viewInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	if (vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &target.view) != VK_SUCCESS)
+		UnrecoverableError("Failed to create image view for the output filter");
+
+	VkFramebufferCreateInfo framebufferInfo{};
+	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferInfo.renderPass = m_outputPassRenderPass;
+	framebufferInfo.attachmentCount = 1;
+	framebufferInfo.pAttachments = &target.view;
+	framebufferInfo.width = width;
+	framebufferInfo.height = height;
+	framebufferInfo.layers = 1;
+	if (vkCreateFramebuffer(m_logicalDevice, &framebufferInfo, nullptr, &target.framebuffer) != VK_SUCCESS)
+		UnrecoverableError("Failed to create framebuffer for the output filter");
+
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = m_descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &m_swapchainDescriptorSetLayout;
+	if (vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, &target.descriptorSet) != VK_SUCCESS)
+		UnrecoverableError("Failed to allocate descriptor set for the output filter");
+
+	VkDescriptorImageInfo imageDescInfo{};
+	imageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	imageDescInfo.imageView = target.view;
+	imageDescInfo.sampler = m_outputPassSampler;
+
+	VkDescriptorBufferInfo uniformBufferInfo{};
+	uniformBufferInfo.buffer = m_uniformVarBuffer;
+	uniformBufferInfo.offset = 0;
+	uniformBufferInfo.range = sizeof(RendererOutputShader::OutputUniformVariables);
+
+	VkWriteDescriptorSet descriptorWrites[2]{};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = target.descriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrites[0].pImageInfo = &imageDescInfo;
+	descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[1].dstSet = target.descriptorSet;
+	descriptorWrites[1].dstBinding = 1;
+	descriptorWrites[1].descriptorCount = 1;
+	descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	descriptorWrites[1].pBufferInfo = &uniformBufferInfo;
+	vkUpdateDescriptorSets(m_logicalDevice, std::size(descriptorWrites), descriptorWrites, 0, nullptr);
+
+	target.width = width;
+	target.height = height;
+	return target;
+}
+
+void VulkanRenderer::outputPass_destroyTarget(OutputPassTarget& target)
+{
+	if (target.descriptorSet != VK_NULL_HANDLE)
+		vkFreeDescriptorSets(m_logicalDevice, m_descriptorPool, 1, &target.descriptorSet);
+	if (target.framebuffer != VK_NULL_HANDLE)
+		vkDestroyFramebuffer(m_logicalDevice, target.framebuffer, nullptr);
+	if (target.view != VK_NULL_HANDLE)
+		vkDestroyImageView(m_logicalDevice, target.view, nullptr);
+	if (target.image != VK_NULL_HANDLE)
+		vkDestroyImage(m_logicalDevice, target.image, nullptr);
+	if (target.allocation)
+		memoryManager->imageMemoryFree(target.allocation);
+	target = {};
 }
 
 void VulkanRenderer::CreateDescriptorPool()

@@ -382,6 +382,18 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_getUpscalingFilter([[maybe_un
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setUpscalingSharpness([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint sharpness)
+{
+	GetConfig().upscale_sharpness = std::clamp<sint32>(sharpness, 0, 100);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getUpscalingSharpness([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().upscale_sharpness;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_setDownscalingFilter([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint downscaling_filter)
 {
 	GetConfig().downscale_filter = downscaling_filter;

@@ -24,3 +24,5 @@ OverlayAction LatteOverlay_getActionAt(sint32 x, sint32 y, bool padView);
 void LatteOverlay_setPressedAction(OverlayAction action);
 // shows the pause button as a resume button
 void LatteOverlay_setPaused(bool paused);
+// name and icon of the running game for the GamePad panel header. The icon is RGBA8 (R in the lowest byte), empty if there is none
+void LatteOverlay_setTitleInfo(const std::string& name, std::vector<uint32> iconRGBA, sint32 iconWidth, sint32 iconHeight);

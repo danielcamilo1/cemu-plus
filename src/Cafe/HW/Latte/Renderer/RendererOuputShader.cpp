@@ -392,12 +392,131 @@ void outputShader()
 }
 )";
 
-// Snapdragon Game Super Resolution 1, single pass spatial upscaler.
-// Ported from the Qualcomm sample shader, Copyright (c) 2023 Qualcomm Technologies, Inc. BSD-3-Clause license
+// AMD FidelityFX Super Resolution 1.0, robust contrast adaptive sharpening (RCAS) pass.
+// Runs on the EASU output at output resolution, like Eden does.
+// Ported from ffx_fsr1.h, Copyright (c) 2021 Advanced Micro Devices, Inc. MIT license
+const std::string RendererOutputShader::s_rcas_shader_source =
+R"(
+#define FSR_RCAS_LIMIT (0.25 - (1.0 / 16.0))
+
+float FsrMedRcp(float a)
+{
+	float b = uintBitsToFloat(uint(0x7ef19fff) - floatBitsToUint(a));
+	return b * (-b * a + 2.0);
+}
+
+float FsrMin3(float x, float y, float z) { return min(x, min(y, z)); }
+float FsrMax3(float x, float y, float z) { return max(x, max(y, z)); }
+
+void outputShader()
+{
+	// RCAS sharpness is in stops, 0 is the strongest. The slider maps 100% to 0 stops and goes towards Eden's 2 stops, 0% skips this pass
+	float con = exp2(-(1.0 - upscaleSharpness) * 2.0);
+
+	ivec2 sp = ivec2(passUV * textureSrcResolution);
+	ivec2 maxP = ivec2(textureSrcResolution) - 1;
+	//    b
+	//  d e f
+	//    h
+	vec3 b = texelFetch(textureSrc, clamp(sp + ivec2(0, -1), ivec2(0), maxP), 0).rgb;
+	vec3 d = texelFetch(textureSrc, clamp(sp + ivec2(-1, 0), ivec2(0), maxP), 0).rgb;
+	vec3 e = texelFetch(textureSrc, clamp(sp, ivec2(0), maxP), 0).rgb;
+	vec3 f = texelFetch(textureSrc, clamp(sp + ivec2(1, 0), ivec2(0), maxP), 0).rgb;
+	vec3 h = texelFetch(textureSrc, clamp(sp + ivec2(0, 1), ivec2(0), maxP), 0).rgb;
+
+	// min and max of ring
+	vec3 mn4 = min(min(b, d), min(f, h));
+	vec3 mx4 = max(max(b, d), max(f, h));
+	// immediate constants for peak range
+	vec2 peakC = vec2(1.0, -1.0 * 4.0);
+	// limiters, these need to be high precision rcps
+	vec3 hitMin = min(mn4, e) / (4.0 * mx4);
+	vec3 hitMax = (peakC.x - max(mx4, e)) / (4.0 * mn4 + peakC.y);
+	vec3 lobeRGB = max(-hitMin, hitMax);
+	float lobe = max(-FSR_RCAS_LIMIT, min(FsrMax3(lobeRGB.r, lobeRGB.g, lobeRGB.b), 0.0)) * con;
+	// resolve, which needs the medium precision rcp approximation to avoid visible tonality changes
+	float rcpL = FsrMedRcp(4.0 * lobe + 1.0);
+	colorOut0 = vec4((lobe * b + lobe * d + lobe * h + lobe * f + e) * rcpL, 1.0);
+}
+)";
+
+// Snapdragon Game Super Resolution 1, mobile variant. Same shader Eden uses for its "Snapdragon GSR" filter.
+// Copyright (c) 2025, Qualcomm Innovation Center, Inc. All rights reserved. BSD-3-Clause license
 const std::string RendererOutputShader::s_sgsr_shader_source =
 R"(
 const float SgsrEdgeThreshold = 8.0 / 255.0;
-const float SgsrEdgeSharpness = 2.0;
+
+vec4 SgsrWeightY(vec4 dx, vec4 dy, vec4 std)
+{
+	vec4 x = ((dx * dx) + (dy * dy)) * 0.55 + std;
+	return (x - 1.0) * (x - 4.0) * 3.8125; // approx. of (x - 1) * (x - 4)^3
+}
+
+void outputShader()
+{
+	vec2 scale = 1.0 / textureSrcResolution;
+	float edgeSharpness = 1.0 + upscaleSharpness;
+	vec4 color = textureLod(textureSrc, passUV, 0.0);
+	// image coord
+	vec2 icoord = passUV * textureSrcResolution + vec2(-0.5, 0.5);
+	vec2 icoordPixel = floor(icoord);
+	vec2 coord = icoordPixel * scale;
+	vec2 pl = icoord - icoordPixel;
+	// left: 0, right: 1, upDown: 2
+	mat3x4 dg = mat3x4(
+		textureGather(textureSrc, coord, 1),
+		textureGather(textureSrc, coord + vec2(2.0 * scale.x, 0.0), 1),
+		vec4(
+			textureGather(textureSrc, coord + vec2(scale.x, -scale.y), 1).wz,
+			textureGather(textureSrc, coord + vec2(scale.x, +scale.y), 1).yx
+		)
+	);
+	float edgeVote = abs(dg[0].z - dg[0].y) + abs(color.y - dg[0].y) + abs(color.y - dg[0].z);
+	if (edgeVote > SgsrEdgeThreshold)
+	{
+		float mean = (dg[0].y + dg[0].z + dg[1].x + dg[1].w) * 0.25;
+		dg = dg - mat3x4(vec4(mean), vec4(mean), vec4(mean));
+		vec4 sum = abs(dg[0]) + abs(dg[1]) + abs(dg[2]);
+		float std = 2.181818 / (sum.x + sum.y + sum.z + sum.w);
+		mat2x4 w = mat2x4(
+			SgsrWeightY(
+				pl.xxxx + vec4(+1.0, +0.0, +0.0, +1.0),
+				pl.yyyy + vec4(-1.0, -1.0, +0.0, +0.0),
+				clamp(abs(dg[0]) * std, 0.0, 1.0)
+			) + SgsrWeightY(
+				pl.xxxx + vec4(-1.0, -2.0, -2.0, -1.0),
+				pl.yyyy + vec4(-1.0, -1.0, +0.0, +0.0),
+				clamp(abs(dg[1]) * std, 0.0, 1.0)
+			) + SgsrWeightY(
+				pl.xxxx + vec4(+0.0, -1.0, -1.0, +0.0),
+				pl.yyyy + vec4(+1.0, +1.0, -2.0, -2.0),
+				clamp(abs(dg[2]) * std, 0.0, 1.0)
+			),
+			dg[0] + dg[1] + dg[2]
+		);
+		// compute final y with bounds
+		vec2 yb = vec2(
+			min(min(dg[0].y, dg[0].z), min(dg[1].x, dg[1].w)),
+			max(max(dg[0].y, dg[0].z), max(dg[1].x, dg[1].w))
+		);
+		vec2 fvy = vec2(
+			w[0].x + w[0].y + w[0].z + w[0].w,
+			w[1].x + w[1].y + w[1].z + w[1].w
+		);
+		float fy = clamp((fvy.y / fvy.x) * edgeSharpness, yb[0], yb[1]);
+		// smooth high contrast input
+		float dy = clamp(fy - color.y + mean, -23.0 / 255.0, 23.0 / 255.0);
+		color = clamp(color + dy, 0.0, 1.0);
+	}
+	colorOut0 = vec4(color.rgb, 1.0);
+}
+)";
+
+// Snapdragon Game Super Resolution 1, edge direction variant. Same shader Eden uses for "Snapdragon GSR EdgeDir".
+// Copyright (c) 2025, Qualcomm Innovation Center, Inc. All rights reserved. BSD-3-Clause license
+const std::string RendererOutputShader::s_sgsr_edge_shader_source =
+R"(
+const float SgsrEdgeThreshold = 8.0 / 255.0;
 
 float SgsrFastLanczos2(float x)
 {
@@ -478,7 +597,7 @@ void outputShader()
 		float finalY = aWY.y / aWY.x;
 		float maxY = max(max(left.y, left.z), max(right.x, right.w));
 		float minY = min(min(left.y, left.z), min(right.x, right.w));
-		finalY = clamp(SgsrEdgeSharpness * finalY, minY, maxY);
+		finalY = clamp((1.0 + upscaleSharpness) * finalY, minY, maxY);
 
 		// smooth high contrast input
 		float deltaY = clamp(finalY - pix.w, -23.0 / 255.0, 23.0 / 255.0);
@@ -524,6 +643,7 @@ RendererOutputShader::OutputUniformVariables RendererOutputShader::FillUniformBl
 	vars.applySRGBEncoding = padView ? LatteGPUState.drcBufferUsesSRGB : LatteGPUState.tvBufferUsesSRGB;
 	vars.targetGamma = padView ? ActiveSettings::GetDRCGamma() : ActiveSettings::GetTVGamma();
 	vars.displayGamma = GetConfig().userDisplayGamma;
+	vars.sharpness = (float)GetConfig().upscale_sharpness / 100.0f;
 
 	return vars;
 }
@@ -542,6 +662,12 @@ RendererOutputShader* RendererOutputShader::s_fsr_shader_ud;
 
 RendererOutputShader* RendererOutputShader::s_sgsr_shader;
 RendererOutputShader* RendererOutputShader::s_sgsr_shader_ud;
+
+RendererOutputShader* RendererOutputShader::s_sgsr_edge_shader;
+RendererOutputShader* RendererOutputShader::s_sgsr_edge_shader_ud;
+
+RendererOutputShader* RendererOutputShader::s_rcas_shader;
+RendererOutputShader* RendererOutputShader::s_rcas_shader_ud;
 
 std::string RendererOutputShader::GetOpenGlVertexSource(bool render_upside_down)
 {
@@ -700,6 +826,7 @@ uniform vec2 outputResolution;
 uniform bool applySRGBEncoding;
 uniform float targetGamma;
 uniform float displayGamma;
+uniform float upscaleSharpness;
 };
 
 float sRGBEncode(float linear)
@@ -778,6 +905,12 @@ void RendererOutputShader::InitializeStatic()
 
     	s_sgsr_shader = new RendererOutputShader(vertex_source, s_sgsr_shader_source);
     	s_sgsr_shader_ud = new RendererOutputShader(vertex_source_ud, s_sgsr_shader_source);
+
+    	s_sgsr_edge_shader = new RendererOutputShader(vertex_source, s_sgsr_edge_shader_source);
+    	s_sgsr_edge_shader_ud = new RendererOutputShader(vertex_source_ud, s_sgsr_edge_shader_source);
+
+    	s_rcas_shader = new RendererOutputShader(vertex_source, s_rcas_shader_source);
+    	s_rcas_shader_ud = new RendererOutputShader(vertex_source_ud, s_rcas_shader_source);
     }
 }
 
@@ -799,4 +932,12 @@ void RendererOutputShader::ShutdownStatic()
 	delete s_sgsr_shader;
 	delete s_sgsr_shader_ud;
 	s_sgsr_shader = s_sgsr_shader_ud = nullptr;
+
+	delete s_sgsr_edge_shader;
+	delete s_sgsr_edge_shader_ud;
+	s_sgsr_edge_shader = s_sgsr_edge_shader_ud = nullptr;
+
+	delete s_rcas_shader;
+	delete s_rcas_shader_ud;
+	s_rcas_shader = s_rcas_shader_ud = nullptr;
 }
