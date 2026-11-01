@@ -1166,7 +1166,7 @@ static void LatteOverlay_drawVolumeSlider(ImDrawList* dl, float minX, float maxX
 	const float knobH = u * 1.05f;
 	const float kx = v.travelMin + (v.travelMax - v.travelMin) * volume;
 	if (volume > 0.0f)
-		dl->AddRectFilled({ s0.x + 1.0f, s0.y + 1.0f }, { kx, s1.y - 1.0f }, IM_COL32(0, 162, 217, 120), slotH * 0.5f, ImDrawFlags_RoundCornersLeft);
+		dl->AddRectFilled({ s0.x + 1.0f, s0.y + 1.0f }, { kx, s1.y - 1.0f }, IM_COL32(168, 168, 176, 255), slotH * 0.5f, ImDrawFlags_RoundCornersLeft);
 	const ImVec2 k0{ kx - v.knobW * 0.5f, cy - knobH * 0.5f };
 	const ImVec2 k1{ kx + v.knobW * 0.5f, cy + knobH * 0.5f };
 	const float knobRounding = u * 0.16f;
@@ -1180,7 +1180,7 @@ static void LatteOverlay_drawVolumeSlider(ImDrawList* dl, float minX, float maxX
 		dl->AddLine({ rx, k0.y + knobH * 0.22f }, { rx, k1.y - knobH * 0.22f }, IM_COL32(150, 150, 158, 255), std::max(1.0f, u * 0.07f));
 		dl->AddLine({ rx + 1.0f, k0.y + knobH * 0.22f }, { rx + 1.0f, k1.y - knobH * 0.22f }, IM_COL32(255, 255, 255, 140), 1.0f);
 	}
-	dl->AddRect(k0, k1, pressed ? kPanelAccent : IM_COL32(128, 128, 136, 255), knobRounding, 0, pressed ? std::max(1.5f, u * 0.08f) : 1.0f);
+	dl->AddRect(k0, k1, pressed ? IM_COL32(255, 255, 255, 255) : IM_COL32(128, 128, 136, 255), knobRounding, 0, pressed ? std::max(1.5f, u * 0.08f) : 1.0f);
 }
 
 static float LatteOverlay_easeInOutCubic(float t)
@@ -1268,11 +1268,11 @@ static bool LatteOverlay_drawVolumePopup(ImDrawList* dl, float smallMinX, float 
 	{
 		const float textSize = fontSize * (u / f) * 0.5f;
 		const float textY = sh0.y + u * 0.45f;
-		const char* title = "Wii U GamePad volume";
+		const char* title = "WiiU Gamepad Volume";
 		dl->AddText(font, textSize, { minX, textY }, LatteOverlay_withAlpha(IM_COL32(230, 230, 236, 255), textAlpha), title);
 		const std::string value = volume <= 0.0f ? "Mute" : fmt::format("{}%", g_pad_volume.load());
 		const float valueW = font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, value.c_str()).x;
-		dl->AddText(font, textSize, { maxX - valueW, textY }, LatteOverlay_withAlpha(kPanelAccent, textAlpha), value.c_str());
+		dl->AddText(font, textSize, { maxX - valueW, textY }, LatteOverlay_withAlpha(IM_COL32(190, 190, 198, 255), textAlpha), value.c_str());
 	}
 
 	// once it is large enough to aim at, the large slider takes the touches, ahead of the panel buttons under it
