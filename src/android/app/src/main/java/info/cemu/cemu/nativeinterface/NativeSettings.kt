@@ -47,6 +47,8 @@ object NativeSettings {
         const val BICUBIC_FILTER: Int = 1
         const val BICUBIC_HERMITE_FILTER: Int = 2
         const val NEAREST_NEIGHBOR_FILTER: Int = 3
+        const val FSR_FILTER: Int = 4
+        const val SGSR_FILTER: Int = 5
     }
 
     @JvmStatic

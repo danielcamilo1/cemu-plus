@@ -38,6 +38,8 @@ guaranteed, and some functionality may be missing compared to the desktop versio
 - **Panel buttons**: optional touch buttons in the GamePad panel to turn frame generation on and off, cycle the
   frame generation multiplier (x2, x3, x4), pause and resume the game, and open the emulator settings (which pauses
   the game until you leave them)
+- **AMD FSR 1 and Snapdragon GSR upscale filters** for a sharper image when the game resolution is lower than the
+  screen (Settings → Graphics settings → Upscale filter)
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
 ## Download

@@ -85,6 +85,8 @@ enum UpscalingFilter
 	kBicubicFilter,
 	kBicubicHermiteFilter,
 	kNearestNeighborFilter,
+	kFSRFilter, // AMD FidelityFX Super Resolution 1 (EASU), upscaling only
+	kSGSRFilter, // Snapdragon Game Super Resolution 1, upscaling only
 };
 
 enum FullscreenScaling

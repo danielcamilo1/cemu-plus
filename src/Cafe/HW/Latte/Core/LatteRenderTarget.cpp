@@ -962,6 +962,16 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 
 			filter = LatteTextureView::MagFilter::kLinear;
 		}
+		else if ((scaling_filter == kFSRFilter || scaling_filter == kSGSRFilter) && RendererOutputShader::s_fsr_shader)
+		{
+			if (scaling_filter == kFSRFilter)
+				shader = renderUpsideDown ? RendererOutputShader::s_fsr_shader_ud : RendererOutputShader::s_fsr_shader;
+			else
+				shader = renderUpsideDown ? RendererOutputShader::s_sgsr_shader_ud : RendererOutputShader::s_sgsr_shader;
+
+			// the shaders do their own filtering on exact texel centers
+			filter = LatteTextureView::MagFilter::kLinear;
+		}
 		else if (scaling_filter == kNearestNeighborFilter)
 		{
 			if (renderUpsideDown)
@@ -970,6 +980,12 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 				shader = RendererOutputShader::s_copy_shader;
 
 			filter = LatteTextureView::MagFilter::kNearestNeighbor;
+		}
+		else
+		{
+			// filters without a shader for this renderer
+			shader = renderUpsideDown ? RendererOutputShader::s_hermit_shader_ud : RendererOutputShader::s_hermit_shader;
+			filter = LatteTextureView::MagFilter::kLinear;
 		}
 	}
 	cemu_assert(shader);

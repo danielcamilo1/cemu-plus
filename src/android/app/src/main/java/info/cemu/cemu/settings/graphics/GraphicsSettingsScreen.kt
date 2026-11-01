@@ -17,6 +17,12 @@ private val ScalingFilterChoices = listOf(
     NativeSettings.ScalingFilter.NEAREST_NEIGHBOR_FILTER
 )
 
+// FSR and GSR only make sense when the image gets bigger
+private val UpscalingFilterChoices = ScalingFilterChoices + listOf(
+    NativeSettings.ScalingFilter.FSR_FILTER,
+    NativeSettings.ScalingFilter.SGSR_FILTER,
+)
+
 @Composable
 fun GraphicsSettingsScreen(
     navigateBack: () -> Unit,
@@ -89,7 +95,7 @@ fun GraphicsSettingsScreen(
             initialChoice = NativeSettings::getUpscalingFilter,
             onChoiceChanged = NativeSettings::setUpscalingFilter,
             choiceToString = { scalingFilterToString(it) },
-            choices = ScalingFilterChoices,
+            choices = UpscalingFilterChoices,
         )
         SingleSelection(
             label = tr("Downscale filter"),
@@ -106,6 +112,8 @@ private fun scalingFilterToString(scalingFilter: Int) = when (scalingFilter) {
     NativeSettings.ScalingFilter.BICUBIC_FILTER -> tr("Bicubic")
     NativeSettings.ScalingFilter.BICUBIC_HERMITE_FILTER -> tr("Hermite")
     NativeSettings.ScalingFilter.NEAREST_NEIGHBOR_FILTER -> tr("Nearest neighbor")
+    NativeSettings.ScalingFilter.FSR_FILTER -> tr("AMD FSR 1")
+    NativeSettings.ScalingFilter.SGSR_FILTER -> tr("Snapdragon GSR")
     else -> throw IllegalArgumentException("Invalid scaling filter:  $scalingFilter")
 }
 
