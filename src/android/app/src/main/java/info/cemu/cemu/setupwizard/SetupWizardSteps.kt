@@ -6,7 +6,6 @@ import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -353,7 +352,6 @@ private fun WizardNumberedStep(number: Int, text: String) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun FrameGenStep(dllStatus: Int, onDllStatusChanged: (Int) -> Unit) {
     val context = LocalContext.current
@@ -454,7 +452,6 @@ internal fun FrameGenStep(dllStatus: Int, onDllStatusChanged: (Int) -> Unit) {
     WiiUBodyText(tr("Don't own Lossless Scaling? Skip this step, everything else works without it."))
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ToolbarStep(screenLayoutViewModel: ScreenLayoutSettingsViewModel = viewModel()) {
     val emulationSettings by screenLayoutViewModel.emulationSettings.collectAsState()
@@ -554,7 +551,6 @@ internal fun ToolbarStep(screenLayoutViewModel: ScreenLayoutSettingsViewModel = 
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ToolbarChips(items: List<ToolbarItem>, states: MutableMap<String, Boolean>) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
