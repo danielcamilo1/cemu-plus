@@ -148,6 +148,28 @@ Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setDriverSettingForTitle([[
 	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getPadCropHorizontalForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.GetPadCropHorizontal();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getPadCropVerticalForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.GetPadCropVertical();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setPadCropForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jint horizontal, jint vertical)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	NativeGameTitles::g_currentGameProfile.SetPadCrop(horizontal, vertical);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeGameTitles_titleHasShaderCacheFiles([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
 {

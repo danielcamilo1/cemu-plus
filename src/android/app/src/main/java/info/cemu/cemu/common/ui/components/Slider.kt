@@ -33,6 +33,8 @@ fun Slider(
     enabled: Boolean = true,
     @IntRange(from = 0) steps: Int = (valueTo - valueFrom - 1).coerceAtLeast(0),
     labelFormatter: (Int) -> String,
+    // called while dragging, onValueChange only once the thumb is let go
+    onValueChanging: (Int) -> Unit = {},
     onValueChange: (Int) -> Unit,
 ) {
     var sliderValue by rememberSaveable(value) { mutableFloatStateOf(value.toFloat()) }
@@ -70,7 +72,10 @@ fun Slider(
             value = sliderValue,
             enabled = enabled,
             onValueChangeFinished = { onValueChange(sliderValue.roundToInt()) },
-            onValueChange = { sliderValue = it },
+            onValueChange = {
+                sliderValue = it
+                onValueChanging(it.roundToInt())
+            },
             interactionSource = interactionSource,
         )
     }

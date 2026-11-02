@@ -65,8 +65,20 @@ public:
 		m_driverSetting = driverSetting;
 	}
 
+	// percent of the GamePad image cut off on the second screen, split evenly between both sides
+	static constexpr sint32 kPadCropMax = 40;
+	[[nodiscard]] sint32 GetPadCropHorizontal() const { return m_padCropHorizontal; }
+	[[nodiscard]] sint32 GetPadCropVertical() const { return m_padCropVertical; }
+	void SetPadCrop(sint32 horizontal, sint32 vertical)
+	{
+		m_padCropHorizontal = std::clamp(horizontal, 0, kPadCropMax);
+		m_padCropVertical = std::clamp(vertical, 0, kPadCropMax);
+	}
+
   private:
 	DriverSetting m_driverSetting;
+	sint32 m_padCropHorizontal = 0;
+	sint32 m_padCropVertical = 0;
 
 #endif
 

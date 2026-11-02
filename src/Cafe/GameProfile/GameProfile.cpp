@@ -285,6 +285,11 @@ bool GameProfile::Load(uint64_t title_id)
 				m_driverSetting.customPath = iniParser.FindOption("customPath");
 			}
 		}
+		else if (boost::iequals(iniParser.GetCurrentSectionName(), "AndroidPadScreen"))
+		{
+			gameProfile_loadIntegerOption(iniParser, "cropHorizontal", m_padCropHorizontal, 0, kPadCropMax);
+			gameProfile_loadIntegerOption(iniParser, "cropVertical", m_padCropVertical, 0, kPadCropMax);
+		}
 #endif
 	}
 	return true;
@@ -346,6 +351,11 @@ void GameProfile::Save(uint64_t title_id)
 	if (m_driverSetting.mode == DriverSettingMode::Custom && m_driverSetting.customPath.has_value())
 		fs->writeLine(fmt::format("{} = {}", "customPath", m_driverSetting.customPath.value()).c_str());
 	fs->writeLine("");
+
+	fs->writeLine("[AndroidPadScreen]");
+	fs->writeLine(fmt::format("{} = {}", "cropHorizontal", m_padCropHorizontal).c_str());
+	fs->writeLine(fmt::format("{} = {}", "cropVertical", m_padCropVertical).c_str());
+	fs->writeLine("");
 #endif
 
 #undef WRITE_OPTIONAL_ENTRY
@@ -378,6 +388,10 @@ void GameProfile::ResetOptional()
 	// controller settings
 	for (auto& profile : m_controllerProfile)
 		profile.reset();
+#if BOOST_PLAT_ANDROID
+	m_padCropHorizontal = 0;
+	m_padCropVertical = 0;
+#endif
 }
 
 void GameProfile::Reset()
@@ -404,4 +418,8 @@ void GameProfile::Reset()
 	// controller settings
 	for (auto& profile : m_controllerProfile)
 		profile.reset();
+#if BOOST_PLAT_ANDROID
+	m_padCropHorizontal = 0;
+	m_padCropVertical = 0;
+#endif
 }

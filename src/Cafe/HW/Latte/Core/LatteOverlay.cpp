@@ -2021,7 +2021,7 @@ static sint32 LatteOverlay_countStatLines()
 static void LatteOverlay_getBlackBarArea(bool pad_view, ScreenPosition position, float fontSize, ImVec2& areaMin, ImVec2& areaSize, bool& horizontal, OverlayBar& bar)
 {
 	sint32 imageX, imageY, imageWidth, imageHeight, fullWidth, fullHeight;
-	LatteRenderTarget_getScreenImageArea(&imageX, &imageY, &imageWidth, &imageHeight, &fullWidth, &fullHeight, pad_view);
+	LatteRenderTarget_getScreenImageArea(&imageX, &imageY, &imageWidth, &imageHeight, &fullWidth, &fullHeight, pad_view, true);
 
 	const float minSize = fontSize * 1.5f + 20.0f;
 	const float topBar = (float)imageY;

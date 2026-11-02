@@ -100,6 +100,7 @@ fun GameProfileEditScreen(
                 onChoiceChanged = viewModel::setSelectedDriverSetting,
             )
         }
+        PadCropSettings(titleId)
     }
 }
 

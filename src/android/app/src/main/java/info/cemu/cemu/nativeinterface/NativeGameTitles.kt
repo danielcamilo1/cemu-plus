@@ -76,6 +76,18 @@ object NativeGameTitles {
     @JvmStatic
     external fun setDriverSettingForTitle(gameTitleId: Long, driverSetting: DriverSetting)
 
+    // percent of the GamePad image cut off on the second screen, split evenly between both sides
+    const val PAD_CROP_MAX = 40
+
+    @JvmStatic
+    external fun getPadCropHorizontalForTitle(gameTitleId: Long): Int
+
+    @JvmStatic
+    external fun getPadCropVerticalForTitle(gameTitleId: Long): Int
+
+    @JvmStatic
+    external fun setPadCropForTitle(gameTitleId: Long, horizontal: Int, vertical: Int)
+
     @JvmStatic
     external fun titleHasShaderCacheFiles(gameTitleId: Long): Boolean
 

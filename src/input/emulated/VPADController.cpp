@@ -213,8 +213,12 @@ void VPADController::update_touch(VPADStatus_t& status)
 	{
 		glm::ivec2 image_pos, image_size;
 		LatteRenderTarget_getScreenImageArea(&image_pos.x, &image_pos.y, &image_size.x, &image_size.y, nullptr, nullptr, pad_view);
+		// touches outside of a cropped image stay on its visible edge instead of reaching the cut off borders
+		glm::ivec2 visible_pos, visible_size;
+		LatteRenderTarget_getScreenImageArea(&visible_pos.x, &visible_pos.y, &visible_size.x, &visible_size.y, nullptr, nullptr, pad_view, true);
+		const glm::vec2 touch_pos = glm::clamp(glm::vec2(left_mouse.value()), glm::vec2(visible_pos), glm::vec2(visible_pos + visible_size));
 
-		glm::vec2 relative_mouse_pos = left_mouse.value() - image_pos;
+		glm::vec2 relative_mouse_pos = touch_pos - glm::vec2(image_pos);
 		relative_mouse_pos = { std::min(relative_mouse_pos.x, (float)image_size.x), std::min(relative_mouse_pos.y, (float)image_size.y) };
 		relative_mouse_pos = { std::max(relative_mouse_pos.x, 0.0f), std::max(relative_mouse_pos.y, 0.0f) };
 		relative_mouse_pos /= image_size;

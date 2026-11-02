@@ -3549,6 +3549,19 @@ void VulkanRenderer::backbufferBlit_drawToSwapchain(bool padView, RendererOutput
 
 	VkRect2D scissor{};
 	scissor.extent = chainInfo.getExtent();
+	// a cropped GamePad image reaches past the part that is shown, cut it off there
+	sint32 visibleX, visibleY, visibleWidth, visibleHeight;
+	LatteRenderTarget_getScreenImageArea(&visibleX, &visibleY, &visibleWidth, &visibleHeight, nullptr, nullptr, padView, true);
+	if (visibleWidth != imageWidth || visibleHeight != imageHeight)
+	{
+		const VkExtent2D extent = scissor.extent;
+		const sint32 scissorLeft = std::clamp(visibleX, 0, (sint32)extent.width);
+		const sint32 scissorTop = std::clamp(visibleY, 0, (sint32)extent.height);
+		const sint32 scissorRight = std::clamp(visibleX + visibleWidth, scissorLeft, (sint32)extent.width);
+		const sint32 scissorBottom = std::clamp(visibleY + visibleHeight, scissorTop, (sint32)extent.height);
+		scissor.offset = { scissorLeft, scissorTop };
+		scissor.extent = { (uint32)(scissorRight - scissorLeft), (uint32)(scissorBottom - scissorTop) };
+	}
 	vkCmdSetScissor(m_state.currentCommandBuffer, 0, 1, &scissor);
 
 	vkCmdBeginRenderPass(m_state.currentCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
