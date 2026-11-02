@@ -69,6 +69,9 @@ public:
 	static constexpr sint32 kPadCropMax = 40;
 	[[nodiscard]] sint32 GetPadCropHorizontal() const { return m_padCropHorizontal; }
 	[[nodiscard]] sint32 GetPadCropVertical() const { return m_padCropVertical; }
+	// turns the crop off without losing it
+	[[nodiscard]] bool IsPadCropEnabled() const { return m_padCropEnabled; }
+	void SetPadCropEnabled(bool enabled) { m_padCropEnabled = enabled; }
 	void SetPadCrop(sint32 horizontal, sint32 vertical)
 	{
 		m_padCropHorizontal = std::clamp(horizontal, 0, kPadCropMax);
@@ -79,6 +82,7 @@ public:
 	DriverSetting m_driverSetting;
 	sint32 m_padCropHorizontal = 0;
 	sint32 m_padCropVertical = 0;
+	bool m_padCropEnabled = true;
 
 #endif
 

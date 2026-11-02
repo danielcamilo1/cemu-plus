@@ -841,7 +841,7 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 	float keepX = 1.0f;
 	float keepY = 1.0f;
 #if BOOST_PLAT_ANDROID
-	if (separatePadWindow && !WindowSystem::GetWindowInfo().swap_screens)
+	if (separatePadWindow && !WindowSystem::GetWindowInfo().swap_screens && g_current_game_profile->IsPadCropEnabled())
 	{
 		keepX = 1.0f - (float)g_current_game_profile->GetPadCropHorizontal() / 100.0f;
 		keepY = 1.0f - (float)g_current_game_profile->GetPadCropVertical() / 100.0f;

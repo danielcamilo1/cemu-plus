@@ -15,6 +15,8 @@ import info.cemu.cemu.common.android.inputdevice.listGameControllers
 import info.cemu.cemu.common.android.inputdevice.toControllerInfo
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
+import info.cemu.cemu.common.settings.HotkeyAction
+import info.cemu.cemu.common.settings.HotkeyCombo
 import info.cemu.cemu.nativeinterface.NativeInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -124,6 +126,22 @@ class ControllersViewModel(
 
         val buttons = getNativeButtonsForControllerType(controllerType.value)
         buttons.forEach { _controls.value += getControllerMapping(it.nativeKeyCode) }
+
+        applyDefaultHotkeys()
+    }
+
+    // Select + Start exits the game and Select + X opens the quick menu, they can be changed in Hotkeys
+    private fun applyDefaultHotkeys() {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(
+                    hotkeySettings = it.hotkeySettings + mapOf(
+                        HotkeyAction.QUIT to HotkeyCombo(setOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START)),
+                        HotkeyAction.TOGGLE_MENU to HotkeyCombo(setOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_X)),
+                    )
+                )
+            }
+        }
     }
 
     fun tryMapMotionEvent(motionEvent: MotionEvent, buttonId: Int): Boolean {

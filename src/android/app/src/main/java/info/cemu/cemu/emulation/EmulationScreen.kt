@@ -465,6 +465,8 @@ private fun EmulationSideMenuContent(
         enabled = sideMenuState.isPadOnExternalDisplay,
     )
 
+    PadCropQuickSettings(isPadOnSecondScreen = sideMenuState.isPadOnExternalDisplay)
+
     FrameGenQuickSettings()
 
     TextButtonItem(

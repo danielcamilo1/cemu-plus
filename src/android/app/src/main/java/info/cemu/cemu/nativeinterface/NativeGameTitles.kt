@@ -89,6 +89,16 @@ object NativeGameTitles {
     external fun setPadCropForTitle(gameTitleId: Long, horizontal: Int, vertical: Int)
 
     @JvmStatic
+    external fun isPadCropEnabledForTitle(gameTitleId: Long): Boolean
+
+    @JvmStatic
+    external fun setPadCropEnabledForTitle(gameTitleId: Long, enabled: Boolean)
+
+    // the title id of the game that is running, 0 if there is none
+    @JvmStatic
+    external fun getRunningTitleId(): Long
+
+    @JvmStatic
     external fun titleHasShaderCacheFiles(gameTitleId: Long): Boolean
 
     @JvmStatic

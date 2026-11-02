@@ -289,6 +289,7 @@ bool GameProfile::Load(uint64_t title_id)
 		{
 			gameProfile_loadIntegerOption(iniParser, "cropHorizontal", m_padCropHorizontal, 0, kPadCropMax);
 			gameProfile_loadIntegerOption(iniParser, "cropVertical", m_padCropVertical, 0, kPadCropMax);
+			gameProfile_loadBooleanOption2(iniParser, "cropEnabled", m_padCropEnabled);
 		}
 #endif
 	}
@@ -355,6 +356,7 @@ void GameProfile::Save(uint64_t title_id)
 	fs->writeLine("[AndroidPadScreen]");
 	fs->writeLine(fmt::format("{} = {}", "cropHorizontal", m_padCropHorizontal).c_str());
 	fs->writeLine(fmt::format("{} = {}", "cropVertical", m_padCropVertical).c_str());
+	fs->writeLine(fmt::format("{} = {}", "cropEnabled", m_padCropEnabled).c_str());
 	fs->writeLine("");
 #endif
 
@@ -391,6 +393,7 @@ void GameProfile::ResetOptional()
 #if BOOST_PLAT_ANDROID
 	m_padCropHorizontal = 0;
 	m_padCropVertical = 0;
+	m_padCropEnabled = true;
 #endif
 }
 
@@ -421,5 +424,6 @@ void GameProfile::Reset()
 #if BOOST_PLAT_ANDROID
 	m_padCropHorizontal = 0;
 	m_padCropVertical = 0;
+	m_padCropEnabled = true;
 #endif
 }

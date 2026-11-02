@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -31,6 +32,7 @@ import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.ui.components.Header
 import info.cemu.cemu.common.ui.components.Slider
+import info.cemu.cemu.common.ui.components.Toggle
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeGameTitles
 import info.cemu.cemu.nativeinterface.NativeSettings
@@ -52,9 +54,9 @@ private val PreviewGridColor = Color.Black.copy(alpha = 0.12f)
 private val PreviewCutColor = Color.Black.copy(alpha = 0.65f)
 
 // fraction of the GamePad image left on one axis after cutting cropPercent off it
-private fun keepFraction(cropPercent: Int) = 1f - cropPercent / 100f
+internal fun keepFraction(cropPercent: Int) = 1f - cropPercent / 100f
 
-private fun croppedAspectRatio(horizontal: Int, vertical: Int) =
+internal fun croppedAspectRatio(horizontal: Int, vertical: Int) =
     WII_U_ASPECT_RATIO * keepFraction(horizontal) / keepFraction(vertical)
 
 private fun SecondScreenInfo.aspectRatio() = width.toFloat() / height
@@ -67,7 +69,7 @@ private fun screenPercentUsed(screen: SecondScreenInfo, imageRatio: Float): Int 
 }
 
 // cuts the sides of a screen narrower than the image, or the top and bottom of a wider one, until it fills the screen
-private fun fillScreenCrop(screen: SecondScreenInfo, horizontal: Int, vertical: Int): Pair<Int, Int> {
+internal fun fillScreenCrop(screen: SecondScreenInfo, horizontal: Int, vertical: Int): Pair<Int, Int> {
     val screenRatio = screen.aspectRatio()
     return if (screenRatio < croppedAspectRatio(horizontal, vertical)) {
         val keepX = screenRatio * keepFraction(vertical) / WII_U_ASPECT_RATIO
@@ -150,6 +152,7 @@ internal fun PadCropSettings(titleId: Long) {
     val alignment = remember { NativeSettings.getPadScreenAlignment() }
     val showToolbar = remember { isToolbarEnabled() }
 
+    var enabled by rememberSaveable { mutableStateOf(NativeGameTitles.isPadCropEnabledForTitle(titleId)) }
     var savedHorizontal by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropHorizontalForTitle(titleId)) }
     var savedVertical by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropVerticalForTitle(titleId)) }
     // follows the sliders while they are dragged, the saved values only change when they are let go
@@ -165,6 +168,8 @@ internal fun PadCropSettings(titleId: Long) {
     }
 
     val fill = fillScreenCrop(screen, horizontal, vertical)
+    val shownHorizontal = if (enabled) horizontal else 0
+    val shownVertical = if (enabled) vertical else 0
 
     Column {
         Header(tr("GamePad screen crop"))
@@ -172,6 +177,15 @@ internal fun PadCropSettings(titleId: Long) {
         if (!isPadOnSecondScreen) {
             InfoText(tr("Only used while the GamePad is on the second screen. Turn on Use second screen in Settings, Screen layout."))
         }
+        Toggle(
+            label = tr("Crop the GamePad image"),
+            description = tr("Turn off to see the whole GamePad image again without losing the crop. The in-game menu has the same switch"),
+            checked = enabled,
+            onCheckedChanged = {
+                enabled = it
+                NativeGameTitles.setPadCropEnabledForTitle(titleId, it)
+            },
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -185,7 +199,7 @@ internal fun PadCropSettings(titleId: Long) {
                 screen = GamePadScreen,
                 caption = tr("GamePad image"),
             ) { paint ->
-                drawCropFrame(horizontal, vertical, paint)
+                drawCropFrame(shownHorizontal, shownVertical, paint)
             }
             PreviewWithCaption(
                 modifier = Modifier.weight(screen.aspectRatio()),
@@ -196,18 +210,19 @@ internal fun PadCropSettings(titleId: Long) {
                     tr("Second screen (AYN Thor shape)")
                 },
             ) { paint ->
-                drawCroppedSecondScreen(horizontal, vertical, alignment, showToolbar, paint)
+                drawCroppedSecondScreen(shownHorizontal, shownVertical, alignment, showToolbar, paint)
             }
         }
         InfoText(
             tr(
                 "The GamePad image fills {0}% of the second screen, {1}% without cropping.",
-                screenPercentUsed(screen, croppedAspectRatio(horizontal, vertical)).toString(),
+                screenPercentUsed(screen, croppedAspectRatio(shownHorizontal, shownVertical)).toString(),
                 screenPercentUsed(screen, WII_U_ASPECT_RATIO).toString(),
             )
         )
         Slider(
             label = tr("Crop left and right"),
+            enabled = enabled,
             value = savedHorizontal,
             valueFrom = 0,
             valueTo = NativeGameTitles.PAD_CROP_MAX,
@@ -217,6 +232,7 @@ internal fun PadCropSettings(titleId: Long) {
         )
         Slider(
             label = tr("Crop top and bottom"),
+            enabled = enabled,
             value = savedVertical,
             valueFrom = 0,
             valueTo = NativeGameTitles.PAD_CROP_MAX,
@@ -229,13 +245,13 @@ internal fun PadCropSettings(titleId: Long) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedButton(
-                enabled = fill != (horizontal to vertical),
+                enabled = enabled && fill != (horizontal to vertical),
                 onClick = { save(fill.first, fill.second) },
             ) {
                 Text(tr("Fill the screen"))
             }
             OutlinedButton(
-                enabled = horizontal != 0 || vertical != 0,
+                enabled = enabled && (horizontal != 0 || vertical != 0),
                 onClick = { save(0, 0) },
             ) {
                 Text(tr("Reset"))
