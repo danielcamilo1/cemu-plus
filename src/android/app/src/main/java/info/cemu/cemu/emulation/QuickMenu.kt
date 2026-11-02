@@ -47,7 +47,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -168,10 +170,14 @@ fun QuickMenuContent(
 ) {
     val firstButton = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    LaunchedEffect(isOpen) {
+    // buttons only take focus outside of touch mode, which the first controller key switches to
+    val inputMode = LocalInputModeManager.current.inputMode
+    LaunchedEffect(isOpen, inputMode) {
         if (isOpen) {
             // so a controller can move through the menu right away
-            runCatching { firstButton.requestFocus() }
+            if (inputMode == InputMode.Keyboard) {
+                runCatching { firstButton.requestFocus() }
+            }
         } else {
             focusManager.clearFocus()
         }
