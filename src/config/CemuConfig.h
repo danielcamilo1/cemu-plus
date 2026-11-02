@@ -528,13 +528,13 @@ struct CemuConfig
 		bool gpu_usage = false;
 		bool temperature = false;
 		bool battery = false;
-		bool shader_compiling = false; // shows shader compilation in the GamePad panel instead of as a notification
+		bool shader_compiling = true; // shows shader compilation in the GamePad panel instead of as a notification
 		// touch buttons in the GamePad panel
 		bool action_frame_gen = true;
 		bool action_frame_gen_mode = true; // cycles the frame generation multiplier
 		bool action_settings = true;
 		bool action_pause = true;
-		bool action_menu = false;
+		bool action_menu = true;
 		bool debug = false;
 	} overlay{};
 

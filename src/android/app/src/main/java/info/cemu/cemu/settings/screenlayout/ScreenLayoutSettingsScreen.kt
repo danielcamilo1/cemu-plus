@@ -292,12 +292,7 @@ private fun SingleScreenLayout(
         }
         return
     }
-    Text(
-        text = tr("GamePad position"),
-        fontSize = 20.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(8.dp),
-    )
+    SubHeader(tr("GamePad position"))
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -329,14 +324,19 @@ private fun ToolbarSettings() {
         onValueChange = NativeSettings::setOverlayTextScalePercentage,
         labelFormatter = { "$it%" }
     )
+
+    // these only pick what the toolbar shows, the features themselves are set up in their own settings
+    Header(tr("Toolbar contents"))
+    InfoText(tr("Choose what appears in the toolbar. These switches only add or remove items from the toolbar, they do not turn the features themselves on or off."))
+
+    SubHeader(tr("Information"))
+    InfoText(tr("Readouts shown in the toolbar while you play."))
     Toggle(
         label = tr("Shader compilation progress"),
         description = tr("Shows the shader compilation progress in the toolbar instead of as a notification"),
         initialCheckedState = NativeSettings::isOverlayShaderCompilingEnabled,
         onCheckedChanged = NativeSettings::setOverlayShaderCompilingEnabled,
     )
-
-    Header(tr("Information"))
     Toggle(
         label = tr("FPS"),
         description = tr("The number of frames per second. Average over last 5 seconds"),
@@ -380,34 +380,35 @@ private fun ToolbarSettings() {
         onCheckedChanged = NativeSettings::setOverlayBatteryEnabled,
     )
 
-    Header(tr("Buttons"))
+    SubHeader(tr("Buttons"))
+    InfoText(tr("Touch buttons added to the toolbar. Turning one on here only places the button in the toolbar, you tap it during the game to use it."))
     Toggle(
-        label = tr("Frame generation"),
-        description = tr("Turns frame generation on and off"),
+        label = tr("Frame generation button"),
+        description = tr("Adds a button that turns frame generation on and off during the game. This does not enable frame generation by itself"),
         initialCheckedState = NativeSettings::isOverlayFrameGenActionEnabled,
         onCheckedChanged = NativeSettings::setOverlayFrameGenActionEnabled,
     )
     Toggle(
-        label = tr("Frame generation mode"),
-        description = tr("Cycles the frame generation multiplier between x2, x3 and x4"),
+        label = tr("Frame generation mode button"),
+        description = tr("Adds a button that cycles the frame generation multiplier between x2, x3 and x4"),
         initialCheckedState = NativeSettings::isOverlayFrameGenModeActionEnabled,
         onCheckedChanged = NativeSettings::setOverlayFrameGenModeActionEnabled,
     )
     Toggle(
-        label = tr("Settings"),
-        description = tr("Pauses the game and opens the emulator settings"),
+        label = tr("Settings button"),
+        description = tr("Adds a button that pauses the game and opens the emulator settings"),
         initialCheckedState = NativeSettings::isOverlaySettingsActionEnabled,
         onCheckedChanged = NativeSettings::setOverlaySettingsActionEnabled,
     )
     Toggle(
-        label = tr("Pause"),
-        description = tr("Pauses and resumes the game"),
+        label = tr("Pause button"),
+        description = tr("Adds a button that pauses and resumes the game"),
         initialCheckedState = NativeSettings::isOverlayPauseActionEnabled,
         onCheckedChanged = NativeSettings::setOverlayPauseActionEnabled,
     )
     Toggle(
-        label = tr("Quick menu"),
-        description = tr("Opens the in-game quick menu with motion, screens, input overlay and exit"),
+        label = tr("Quick menu button"),
+        description = tr("Adds a button that opens the in-game quick menu with motion, screens, input overlay and exit"),
         initialCheckedState = NativeSettings::isOverlayMenuActionEnabled,
         onCheckedChanged = NativeSettings::setOverlayMenuActionEnabled,
     )
@@ -442,6 +443,16 @@ private fun ScreenStatusCard(detectedScreen: SecondScreenInfo?) {
             )
         }
     }
+}
+
+@Composable
+private fun SubHeader(text: String) {
+    Text(
+        text = text,
+        fontSize = 20.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(8.dp),
+    )
 }
 
 @Composable
