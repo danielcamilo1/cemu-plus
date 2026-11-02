@@ -33,6 +33,8 @@ data class GuiSettings(
     val gameListLayout: GameListLayout = GameListLayout.GRID,
     // how many icons fit across the short side of the screen in the grid, the long side is filled to match
     val gameGridSize: Int = DEFAULT_GAME_GRID_SIZE,
+    // set once the setup wizard is finished or closed, it opens on launch until then
+    val isSetupWizardCompleted: Boolean = false,
 )
 
 const val DEFAULT_GAME_GRID_SIZE = 3

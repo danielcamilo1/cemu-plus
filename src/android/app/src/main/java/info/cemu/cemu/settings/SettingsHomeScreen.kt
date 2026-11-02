@@ -17,12 +17,20 @@ fun SettingsHomeScreen(
     goToOverlaySettings: () -> Unit,
     goToScreenLayoutSettings: () -> Unit,
     isSecondScreenEnabled: Boolean,
-    navigateBack: () -> Unit
+    navigateBack: () -> Unit,
+    goToSetupWizard: (() -> Unit)? = null,
 ) {
     ScreenContent(
         appBarText = tr("Settings"),
         navigateBack = navigateBack,
     ) {
+        if (goToSetupWizard != null) {
+            Button(
+                label = tr("Setup wizard"),
+                description = tr("Games folder, controls, frame generation and toolbar, step by step"),
+                onClick = dropUnlessResumed(block = goToSetupWizard)
+            )
+        }
         Button(
             label = tr("General settings"),
             onClick = dropUnlessResumed(block = goToGeneralSettings)

@@ -16,6 +16,7 @@ import info.cemu.cemu.common.either.attemptWithContext
 import info.cemu.cemu.common.either.bind
 import info.cemu.cemu.common.either.mapError
 import info.cemu.cemu.common.framegen.FrameGenMultiplierChoices
+import info.cemu.cemu.common.framegen.hasLosslessDll
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.settings.InputOverlayRect
@@ -201,6 +202,23 @@ class EmulationViewModel(
     private val _isSettingsOpen = MutableStateFlow(false)
     val isSettingsOpen = _isSettingsOpen.asStateFlow()
 
+    // the settings opened from the frame generation setup dialog start at the frame generation screen
+    private val _settingsStartAtFrameGen = MutableStateFlow(false)
+    val settingsStartAtFrameGen = _settingsStartAtFrameGen.asStateFlow()
+
+    // shown when a frame generation button of the panel is tapped before Lossless.dll is added
+    private val _isFrameGenSetupDialogVisible = MutableStateFlow(false)
+    val isFrameGenSetupDialogVisible = _isFrameGenSetupDialogVisible.asStateFlow()
+
+    fun dismissFrameGenSetupDialog() {
+        _isFrameGenSetupDialogVisible.value = false
+    }
+
+    fun openFrameGenSettings() {
+        _isFrameGenSetupDialogVisible.value = false
+        openSettings(startAtFrameGen = true)
+    }
+
     private var pauseJob: Job? = null
     private var pausedForSettings = false
 
@@ -222,10 +240,11 @@ class EmulationViewModel(
         }
     }
 
-    fun openSettings() {
+    fun openSettings(startAtFrameGen: Boolean = false) {
         if (_isSettingsOpen.value) {
             return
         }
+        _settingsStartAtFrameGen.value = startAtFrameGen
         pausedForSettings = !_isPaused.value
         // set before pausing so the panel gets drawn with the close button
         NativeEmulation.setOverlaySettingsOpen(true)
@@ -276,6 +295,11 @@ class EmulationViewModel(
     }
 
     fun onOverlayAction(action: Int) {
+        val isFrameGenAction = action == OverlayAction.FRAME_GEN || action == OverlayAction.FRAME_GEN_MODE
+        if (isFrameGenAction && !hasLosslessDll()) {
+            _isFrameGenSetupDialogVisible.value = true
+            return
+        }
         when (action) {
             OverlayAction.FRAME_GEN -> NativeFrameGen.setEnabled(!NativeFrameGen.isEnabled())
             OverlayAction.FRAME_GEN_MODE -> cycleFrameGenMultiplier()
@@ -299,6 +323,9 @@ class EmulationViewModel(
 
     val destroyedSurfaces = ConditionFlags()
     var setSurfaces = ConditionFlags()
+
+    // the pad surface while it exists, it can outlive the main surface when it is on the second screen
+    private var padSurfaceHolder: SurfaceHolder? = null
 
     private fun updateSurfaceDimensions(isMainCanvas: Boolean, width: Int, height: Int) {
         val newDimensions = SurfaceDimensions(
@@ -326,6 +353,9 @@ class EmulationViewModel(
             try {
                 NativeEmulation.setSurfaceSize(width, height, isMainCanvas)
                 updateSurfaceDimensions(isMainCanvas, width, height)
+                if (!isMainCanvas) {
+                    padSurfaceHolder = surfaceHolder
+                }
 
                 if (setSurfaces.get(isMainCanvas)) {
                     return
@@ -341,6 +371,16 @@ class EmulationViewModel(
 
                 setSurfaces.set(isMainCanvas, true)
 
+                // losing the main surface also stops the pad one. A pad surface that stayed alive, like the GamePad
+                // on the second screen while a file picker was open, gets no surfaceChanged so it is set again here
+                if (isMainCanvas && !setSurfaces.get(isMain = false)) {
+                    padSurfaceHolder?.takeIf { it.surface.isValid }?.let {
+                        NativeEmulation.setSurface(it.surface, false)
+                        setSurfaces.set(isMain = false, true)
+                        destroyedSurfaces.set(isMain = false, false)
+                    }
+                }
+
                 val padSurfaceWasSet = setSurfaces.get(isMain = false)
                 if ((!isMainCanvas && !mainSurfaceWasDestroyed) || (isMainCanvas && padSurfaceWasSet)) {
                     NativeEmulation.initializeSurface(isMainCanvas = false)
@@ -353,6 +393,9 @@ class EmulationViewModel(
         }
 
         override fun surfaceDestroyed(surfaceHolder: SurfaceHolder) {
+            if (!isMainCanvas) {
+                padSurfaceHolder = null
+            }
             if (setSurfaces.get(isMain = false)) {
                 NativeEmulation.clearPadSurface()
                 setSurfaces.set(isMain = false, false)

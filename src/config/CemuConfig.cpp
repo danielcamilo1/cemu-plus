@@ -179,12 +179,12 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.gpu_usage = overlay_node.get("GPUUsage", false);
 		overlay.temperature = overlay_node.get("Temperature", false);
 		overlay.battery = overlay_node.get("Battery", false);
-		overlay.shader_compiling = overlay_node.get("PanelShaderCompiling", false);
+		overlay.shader_compiling = overlay_node.get("PanelShaderCompiling", true);
 		overlay.action_frame_gen = overlay_node.get("ActionFrameGen", true);
 		overlay.action_frame_gen_mode = overlay_node.get("ActionFrameGenMode", true);
 		overlay.action_settings = overlay_node.get("ActionSettings", true);
 		overlay.action_pause = overlay_node.get("ActionPause", true);
-		overlay.action_menu = overlay_node.get("ActionMenu", false);
+		overlay.action_menu = overlay_node.get("ActionMenu", true);
 		overlay.debug = overlay_node.get("Debug", false);
 
 		notification.controller_profiles = overlay_node.get("ControllerProfiles", true);

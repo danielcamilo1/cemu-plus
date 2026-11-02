@@ -4,48 +4,45 @@
 [![Latest release](https://img.shields.io/github/v/release/danielcamilo1/cemu-plus?include_prereleases)](https://github.com/danielcamilo1/cemu-plus/releases)
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/danielcamilo)
 
-Cemu Plus is a fork of the [Cemu Android port](https://github.com/SapphireRhodonite/Cemu) that adds
-**Lossless Scaling frame generation**, inspired by how [Eden Duo](https://github.com/igawa6/eden-duo) does it.
-You supply your own `Lossless.dll` and Cemu Plus generates in-between frames on your phone's GPU, with full
-control from the in-game menu.
+Cemu Plus is a fork of the [Cemu Android port](https://github.com/SapphireRhodonite/Cemu) built for handhelds,
+especially dual screen devices like the AYN Thor. On top of everything the original port does, it adds the
+features below. The Android port itself is still early and experimental, so stability and performance are not
+guaranteed.
 
-The Android port itself is still early and experimental. Stability, performance and features are not
-guaranteed, and some functionality may be missing compared to the desktop version of Cemu.
+## What's new in this fork
+
+### A toolbar instead of black bars
+
+When the second screen has a different aspect ratio than the Wii U GamePad, the empty space is filled with a
+Wii U style toolbar: FPS and performance stats, shader compilation progress and quick buttons for frame
+generation, pause, the quick menu and settings.
+
+<img src="docs/images/toolbar-fills-black-bars.jpg" alt="Black bars on the GamePad screen replaced by the Cemu Plus toolbar" width="720">
+
+### First time setup wizard
+
+A Wii U style setup that walks you through picking your games folder, setting up controls (the GamePad goes to
+the second screen automatically, and every button can be mapped in one tap), frame generation and the toolbar.
+Every step can be skipped and opened again later from Settings.
+
+<img src="docs/images/setup-wizard.jpg" alt="The Cemu Plus setup wizard welcome screen" width="480">
+
+### A nicer home screen
+
+Bigger, better looking game icons in a clean grid, with search.
+
+<img src="docs/images/home-game-icons.jpg" alt="The Cemu Plus home screen with the game icon grid" width="480">
 
 ## Features
 
-- **Frame generation** with the Lossless Scaling shaders (2x, 3x and 4x), running directly in Cemu's Vulkan renderer
-- **Target frame rate mode** that raises or lowers the multiplier on its own to reach 60, 90 or 120 FPS, and
-  rolls back any step that slows the game down
-- **Adjustable motion estimation resolution** (auto, 50%, 75%, 100%) to trade quality for GPU time
-- **In-game quick menu controls**: toggle frame generation and change every option while playing
-- **Improved FPS overlay**: while frame generation is active it shows the displayed frame rate, the base
-  frame rate of the game and the effective multiplier, for example `FPS: 60.00 (FG x2.0)` / `Base FPS: 30.00`
-- **Dual screen support** from the upstream dual screen branch: show the Wii U GamePad on a second display
-  (for example the bottom screen of the AYN Thor), swap the screens and rotate the external screen, all from the
-  in-game menu
-- **Dual screen layout options** for devices whose second screen has a different aspect ratio than the
-  Wii U GamePad (for example the AYN Thor): align the GamePad image to the top, center or bottom of its screen
-  (Settings → Graphics settings → GamePad screen alignment), and show the performance overlay on both screens,
-  only the TV or only the GamePad screen, either over gameplay or inside the black bars (Settings → Overlay settings)
-- **GamePad panel overlay**: a performance panel styled after the black Wii U GamePad (piano black shell, power LED,
-  speaker grille) with a tile per stat and usage meters. In the black bars it scales up and spreads out to use the
-  free space, for example the area around the GamePad image on the AYN Thor's bottom screen. Each stat has its own
-  toggle: FPS, draw calls, CPU usage and clock, GPU usage and clock, CPU/GPU/battery temperature, battery level and
-  RAM. Shader compilation progress can also be shown inside the panel instead of as a notification, and
-  notifications move out of the black bar so nothing overlaps (Settings → Overlay settings → Style). In a black bar the
-  panel always fills the whole bar, however many stats are turned on. Its header shows the icon and name of the game
-  you're playing, and the temperature tile shows the GPU temperature with the CPU temperature next to it. Out of the
-  box the GamePad image is aligned to the top of its screen and the panel fills the black bar below it, with FPS and
-  all the panel buttons turned on
-- **Panel buttons**: optional touch buttons in the GamePad panel to turn frame generation on and off, cycle the
-  frame generation multiplier (x2, x3, x4), pause and resume the game, and open the emulator settings (which pauses
-  the game until you leave them). While the settings are open the panel stays visible and the same button closes
-  them again
-- **AMD FSR 1 and Snapdragon GSR upscale filters** for a sharper image when the game resolution is lower than the
-  screen (Settings → Graphics settings → Upscale filter), set up like in Eden: FSR runs the EASU upscale followed by
-  the RCAS sharpening pass, and Snapdragon GSR comes in the fast mobile variant and the EdgeDir variant. One
-  sharpness slider controls both, 0% turns the extra sharpening off
+- **Lossless Scaling frame generation** (2x, 3x, 4x or a 60/90/120 FPS target) running in Cemu's Vulkan
+  renderer, using your own `Lossless.dll`, inspired by [Eden Duo](https://github.com/igawa6/eden-duo)
+- **Dual screen support**: GamePad on the second display, screen swap, rotation and top/center/bottom alignment
+- **GamePad toolbar** in the black bars with per stat toggles (FPS, CPU/GPU usage and clocks, temperatures,
+  battery, RAM) and touch buttons for frame generation, pause, the quick menu and settings
+- **First time setup wizard**, which can be reopened from Settings
+- **In-game quick menu** to change frame generation and screen options while playing
+- **AMD FSR 1 and Snapdragon GSR** upscale filters with a sharpness slider
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
 ## Download
