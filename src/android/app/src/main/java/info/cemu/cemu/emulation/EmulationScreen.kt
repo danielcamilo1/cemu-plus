@@ -10,32 +10,24 @@ import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,10 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,18 +48,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -123,6 +110,8 @@ fun EmulationScreen(
     val isPaused by viewModel.isPaused.collectAsState()
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
     val isFrameGenSetupDialogVisible by viewModel.isFrameGenSetupDialogVisible.collectAsState()
+    // true as soon as the menu starts opening, so it shows the current settings while it slides in
+    val isMenuOpen = drawerState.targetValue == DrawerValue.Open
 
 
     fun closeDrawer() {
@@ -189,40 +178,38 @@ fun EmulationScreen(
         drawerState = drawerState,
         gesturesEnabled = drawerState.isOpen,
         drawerContent = {
-            ModalDrawerSheet {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .width(IntrinsicSize.Max)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    EmulationSideMenuContent(
-                        isEmulationInitialized = isEmulationInitialized,
-                        sideMenuState = sideMenuState,
-                        updateState = {
-                            viewModel.updateSideMenuState(it)
-                            NativeEmulation.setReplaceTVWithPadView(it.isTVReplacedWithPad)
-                            closeDrawer()
-                        },
-                        onEditInputOverlay = {
-                            snackbarHostState.showMessage(scope, tr("Edit input positions"))
-                            inputOverlayInputMode = EDIT_POSITION
-                            closeDrawer()
-                        },
-                        onResetInputOverlay = {
-                            viewModel.resetInputOverlayLayout()
-                            closeDrawer()
-                        },
-                        onQuit = {
-                            showQuitConfirmationDialog = true
-                            closeDrawer()
-                        },
-                        onShowEmulatedUSBDevices = {
-                            showEmulatedUSBDevices = true
-                            closeDrawer()
-                        },
-                    )
-                }
+            QuickMenuSheet(isOpen = isMenuOpen) {
+                QuickMenuContent(
+                    isOpen = isMenuOpen,
+                    isEmulationInitialized = isEmulationInitialized,
+                    sideMenuState = sideMenuState,
+                    updateState = {
+                        viewModel.updateSideMenuState(it)
+                        NativeEmulation.setReplaceTVWithPadView(it.isTVReplacedWithPad)
+                    },
+                    onBackToGame = ::closeDrawer,
+                    onOpenSettings = {
+                        closeDrawer()
+                        viewModel.openSettings()
+                    },
+                    onQuit = {
+                        showQuitConfirmationDialog = true
+                        closeDrawer()
+                    },
+                    onShowEmulatedUSBDevices = {
+                        showEmulatedUSBDevices = true
+                        closeDrawer()
+                    },
+                    onEditInputOverlay = {
+                        snackbarHostState.showMessage(scope, tr("Edit input positions"))
+                        inputOverlayInputMode = EDIT_POSITION
+                        closeDrawer()
+                    },
+                    onResetInputOverlay = {
+                        viewModel.resetInputOverlayLayout()
+                        closeDrawer()
+                    },
+                )
             }
         },
     ) {
@@ -418,139 +405,6 @@ private fun EditInputsLayout(
             }
         }
     }
-}
-
-@Composable
-private fun EmulationSideMenuContent(
-    isEmulationInitialized: Boolean,
-    sideMenuState: SideMenuState,
-    updateState: (SideMenuState) -> Unit,
-    onShowEmulatedUSBDevices: () -> Unit,
-    onEditInputOverlay: () -> Unit,
-    onResetInputOverlay: () -> Unit,
-    onQuit: () -> Unit,
-) {
-    CheckboxItem(
-        label = tr("Enable motion"),
-        checked = sideMenuState.isMotionEnabled,
-        onCheckedChange = { updateState(sideMenuState.copy(isMotionEnabled = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Replace TV with PAD"),
-        checked = sideMenuState.isTVReplacedWithPad,
-        onCheckedChange = { updateState(sideMenuState.copy(isTVReplacedWithPad = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Show PAD"),
-        checked = sideMenuState.isPadVisible,
-        onCheckedChange = { updateState(sideMenuState.copy(isPadVisible = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Use second screen"),
-        checked = sideMenuState.isPadOnExternalDisplay,
-        onCheckedChange = { updateState(sideMenuState.copy(isPadOnExternalDisplay = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Swap screens"),
-        checked = sideMenuState.areScreensSwapped,
-        onCheckedChange = { updateState(sideMenuState.copy(areScreensSwapped = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Rotate second screen left"),
-        checked = sideMenuState.isExternalScreenRotatedLeft,
-        onCheckedChange = { updateState(sideMenuState.copy(isExternalScreenRotatedLeft = it)) },
-        enabled = sideMenuState.isPadOnExternalDisplay,
-    )
-
-    PadCropQuickSettings(
-        isEmulationInitialized = isEmulationInitialized,
-        isPadOnSecondScreen = sideMenuState.isPadOnExternalDisplay,
-    )
-
-    FrameGenQuickSettings()
-
-    TextButtonItem(
-        label = tr("Emulated USB Devices"),
-        onClick = onShowEmulatedUSBDevices,
-    )
-
-    CheckboxItem(
-        label = tr("Show input overlay"),
-        checked = sideMenuState.isInputOverlayVisible,
-        onCheckedChange = { updateState(sideMenuState.copy(isInputOverlayVisible = it)) },
-    )
-
-    TextButtonItem(
-        label = tr("Edit inputs"),
-        enabled = sideMenuState.isInputOverlayVisible,
-        onClick = onEditInputOverlay,
-    )
-
-    TextButtonItem(
-        label = tr("Reset input overlay"),
-        enabled = sideMenuState.isInputOverlayVisible,
-        onClick = onResetInputOverlay,
-    )
-
-    TextButtonItem(
-        label = tr("Exit"),
-        onClick = onQuit,
-    )
-}
-
-@Composable
-private fun CheckboxItem(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.6f)
-            .clickable(enabled) { onCheckedChange(!checked) }
-            .padding(8.dp)
-            .minimumInteractiveComponentSize(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .weight(1f),
-            fontSize = 16.sp,
-        )
-
-        Checkbox(
-            checked = checked,
-            onCheckedChange = null,
-        )
-    }
-}
-
-@Composable
-private fun TextButtonItem(
-    label: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-) {
-    Text(
-        text = label,
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.6f)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(8.dp)
-            .heightIn(min = 48.dp)
-            .wrapContentHeight(align = Alignment.CenterVertically),
-        fontSize = 16.sp,
-    )
 }
 
 @Composable
