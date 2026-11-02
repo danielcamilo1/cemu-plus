@@ -52,21 +52,21 @@ import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeSettings
 import kotlin.math.roundToInt
 
-private const val WII_U_ASPECT_RATIO = 16f / 9f
+internal const val WII_U_ASPECT_RATIO = 16f / 9f
 private const val OVERLAY_TEXT_SCALE_STEPS = 9
 
 // shape used for the previews while no second screen is connected, the bottom screen of the AYN Thor
-private val FallbackSecondScreen = SecondScreenInfo(name = "", width = 1240, height = 1080)
+internal val FallbackSecondScreen = SecondScreenInfo(name = "", width = 1240, height = 1080)
 private val FallbackMainScreen = SecondScreenInfo(name = "", width = 1920, height = 1080)
 
-private val AlignmentChoices = listOf(
+internal val AlignmentChoices = listOf(
     NativeSettings.PadScreenAlignment.TOP,
     NativeSettings.PadScreenAlignment.CENTER,
     NativeSettings.PadScreenAlignment.BOTTOM,
 )
 
 // the toolbar is the GamePad panel overlay drawn inside the black bars around the game image
-private fun isToolbarEnabled() =
+internal fun isToolbarEnabled() =
     NativeSettings.getOverlayPosition() != NativeSettings.OverlayScreenPosition.DISABLED &&
         NativeSettings.getOverlayStyle() == NativeSettings.OverlayStyle.GAMEPAD &&
         NativeSettings.getOverlayPlacement() == NativeSettings.OverlayPlacement.BLACK_BARS
@@ -83,11 +83,133 @@ private fun enableToolbar(overlayScreen: Int, alignment: Int) {
     NativeSettings.setOverlayPosition(toolbarPositionFor(alignment))
 }
 
+// the toolbar follows the screen the GamePad is on with a second screen, otherwise the TV image unless chosen
+internal fun toolbarScreenFor(useSecondScreen: Boolean, isPadVisible: Boolean, chosenScreen: Int) = when {
+    useSecondScreen -> NativeSettings.OverlayScreen.PAD
+    !isPadVisible -> NativeSettings.OverlayScreen.TV
+    chosenScreen == NativeSettings.OverlayScreen.PAD -> NativeSettings.OverlayScreen.PAD
+    else -> NativeSettings.OverlayScreen.TV
+}
+
+internal fun applyToolbarSettings(enabled: Boolean, screen: Int, alignment: Int) {
+    if (!enabled) {
+        NativeSettings.setOverlayPosition(NativeSettings.OverlayScreenPosition.DISABLED)
+        return
+    }
+    enableToolbar(screen, if (screen == NativeSettings.OverlayScreen.PAD) alignment else NativeSettings.PadScreenAlignment.CENTER)
+}
+
+// what the toolbar can show. The settings list them as switches and the setup wizard as chips with the short label
+internal class ToolbarItem(
+    val label: String,
+    val shortLabel: String,
+    val description: String,
+    val isEnabled: () -> Boolean,
+    val setEnabled: (Boolean) -> Unit,
+)
+
+internal fun toolbarInformationItems() = listOf(
+    ToolbarItem(
+        label = tr("Shader compilation progress"),
+        shortLabel = tr("Shaders"),
+        description = tr("Shows the shader compilation progress in the toolbar instead of as a notification"),
+        isEnabled = NativeSettings::isOverlayShaderCompilingEnabled,
+        setEnabled = NativeSettings::setOverlayShaderCompilingEnabled,
+    ),
+    ToolbarItem(
+        label = tr("FPS"),
+        shortLabel = tr("FPS"),
+        description = tr("The number of frames per second. Average over last 5 seconds"),
+        isEnabled = NativeSettings::isOverlayFPSEnabled,
+        setEnabled = NativeSettings::setOverlayFPSEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Draw calls per frame"),
+        shortLabel = tr("Draw calls"),
+        description = tr("The number of draw calls per frame. Average over last 5 seconds"),
+        isEnabled = NativeSettings::isOverlayDrawCallsPerFrameEnabled,
+        setEnabled = NativeSettings::setOverlayDrawCallsPerFrameEnabled,
+    ),
+    ToolbarItem(
+        label = tr("CPU usage"),
+        shortLabel = tr("CPU"),
+        description = tr("CPU usage of Cemu in percent"),
+        isEnabled = NativeSettings::isOverlayCPUUsageEnabled,
+        setEnabled = NativeSettings::setOverlayCPUUsageEnabled,
+    ),
+    ToolbarItem(
+        label = tr("RAM usage"),
+        shortLabel = tr("RAM"),
+        description = tr("Cemu RAM usage in MB"),
+        isEnabled = NativeSettings::isOverlayRAMUsageEnabled,
+        setEnabled = NativeSettings::setOverlayRAMUsageEnabled,
+    ),
+    ToolbarItem(
+        label = tr("GPU usage"),
+        shortLabel = tr("GPU"),
+        description = tr("GPU load and clock speed, if the device exposes them"),
+        isEnabled = NativeSettings::isOverlayGPUUsageEnabled,
+        setEnabled = NativeSettings::setOverlayGPUUsageEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Device temperature"),
+        shortLabel = tr("Temperature"),
+        description = tr("CPU and GPU temperature, falls back to the battery temperature"),
+        isEnabled = NativeSettings::isOverlayTemperatureEnabled,
+        setEnabled = NativeSettings::setOverlayTemperatureEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Battery"),
+        shortLabel = tr("Battery"),
+        description = tr("Battery level and charging state"),
+        isEnabled = NativeSettings::isOverlayBatteryEnabled,
+        setEnabled = NativeSettings::setOverlayBatteryEnabled,
+    ),
+)
+
+internal fun toolbarButtonItems() = listOf(
+    ToolbarItem(
+        label = tr("Frame generation button"),
+        shortLabel = tr("Frame generation"),
+        description = tr("Adds a button that turns frame generation on and off during the game. This does not enable frame generation by itself"),
+        isEnabled = NativeSettings::isOverlayFrameGenActionEnabled,
+        setEnabled = NativeSettings::setOverlayFrameGenActionEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Frame generation mode button"),
+        shortLabel = tr("Frame generation mode"),
+        description = tr("Adds a button that cycles the frame generation multiplier between x2, x3 and x4"),
+        isEnabled = NativeSettings::isOverlayFrameGenModeActionEnabled,
+        setEnabled = NativeSettings::setOverlayFrameGenModeActionEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Settings button"),
+        shortLabel = tr("Settings"),
+        description = tr("Adds a button that pauses the game and opens the emulator settings"),
+        isEnabled = NativeSettings::isOverlaySettingsActionEnabled,
+        setEnabled = NativeSettings::setOverlaySettingsActionEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Pause button"),
+        shortLabel = tr("Pause"),
+        description = tr("Adds a button that pauses and resumes the game"),
+        isEnabled = NativeSettings::isOverlayPauseActionEnabled,
+        setEnabled = NativeSettings::setOverlayPauseActionEnabled,
+    ),
+    ToolbarItem(
+        label = tr("Quick menu button"),
+        shortLabel = tr("Quick menu"),
+        description = tr("Adds a button that opens the in-game quick menu with motion, screens, input overlay and exit"),
+        isEnabled = NativeSettings::isOverlayMenuActionEnabled,
+        setEnabled = NativeSettings::setOverlayMenuActionEnabled,
+    ),
+)
+
 private fun landscapeScreen(width: Int, height: Int) =
     SecondScreenInfo(name = "", width = maxOf(width, height), height = minOf(width, height))
 
 @Composable
-private fun rememberMainScreen(): SecondScreenInfo {
+internal fun rememberMainScreen(): SecondScreenInfo {
     val context = LocalContext.current
     return remember(context) {
         DisplayUtils.getInternalDisplay(context)?.mode
@@ -111,21 +233,10 @@ fun ScreenLayoutSettingsScreen(
     var toolbarEnabled by rememberSaveable { mutableStateOf(isToolbarEnabled()) }
     var toolbarScreen by rememberSaveable { mutableIntStateOf(NativeSettings.getOverlayScreen()) }
 
-    // the toolbar follows the screen the GamePad is on with a second screen, otherwise the TV image unless chosen
-    val effectiveToolbarScreen = when {
-        useSecondScreen -> NativeSettings.OverlayScreen.PAD
-        !emulationSettings.isPadVisible -> NativeSettings.OverlayScreen.TV
-        toolbarScreen == NativeSettings.OverlayScreen.PAD -> NativeSettings.OverlayScreen.PAD
-        else -> NativeSettings.OverlayScreen.TV
-    }
+    val effectiveToolbarScreen = toolbarScreenFor(useSecondScreen, emulationSettings.isPadVisible, toolbarScreen)
 
-    fun applyToolbar(enabled: Boolean = toolbarEnabled, screen: Int = effectiveToolbarScreen, align: Int = alignment) {
-        if (!enabled) {
-            NativeSettings.setOverlayPosition(NativeSettings.OverlayScreenPosition.DISABLED)
-            return
-        }
-        enableToolbar(screen, if (screen == NativeSettings.OverlayScreen.PAD) align else NativeSettings.PadScreenAlignment.CENTER)
-    }
+    fun applyToolbar(enabled: Boolean = toolbarEnabled, screen: Int = effectiveToolbarScreen, align: Int = alignment) =
+        applyToolbarSettings(enabled = enabled, screen = screen, alignment = align)
 
     // the first option of the layout section, so the previews below show what the toolbar takes
     val toolbarToggle: @Composable () -> Unit = {
@@ -331,86 +442,24 @@ private fun ToolbarSettings() {
 
     SubHeader(tr("Information"))
     InfoText(tr("Readouts shown in the toolbar while you play."))
-    Toggle(
-        label = tr("Shader compilation progress"),
-        description = tr("Shows the shader compilation progress in the toolbar instead of as a notification"),
-        initialCheckedState = NativeSettings::isOverlayShaderCompilingEnabled,
-        onCheckedChanged = NativeSettings::setOverlayShaderCompilingEnabled,
-    )
-    Toggle(
-        label = tr("FPS"),
-        description = tr("The number of frames per second. Average over last 5 seconds"),
-        initialCheckedState = NativeSettings::isOverlayFPSEnabled,
-        onCheckedChanged = NativeSettings::setOverlayFPSEnabled,
-    )
-    Toggle(
-        label = tr("Draw calls per frame"),
-        description = tr("The number of draw calls per frame. Average over last 5 seconds"),
-        initialCheckedState = NativeSettings::isOverlayDrawCallsPerFrameEnabled,
-        onCheckedChanged = NativeSettings::setOverlayDrawCallsPerFrameEnabled,
-    )
-    Toggle(
-        label = tr("CPU usage"),
-        description = tr("CPU usage of Cemu in percent"),
-        initialCheckedState = NativeSettings::isOverlayCPUUsageEnabled,
-        onCheckedChanged = NativeSettings::setOverlayCPUUsageEnabled,
-    )
-    Toggle(
-        label = tr("RAM usage"),
-        description = tr("Cemu RAM usage in MB"),
-        initialCheckedState = NativeSettings::isOverlayRAMUsageEnabled,
-        onCheckedChanged = NativeSettings::setOverlayRAMUsageEnabled,
-    )
-    Toggle(
-        label = tr("GPU usage"),
-        description = tr("GPU load and clock speed, if the device exposes them"),
-        initialCheckedState = NativeSettings::isOverlayGPUUsageEnabled,
-        onCheckedChanged = NativeSettings::setOverlayGPUUsageEnabled,
-    )
-    Toggle(
-        label = tr("Device temperature"),
-        description = tr("CPU and GPU temperature, falls back to the battery temperature"),
-        initialCheckedState = NativeSettings::isOverlayTemperatureEnabled,
-        onCheckedChanged = NativeSettings::setOverlayTemperatureEnabled,
-    )
-    Toggle(
-        label = tr("Battery"),
-        description = tr("Battery level and charging state"),
-        initialCheckedState = NativeSettings::isOverlayBatteryEnabled,
-        onCheckedChanged = NativeSettings::setOverlayBatteryEnabled,
-    )
+    for (item in toolbarInformationItems()) {
+        ToolbarItemToggle(item)
+    }
 
     SubHeader(tr("Buttons"))
     InfoText(tr("Touch buttons added to the toolbar. Turning one on here only places the button in the toolbar, you tap it during the game to use it."))
+    for (item in toolbarButtonItems()) {
+        ToolbarItemToggle(item)
+    }
+}
+
+@Composable
+private fun ToolbarItemToggle(item: ToolbarItem) {
     Toggle(
-        label = tr("Frame generation button"),
-        description = tr("Adds a button that turns frame generation on and off during the game. This does not enable frame generation by itself"),
-        initialCheckedState = NativeSettings::isOverlayFrameGenActionEnabled,
-        onCheckedChanged = NativeSettings::setOverlayFrameGenActionEnabled,
-    )
-    Toggle(
-        label = tr("Frame generation mode button"),
-        description = tr("Adds a button that cycles the frame generation multiplier between x2, x3 and x4"),
-        initialCheckedState = NativeSettings::isOverlayFrameGenModeActionEnabled,
-        onCheckedChanged = NativeSettings::setOverlayFrameGenModeActionEnabled,
-    )
-    Toggle(
-        label = tr("Settings button"),
-        description = tr("Adds a button that pauses the game and opens the emulator settings"),
-        initialCheckedState = NativeSettings::isOverlaySettingsActionEnabled,
-        onCheckedChanged = NativeSettings::setOverlaySettingsActionEnabled,
-    )
-    Toggle(
-        label = tr("Pause button"),
-        description = tr("Adds a button that pauses and resumes the game"),
-        initialCheckedState = NativeSettings::isOverlayPauseActionEnabled,
-        onCheckedChanged = NativeSettings::setOverlayPauseActionEnabled,
-    )
-    Toggle(
-        label = tr("Quick menu button"),
-        description = tr("Adds a button that opens the in-game quick menu with motion, screens, input overlay and exit"),
-        initialCheckedState = NativeSettings::isOverlayMenuActionEnabled,
-        onCheckedChanged = NativeSettings::setOverlayMenuActionEnabled,
+        label = item.label,
+        description = item.description,
+        initialCheckedState = item.isEnabled,
+        onCheckedChanged = item.setEnabled,
     )
 }
 
@@ -470,7 +519,7 @@ private fun freePercent(screenRatio: Float, imageRatio: Float): String {
     return ((1f - imageFraction) * 100).roundToInt().toString()
 }
 
-private fun secondScreenExplanation(screen: SecondScreenInfo, isDetected: Boolean, isLetterboxed: Boolean): String {
+internal fun secondScreenExplanation(screen: SecondScreenInfo, isDetected: Boolean, isLetterboxed: Boolean): String {
     val screenRatio = screen.width.toFloat() / screen.height
     val shape = if (isDetected) {
         tr("Your second screen is {0}x{1}, a {2}:1 shape.", screen.width.toString(), screen.height.toString(), "%.2f".format(screenRatio))
@@ -486,7 +535,7 @@ private fun secondScreenExplanation(screen: SecondScreenInfo, isDetected: Boolea
     return "$shape $bars"
 }
 
-private fun singleScreenExplanation(screen: SecondScreenInfo, isPadVisible: Boolean): String {
+internal fun singleScreenExplanation(screen: SecondScreenInfo, isPadVisible: Boolean): String {
     val screenRatio = screen.width.toFloat() / screen.height
     return if (isPadVisible) {
         tr("With the TV and GamePad images sharing this {0}x{1} screen, both are 16:9 and get smaller, which leaves wide black bars around them. The toolbar can use that space.", screen.width.toString(), screen.height.toString())
@@ -495,7 +544,7 @@ private fun singleScreenExplanation(screen: SecondScreenInfo, isPadVisible: Bool
     }
 }
 
-private fun alignmentToString(alignment: Int) = when (alignment) {
+internal fun alignmentToString(alignment: Int) = when (alignment) {
     NativeSettings.PadScreenAlignment.CENTER -> tr("Center")
     NativeSettings.PadScreenAlignment.TOP -> tr("Top")
     NativeSettings.PadScreenAlignment.BOTTOM -> tr("Bottom")
@@ -516,24 +565,32 @@ private fun gamePadPositionToString(position: GamePadPosition) = when (position)
 }
 
 // what the previews are drawn with, the game image is white with a label so it reads as the gameplay
-private class PreviewPaint(
+internal class PreviewPaint(
     val toolbarColor: Color,
     val textMeasurer: TextMeasurer,
     val gameplayLabel: String,
     val padLabel: String,
+    val toolbarTiles: Int,
 )
 
 private val PreviewGameplayColor = Color.White
 private val PreviewPadColor = Color(0xFFDCDCE2)
 private val PreviewLabelColor = Color(0xFF202024)
 
+// toolbarTiles is how many tiles the toolbar is drawn with
 @Composable
-private fun PreviewCanvas(screen: SecondScreenInfo, draw: DrawScope.(PreviewPaint) -> Unit) {
+internal fun PreviewCanvas(
+    screen: SecondScreenInfo,
+    toolbarColor: Color = MaterialTheme.colorScheme.tertiary,
+    toolbarTiles: Int = 4,
+    draw: DrawScope.(PreviewPaint) -> Unit,
+) {
     val paint = PreviewPaint(
-        toolbarColor = MaterialTheme.colorScheme.tertiary,
+        toolbarColor = toolbarColor,
         textMeasurer = rememberTextMeasurer(),
         gameplayLabel = tr("Gameplay"),
         padLabel = tr("GamePad"),
+        toolbarTiles = toolbarTiles,
     )
     Canvas(
         modifier = Modifier
@@ -555,7 +612,7 @@ private fun PreviewCard(screen: SecondScreenInfo, draw: DrawScope.(PreviewPaint)
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            PreviewCanvas(screen, draw)
+            PreviewCanvas(screen = screen, draw = draw)
         }
     }
 }
@@ -584,7 +641,7 @@ private fun PreviewChoice(
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PreviewCanvas(screen, draw)
+            PreviewCanvas(screen = screen, draw = draw)
             Text(
                 text = label,
                 modifier = Modifier.padding(top = 8.dp),
@@ -619,7 +676,7 @@ private fun biggestBar(area: Rect, image: Rect): Rect = listOf(
     Rect(image.right, area.top, area.right, area.bottom),
 ).maxBy { it.width * it.height }
 
-private fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color) {
+private fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color, tiles: Int) {
     val inset = minOf(minOf(bar.width, bar.height) * 0.18f, 4.dp.toPx())
     val toolbar = Rect(bar.left + inset, bar.top + inset, bar.right - inset, bar.bottom - inset)
     if (toolbar.width <= 0f || toolbar.height <= 0f) {
@@ -632,12 +689,11 @@ private fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color) {
         cornerRadius = CornerRadius(4.dp.toPx()),
     )
     // a few tiles like the real toolbar, in a row or a column depending on the bar
-    val tiles = 4
     val horizontal = toolbar.width >= toolbar.height
     val length = if (horizontal) toolbar.width else toolbar.height
     val thickness = (if (horizontal) toolbar.height else toolbar.width) - inset * 2
     val tileLength = (length - inset * (tiles + 1)) / tiles
-    if (thickness <= 0f || tileLength <= 0f) {
+    if (tiles <= 0 || thickness <= 0f || tileLength <= 0f) {
         return
     }
     for (i in 0 until tiles) {
@@ -663,17 +719,17 @@ private fun DrawScope.drawGameImage(image: Rect, color: Color, label: String, pa
     drawText(text, topLeft = Offset(image.center.x - text.size.width / 2f, image.center.y - text.size.height / 2f))
 }
 
-private fun DrawScope.drawSecondScreenPreview(alignment: Int, showToolbar: Boolean, paint: PreviewPaint) {
+internal fun DrawScope.drawSecondScreenPreview(alignment: Int, showToolbar: Boolean, paint: PreviewPaint) {
     val area = Rect(Offset.Zero, size)
     val image = fitImage(area, alignment)
     drawGameImage(image, PreviewGameplayColor, paint.gameplayLabel, paint)
     if (showToolbar) {
-        drawToolbar(biggestBar(area, image), paint.toolbarColor)
+        drawToolbar(biggestBar(area, image), paint.toolbarColor, paint.toolbarTiles)
     }
 }
 
 // position is null when only the TV image is shown
-private fun DrawScope.drawSingleScreenPreview(
+internal fun DrawScope.drawSingleScreenPreview(
     position: GamePadPosition?,
     showToolbar: Boolean,
     toolbarOnPad: Boolean,
@@ -684,7 +740,7 @@ private fun DrawScope.drawSingleScreenPreview(
         val image = fitImage(full)
         drawGameImage(image, PreviewGameplayColor, paint.gameplayLabel, paint)
         if (showToolbar) {
-            drawToolbar(biggestBar(full, image), paint.toolbarColor)
+            drawToolbar(biggestBar(full, image), paint.toolbarColor, paint.toolbarTiles)
         }
         return
     }
@@ -697,6 +753,6 @@ private fun DrawScope.drawSingleScreenPreview(
     // the GamePad image a light gray to tell them apart
     drawGameImage(padImage, PreviewPadColor, paint.padLabel, paint)
     if (showToolbar) {
-        drawToolbar(if (toolbarOnPad) biggestBar(padArea, padImage) else biggestBar(tvArea, tvImage), paint.toolbarColor)
+        drawToolbar(if (toolbarOnPad) biggestBar(padArea, padImage) else biggestBar(tvArea, tvImage), paint.toolbarColor, paint.toolbarTiles)
     }
 }

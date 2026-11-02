@@ -92,6 +92,7 @@ import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.E
 import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_SIZE
 import info.cemu.cemu.nativeinterface.NativeEmulation
 import info.cemu.cemu.settings.SettingsRoute
+import info.cemu.cemu.settings.navigateToFrameGenSettings
 import info.cemu.cemu.settings.settingsNavigation
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -121,6 +122,7 @@ fun EmulationScreen(
     val inputOverlaySettings by viewModel.inputOverlaySettings.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
+    val isFrameGenSetupDialogVisible by viewModel.isFrameGenSetupDialogVisible.collectAsState()
 
 
     fun closeDrawer() {
@@ -260,7 +262,19 @@ fun EmulationScreen(
 
     if (isSettingsOpen) {
         val panelBounds = remember { viewModel.getPanelBounds() }
-        EmulationSettings(panelBounds = panelBounds, onClose = viewModel::closeSettings)
+        val startAtFrameGen = remember { viewModel.settingsStartAtFrameGen.value }
+        EmulationSettings(
+            panelBounds = panelBounds,
+            startAtFrameGen = startAtFrameGen,
+            onClose = viewModel::closeSettings,
+        )
+    }
+
+    if (isFrameGenSetupDialogVisible) {
+        FrameGenSetupDialog(
+            onSetUp = viewModel::openFrameGenSettings,
+            onDismiss = viewModel::dismissFrameGenSetupDialog,
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -340,7 +354,7 @@ private const val MIN_SETTINGS_AREA = 0.35f
 // the emulator settings on top of the paused game, opened from the panel overlay. The panel stays visible
 // next to them so its settings button can close them again
 @Composable
-private fun EmulationSettings(panelBounds: Rect?, onClose: () -> Unit) {
+private fun EmulationSettings(panelBounds: Rect?, startAtFrameGen: Boolean, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screen = Rect(0f, 0f, constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
@@ -359,6 +373,9 @@ private fun EmulationSettings(panelBounds: Rect?, onClose: () -> Unit) {
                 exitTransition = { ExitTransition.None },
             ) {
                 settingsNavigation(navController, onExit = onClose)
+            }
+            if (startAtFrameGen) {
+                LaunchedEffect(Unit) { navController.navigateToFrameGenSettings() }
             }
         }
     }
@@ -728,6 +745,21 @@ private fun rememberPadDisplay(activity: Activity): Display? {
     }
 
     return padDisplay
+}
+
+// the frame generation buttons of the panel need Lossless.dll, this explains it and leads to where it is added
+@Composable
+private fun FrameGenSetupDialog(onSetUp: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        icon = { Icon(painter = painterResource(R.drawable.ic_build), contentDescription = null) },
+        title = { Text(tr("Set up frame generation first")) },
+        text = {
+            Text(tr("Frame generation uses the shaders of Lossless Scaling. Add Lossless.dll from your own copy of Lossless Scaling and this button will start working. It only takes a moment and the game stays paused while you do it."))
+        },
+        confirmButton = { TextButton(onClick = onSetUp) { Text(tr("Set up now")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Not now")) } },
+        onDismissRequest = onDismiss,
+    )
 }
 
 @Composable

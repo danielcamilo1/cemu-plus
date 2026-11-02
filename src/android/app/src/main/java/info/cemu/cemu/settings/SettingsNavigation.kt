@@ -91,8 +91,16 @@ private object SettingsRoutes {
     object AccountSettingsScreenRoute
 }
 
-// onExit replaces going back from the settings home screen, used when the settings are opened from a running game
-fun NavGraphBuilder.settingsNavigation(navController: NavHostController, onExit: (() -> Unit)? = null) {
+// used by the frame generation setup dialog of a running game, the settings graph must already be set
+fun NavHostController.navigateToFrameGenSettings() = navigate(SettingsRoutes.FrameGenSettingsScreenRoute)
+
+// onExit replaces going back from the settings home screen, used when the settings are opened from a running game.
+// goToSetupWizard is null where the wizard can not be opened, like in game
+fun NavGraphBuilder.settingsNavigation(
+    navController: NavHostController,
+    onExit: (() -> Unit)? = null,
+    goToSetupWizard: (() -> Unit)? = null,
+) {
     navigation<SettingsRoute>(startDestination = SettingsRoutes.SettingsHomeScreenRoute) {
         composable<SettingsRoutes.SettingsHomeScreenRoute> {
             val isSecondScreenEnabled by remember {
@@ -109,6 +117,7 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, onExit:
                 goToOverlaySettings = { navController.navigate(SettingsRoutes.OverlaySettingsScreenRoute) },
                 goToAccountSettings = { navController.navigate(SettingsRoutes.AccountSettingsScreenRoute) },
                 goToEmulatedUSBDevicesSettings = { navController.navigate(SettingsRoutes.EmulatedUSBDevicesSettingsScreenRoute) },
+                goToSetupWizard = goToSetupWizard,
             )
         }
         composable<SettingsRoutes.AudioSettingsScreenRoute> {

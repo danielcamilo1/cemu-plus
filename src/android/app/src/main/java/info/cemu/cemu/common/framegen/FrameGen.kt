@@ -43,6 +43,9 @@ fun frameGenRuntimeStatusToString(status: Int) = when (status) {
 fun isLosslessDllInstalled() =
     NativeFrameGen.getInstalledLosslessDllStatus() == LosslessDllStatus.OK
 
+// cheap check for places that run often, the DLL is only copied there after it was validated
+fun hasLosslessDll() = File(NativeFrameGen.getLosslessDllPath()).exists()
+
 /**
  * Copies the user selected Lossless.dll into the user data folder after checking that it
  * contains the frame generation shaders. Returns one of [LosslessDllStatus].

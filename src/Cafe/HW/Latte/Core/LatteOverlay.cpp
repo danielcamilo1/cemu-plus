@@ -3,6 +3,7 @@
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h"
+#include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/LosslessDll.h"
 #include "Cafe/Account/Account.h"
 #include "config/CemuConfig.h"
 #include "config/ActiveSettings.h"
@@ -661,7 +662,23 @@ struct OverlayTile
 	bool coreBars = false; // shows the usage of every core instead of a value
 	OverlayAction action = OverlayAction::kNone; // drawn as a touch button
 	bool on = false; // lit button
+	bool needsSetup = false; // grayed out button, tapping it explains what is missing
 };
+
+// the frame generation buttons ask for Lossless.dll until it is installed, only checked again when it changes
+static bool LatteOverlay_isLosslessDllInstalled()
+{
+	static uint32 s_checkedCounter = std::numeric_limits<uint32>::max();
+	static bool s_installed = false;
+	const uint32 counter = LosslessDll::GetChangeCounter();
+	if (counter != s_checkedCounter)
+	{
+		std::error_code ec;
+		s_installed = fs::exists(LosslessDll::GetInstalledPath(), ec);
+		s_checkedCounter = counter;
+	}
+	return s_installed;
+}
 
 static std::vector<OverlayTile> LatteOverlay_buildTiles()
 {
@@ -824,7 +841,8 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 	}
 
 	// touch buttons go after the stats
-	const bool frameGenEnabled = config.frame_gen.enabled.GetValue();
+	const bool frameGenSetUp = LatteOverlay_isLosslessDllInstalled();
+	const bool frameGenEnabled = frameGenSetUp && config.frame_gen.enabled.GetValue();
 	if (config.overlay.action_frame_gen)
 	{
 		auto& tile = tiles.emplace_back();
@@ -832,7 +850,13 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 		tile.icon = (const char*)ICON_FA_MAGIC;
 		tile.on = frameGenEnabled;
 		tile.label = frameGenEnabled ? "FRAME GEN ON" : "FRAME GEN OFF";
-		if (frameGenEnabled)
+		if (!frameGenSetUp)
+		{
+			tile.label = "FRAME GEN";
+			tile.detail = "Needs setup";
+			tile.needsSetup = true;
+		}
+		else if (frameGenEnabled)
 		{
 			switch (FrameGenVk::GetRuntimeStatus())
 			{
@@ -855,7 +879,12 @@ static std::vector<OverlayTile> LatteOverlay_buildTiles()
 		else
 			tile.label = fmt::format("FG x{}", config.frame_gen.multiplier.GetValue());
 		tile.on = frameGenEnabled;
-		if (targetRate > 0 && g_state.frame_gen_active)
+		if (!frameGenSetUp)
+		{
+			tile.detail = "Needs setup";
+			tile.needsSetup = true;
+		}
+		else if (targetRate > 0 && g_state.frame_gen_active)
 			tile.detail = fmt::format("now x{:.1f}", g_state.frame_gen_ratio);
 	}
 
@@ -997,7 +1026,7 @@ static void LatteOverlay_drawButton(ImDrawList* dl, const OverlayTile& tile, ImV
 	if (showDetail)
 		blockH += lineGap + smallSize;
 	float y = tmin.y + std::max(ip * 0.5f, (tileH - blockH) * 0.5f);
-	const ImU32 iconColor = tile.on ? s_panel->accent : s_panel->keyIcon;
+	const ImU32 iconColor = tile.needsSetup ? s_panel->label : (tile.on ? s_panel->accent : s_panel->keyIcon);
 	dl->AddText(valueFont, valueSize, { tmin.x + (tileW - iconW) * 0.5f, y }, iconColor, tile.icon);
 	y += valueSize + lineGap;
 	dl->AddText(smallFont, smallSize, { tmin.x + std::max(ip, (tileW - labelW) * 0.5f), y }, tile.on ? s_panel->keyIcon : s_panel->label, tile.label.c_str());

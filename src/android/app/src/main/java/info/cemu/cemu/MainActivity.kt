@@ -14,6 +14,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
@@ -23,6 +28,7 @@ import info.cemu.cemu.about.AboutCemuRoute
 import info.cemu.cemu.about.aboutCemuNavigation
 import info.cemu.cemu.common.android.display.applySecondScreenDefault
 import info.cemu.cemu.common.input.GamepadInputSource
+import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.ui.components.ActivityContent
 import info.cemu.cemu.common.ui.localization.TranslatableContent
 import info.cemu.cemu.emulation.EmulationActivity
@@ -34,8 +40,11 @@ import info.cemu.cemu.nativeinterface.NativeGameTitles.Game
 import info.cemu.cemu.nativeinterface.NativeSettings
 import info.cemu.cemu.settings.SettingsRoute
 import info.cemu.cemu.settings.settingsNavigation
+import info.cemu.cemu.setupwizard.SetupWizardRoute
+import info.cemu.cemu.setupwizard.setupWizardNavigation
 import info.cemu.cemu.titlemanager.TitleManagerRoute
 import info.cemu.cemu.titlemanager.titleManagerNavigation
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -86,6 +95,18 @@ class MainActivity : AppCompatActivity() {
 private fun MainNav() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    var isSetupWizardChecked by rememberSaveable { mutableStateOf(false) }
+
+    // the setup wizard opens on top of the game list until it is finished or closed once
+    LaunchedEffect(Unit) {
+        if (isSetupWizardChecked) {
+            return@LaunchedEffect
+        }
+        isSetupWizardChecked = true
+        if (!AppSettingsStore.dataStore.data.first().guiSettings.isSetupWizardCompleted) {
+            navController.navigate(SetupWizardRoute)
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -101,7 +122,8 @@ private fun MainNav() {
             goToGraphicPacks = { navController.navigate(GraphicPacksRoute) },
             goToAboutCemu = { navController.navigate(AboutCemuRoute) },
         )
-        settingsNavigation(navController)
+        settingsNavigation(navController, goToSetupWizard = { navController.navigate(SetupWizardRoute) })
+        setupWizardNavigation(navController)
         titleManagerNavigation(navController)
         graphicPacksNavigation(navController)
         aboutCemuNavigation(navController)
