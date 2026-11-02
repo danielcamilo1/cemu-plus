@@ -196,6 +196,23 @@ Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setPadCropEnabledForTitle([
 		g_current_game_profile->SetPadCropEnabled(enabled);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_isPadCropToolbarHiddenForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.IsPadCropToolbarHidden();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setPadCropToolbarHiddenForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jboolean hidden)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	NativeGameTitles::g_currentGameProfile.SetPadCropToolbarHidden(hidden);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+	if (NativeGameTitles::IsRunningTitle(game_title_id))
+		g_current_game_profile->SetPadCropToolbarHidden(hidden);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jlong JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getRunningTitleId([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {

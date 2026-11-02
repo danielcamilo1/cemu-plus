@@ -94,6 +94,13 @@ object NativeGameTitles {
     @JvmStatic
     external fun setPadCropEnabledForTitle(gameTitleId: Long, enabled: Boolean)
 
+    // hides the toolbar in the black bars while the GamePad image is cropped
+    @JvmStatic
+    external fun isPadCropToolbarHiddenForTitle(gameTitleId: Long): Boolean
+
+    @JvmStatic
+    external fun setPadCropToolbarHiddenForTitle(gameTitleId: Long, hidden: Boolean)
+
     // the title id of the game that is running, 0 if there is none
     @JvmStatic
     external fun getRunningTitleId(): Long

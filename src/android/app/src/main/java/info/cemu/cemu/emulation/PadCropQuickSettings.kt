@@ -37,16 +37,17 @@ import info.cemu.cemu.settings.screenlayout.FallbackSecondScreen
  * to the game profile, the same as Edit game profile.
  */
 @Composable
-fun PadCropQuickSettings(isPadOnSecondScreen: Boolean) {
-    val titleId = remember { NativeGameTitles.getRunningTitleId() }
-    if (titleId == 0L || !isPadOnSecondScreen) {
+fun PadCropQuickSettings(isEmulationInitialized: Boolean, isPadOnSecondScreen: Boolean) {
+    // the menu is composed before the game starts, so look the game up again once it runs
+    val titleId = remember(isEmulationInitialized) { NativeGameTitles.getRunningTitleId() }
+    if (titleId == 0L) {
         return
     }
     val screen = rememberSecondScreen() ?: FallbackSecondScreen
 
-    var enabled by remember { mutableStateOf(NativeGameTitles.isPadCropEnabledForTitle(titleId)) }
-    var horizontal by remember { mutableIntStateOf(NativeGameTitles.getPadCropHorizontalForTitle(titleId)) }
-    var vertical by remember { mutableIntStateOf(NativeGameTitles.getPadCropVerticalForTitle(titleId)) }
+    var enabled by remember(titleId) { mutableStateOf(NativeGameTitles.isPadCropEnabledForTitle(titleId)) }
+    var horizontal by remember(titleId) { mutableIntStateOf(NativeGameTitles.getPadCropHorizontalForTitle(titleId)) }
+    var vertical by remember(titleId) { mutableIntStateOf(NativeGameTitles.getPadCropVerticalForTitle(titleId)) }
 
     fun save(newHorizontal: Int, newVertical: Int) {
         horizontal = newHorizontal.coerceIn(0, NativeGameTitles.PAD_CROP_MAX)
@@ -64,6 +65,13 @@ fun PadCropQuickSettings(isPadOnSecondScreen: Boolean) {
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
         )
+        if (!isPadOnSecondScreen) {
+            Text(
+                text = tr("Used while the GamePad is on the second screen"),
+                modifier = Modifier.padding(horizontal = 8.dp),
+                fontSize = 14.sp,
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

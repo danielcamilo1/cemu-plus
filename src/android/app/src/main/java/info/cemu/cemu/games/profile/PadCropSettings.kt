@@ -1,12 +1,16 @@
 package info.cemu.cemu.games.profile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider as MaterialSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -18,20 +22,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import info.cemu.cemu.common.android.display.SecondScreenInfo
 import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.ui.components.Header
-import info.cemu.cemu.common.ui.components.Slider
 import info.cemu.cemu.common.ui.components.Toggle
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeGameTitles
@@ -46,8 +54,8 @@ import info.cemu.cemu.settings.screenlayout.drawGameImage
 import info.cemu.cemu.settings.screenlayout.drawToolbar
 import info.cemu.cemu.settings.screenlayout.fitImage
 import info.cemu.cemu.settings.screenlayout.isToolbarEnabled
-import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.map
 
 private val GamePadScreen = SecondScreenInfo(name = "", width = 854, height = 480)
 private val PreviewGridColor = Color.Black.copy(alpha = 0.12f)
@@ -150,26 +158,25 @@ internal fun PadCropSettings(titleId: Long) {
         AppSettingsStore.dataStore.data.map { it.emulationSettings.isPadOnExternalDisplay }
     }.collectAsState(initial = true)
     val alignment = remember { NativeSettings.getPadScreenAlignment() }
-    val showToolbar = remember { isToolbarEnabled() }
+    val isToolbarOn = remember { isToolbarEnabled() }
 
     var enabled by rememberSaveable { mutableStateOf(NativeGameTitles.isPadCropEnabledForTitle(titleId)) }
-    var savedHorizontal by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropHorizontalForTitle(titleId)) }
-    var savedVertical by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropVerticalForTitle(titleId)) }
-    // follows the sliders while they are dragged, the saved values only change when they are let go
-    var horizontal by rememberSaveable { mutableIntStateOf(savedHorizontal) }
-    var vertical by rememberSaveable { mutableIntStateOf(savedVertical) }
+    var hideToolbar by rememberSaveable { mutableStateOf(NativeGameTitles.isPadCropToolbarHiddenForTitle(titleId)) }
+    // follow the sliders while they are dragged, they are saved once let go
+    var horizontal by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropHorizontalForTitle(titleId)) }
+    var vertical by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropVerticalForTitle(titleId)) }
 
     fun save(newHorizontal: Int, newVertical: Int) {
         horizontal = newHorizontal
         vertical = newVertical
-        savedHorizontal = newHorizontal
-        savedVertical = newVertical
         NativeGameTitles.setPadCropForTitle(titleId, newHorizontal, newVertical)
     }
 
     val fill = fillScreenCrop(screen, horizontal, vertical)
     val shownHorizontal = if (enabled) horizontal else 0
     val shownVertical = if (enabled) vertical else 0
+    // the same rule as in game, the toolbar is only hidden while something is cut off
+    val showToolbar = isToolbarOn && !(hideToolbar && (shownHorizontal > 0 || shownVertical > 0))
 
     Column {
         Header(tr("GamePad screen crop"))
@@ -186,31 +193,87 @@ internal fun PadCropSettings(titleId: Long) {
                 NativeGameTitles.setPadCropEnabledForTitle(titleId, it)
             },
         )
-        Row(
+        if (isToolbarOn) {
+            Toggle(
+                label = tr("Hide the toolbar for this game"),
+                description = tr("Hides the toolbar in the black bars of the second screen while the GamePad image is cropped. The quick menu still opens with its hotkey or the back button"),
+                enabled = enabled,
+                checked = hideToolbar,
+                onCheckedChanged = {
+                    hideToolbar = it
+                    NativeGameTitles.setPadCropToolbarHiddenForTitle(titleId, it)
+                },
+            )
+        }
+        // the left and right crop above the previews and the top and bottom crop beside them, so the
+        // previews stay in sight while dragging either one
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Bottom,
+                .padding(8.dp)
         ) {
-            // weighted by their shapes so both previews are the same height
-            PreviewWithCaption(
-                modifier = Modifier.weight(WII_U_ASPECT_RATIO),
-                screen = GamePadScreen,
-                caption = tr("GamePad image"),
-            ) { paint ->
-                drawCropFrame(shownHorizontal, shownVertical, paint)
-            }
-            PreviewWithCaption(
-                modifier = Modifier.weight(screen.aspectRatio()),
-                screen = screen,
-                caption = if (detectedScreen != null) {
-                    tr("Second screen, {0}x{1}", screen.width.toString(), screen.height.toString())
-                } else {
-                    tr("Second screen (AYN Thor shape)")
-                },
-            ) { paint ->
-                drawCroppedSecondScreen(shownHorizontal, shownVertical, alignment, showToolbar, paint)
+            val previewsWidth = (maxWidth - SideSliderWidth - PreviewSpacing).coerceAtMost(MaxPreviewsWidth)
+            // both previews are the same height, weighted by their shapes
+            val previewHeight = (previewsWidth - PreviewSpacing) / (WII_U_ASPECT_RATIO + screen.aspectRatio())
+            Column(modifier = Modifier.alpha(if (enabled) 1f else 0.6f)) {
+                Column(modifier = Modifier.width(previewsWidth)) {
+                    SliderValueLabel(tr("Crop left and right"), tr("{0}% of the width", horizontal.toString()))
+                    MaterialSlider(
+                        value = horizontal.toFloat(),
+                        valueRange = 0f..NativeGameTitles.PAD_CROP_MAX.toFloat(),
+                        steps = NativeGameTitles.PAD_CROP_MAX - 1,
+                        enabled = enabled,
+                        onValueChange = { horizontal = it.roundToInt() },
+                        onValueChangeFinished = { save(horizontal, vertical) },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(PreviewSpacing)) {
+                    Row(
+                        modifier = Modifier.width(previewsWidth),
+                        horizontalArrangement = Arrangement.spacedBy(PreviewSpacing),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        PreviewWithCaption(
+                            modifier = Modifier.weight(WII_U_ASPECT_RATIO),
+                            screen = GamePadScreen,
+                            caption = tr("GamePad image"),
+                        ) { paint ->
+                            drawCropFrame(shownHorizontal, shownVertical, paint)
+                        }
+                        PreviewWithCaption(
+                            modifier = Modifier.weight(screen.aspectRatio()),
+                            screen = screen,
+                            caption = if (detectedScreen != null) {
+                                tr("Second screen, {0}x{1}", screen.width.toString(), screen.height.toString())
+                            } else {
+                                tr("Second screen (AYN Thor shape)")
+                            },
+                        ) { paint ->
+                            drawCroppedSecondScreen(shownHorizontal, shownVertical, alignment, showToolbar, paint)
+                        }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .width(SideSliderWidth)
+                            .height(previewHeight),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(text = tr("{0}%", vertical.toString()), fontSize = 14.sp)
+                        VerticalSlider(
+                            modifier = Modifier.weight(1f),
+                            value = vertical,
+                            enabled = enabled,
+                            onValueChanging = { vertical = it },
+                            onValueChange = { save(horizontal, vertical) },
+                        )
+                    }
+                }
+                Text(
+                    text = tr("The slider beside the previews crops the top and bottom."),
+                    fontSize = 12.sp,
+                    color = LocalContentColor.current.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
         InfoText(
@@ -219,26 +282,6 @@ internal fun PadCropSettings(titleId: Long) {
                 screenPercentUsed(screen, croppedAspectRatio(shownHorizontal, shownVertical)).toString(),
                 screenPercentUsed(screen, WII_U_ASPECT_RATIO).toString(),
             )
-        )
-        Slider(
-            label = tr("Crop left and right"),
-            enabled = enabled,
-            value = savedHorizontal,
-            valueFrom = 0,
-            valueTo = NativeGameTitles.PAD_CROP_MAX,
-            labelFormatter = { tr("{0}% of the width", it.toString()) },
-            onValueChanging = { horizontal = it },
-            onValueChange = { save(it, vertical) },
-        )
-        Slider(
-            label = tr("Crop top and bottom"),
-            enabled = enabled,
-            value = savedVertical,
-            valueFrom = 0,
-            valueTo = NativeGameTitles.PAD_CROP_MAX,
-            labelFormatter = { tr("{0}% of the height", it.toString()) },
-            onValueChanging = { vertical = it },
-            onValueChange = { save(horizontal, it) },
         )
         Row(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -258,6 +301,61 @@ internal fun PadCropSettings(titleId: Long) {
             }
         }
     }
+}
+
+private val SideSliderWidth = 56.dp
+private val PreviewSpacing = 12.dp
+private val MaxPreviewsWidth = 720.dp
+
+@Composable
+private fun SliderValueLabel(label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp,
+        )
+        Text(text = value, fontWeight = FontWeight.Light, fontSize = 14.sp)
+    }
+}
+
+// a slider turned upright, more crop towards the top
+@Composable
+private fun VerticalSlider(
+    value: Int,
+    enabled: Boolean,
+    onValueChanging: (Int) -> Unit,
+    onValueChange: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    MaterialSlider(
+        value = value.toFloat(),
+        valueRange = 0f..NativeGameTitles.PAD_CROP_MAX.toFloat(),
+        steps = NativeGameTitles.PAD_CROP_MAX - 1,
+        enabled = enabled,
+        onValueChange = { onValueChanging(it.roundToInt()) },
+        onValueChangeFinished = onValueChange,
+        modifier = modifier
+            .graphicsLayer {
+                rotationZ = 270f
+                transformOrigin = TransformOrigin(0f, 0f)
+            }
+            .layout { measurable, constraints ->
+                // measured lying down with the height as its length, then stood up
+                val placeable = measurable.measure(
+                    Constraints(
+                        minWidth = constraints.minHeight,
+                        maxWidth = constraints.maxHeight,
+                        minHeight = constraints.minWidth,
+                        maxHeight = constraints.maxWidth,
+                    )
+                )
+                layout(placeable.height, placeable.width) {
+                    placeable.place(-placeable.width, 0)
+                }
+            },
+    )
 }
 
 @Composable

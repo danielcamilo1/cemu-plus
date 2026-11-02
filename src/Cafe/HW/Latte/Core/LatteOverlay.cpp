@@ -1,5 +1,6 @@
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
+#include "Cafe/GameProfile/GameProfile.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h"
@@ -2097,7 +2098,14 @@ void LatteOverlay_render(bool pad_view)
 	ImVec2 position{}, pivot{};
 	sint32 direction{};
 
-	const bool showStats = config.overlay.position != ScreenPosition::kDisabled && LatteOverlay_isStatsScreen(pad_view);
+	// a game profile can hide the toolbar while it crops the GamePad image, so the image gets the bars to itself
+#if BOOST_PLAT_ANDROID
+	const bool toolbarHiddenByCrop = pad_view && config.overlay.style == OverlayStyle::kGamePad && LatteRenderTarget_isPadCropped() &&
+		g_current_game_profile->IsPadCropToolbarHidden();
+#else
+	const bool toolbarHiddenByCrop = false;
+#endif
+	const bool showStats = config.overlay.position != ScreenPosition::kDisabled && LatteOverlay_isStatsScreen(pad_view) && !toolbarHiddenByCrop;
 	// the notifications avoid the black bar used by the stats
 	ImVec2 notificationAreaMin{ 0.0f, 0.0f };
 	ImVec2 notificationAreaSize{ window_size.x, window_size.y };
