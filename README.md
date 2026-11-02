@@ -38,6 +38,10 @@ Bigger, better looking game icons in a clean grid, with search.
 - **Lossless Scaling frame generation** (2x, 3x, 4x or a 60/90/120 FPS target) running in Cemu's Vulkan
   renderer, using your own `Lossless.dll`, inspired by [Eden Duo](https://github.com/igawa6/eden-duo)
 - **Dual screen support**: GamePad on the second display, screen swap, rotation and top/center/bottom alignment
+- **Per game GamePad screen crop**: cut the borders of the GamePad image so its middle fills more of a second
+  screen that is not 16:9, with a preview of your screen in the game profile and a quick switch in the in-game menu
+- **Controller hotkeys set up for you**: Setup all inputs also maps Select + Start to exit the game and
+  Select + X to open the quick menu
 - **GamePad toolbar** in the black bars with per stat toggles (FPS, CPU/GPU usage and clocks, temperatures,
   battery, RAM) and touch buttons for frame generation, pause, the quick menu and settings
 - **First time setup wizard**, which can be reopened from Settings

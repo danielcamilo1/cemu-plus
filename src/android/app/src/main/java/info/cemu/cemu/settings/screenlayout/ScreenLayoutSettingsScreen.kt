@@ -574,7 +574,7 @@ internal class PreviewPaint(
 )
 
 private val PreviewGameplayColor = Color.White
-private val PreviewPadColor = Color(0xFFDCDCE2)
+internal val PreviewPadColor = Color(0xFFDCDCE2)
 private val PreviewLabelColor = Color(0xFF202024)
 
 // toolbarTiles is how many tiles the toolbar is drawn with
@@ -651,13 +651,17 @@ private fun PreviewChoice(
     }
 }
 
-// a 16:9 image inside the area, centered unless aligned to the top or bottom
-private fun fitImage(area: Rect, alignment: Int = NativeSettings.PadScreenAlignment.CENTER): Rect {
+// a 16:9 image (or another shape) inside the area, centered unless aligned to the top or bottom
+internal fun fitImage(
+    area: Rect,
+    alignment: Int = NativeSettings.PadScreenAlignment.CENTER,
+    aspectRatio: Float = WII_U_ASPECT_RATIO,
+): Rect {
     var width = area.width
-    var height = width / WII_U_ASPECT_RATIO
+    var height = width / aspectRatio
     if (height > area.height) {
         height = area.height
-        width = height * WII_U_ASPECT_RATIO
+        width = height * aspectRatio
     }
     val left = area.left + (area.width - width) / 2
     val top = when (alignment) {
@@ -669,14 +673,14 @@ private fun fitImage(area: Rect, alignment: Int = NativeSettings.PadScreenAlignm
 }
 
 // the biggest black bar next to the image, the overlay picks the same one
-private fun biggestBar(area: Rect, image: Rect): Rect = listOf(
+internal fun biggestBar(area: Rect, image: Rect): Rect = listOf(
     Rect(area.left, area.top, area.right, image.top),
     Rect(area.left, image.bottom, area.right, area.bottom),
     Rect(area.left, area.top, image.left, area.bottom),
     Rect(image.right, area.top, area.right, area.bottom),
 ).maxBy { it.width * it.height }
 
-private fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color, tiles: Int) {
+internal fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color, tiles: Int) {
     val inset = minOf(minOf(bar.width, bar.height) * 0.18f, 4.dp.toPx())
     val toolbar = Rect(bar.left + inset, bar.top + inset, bar.right - inset, bar.bottom - inset)
     if (toolbar.width <= 0f || toolbar.height <= 0f) {
@@ -708,7 +712,7 @@ private fun DrawScope.drawToolbar(bar: Rect, toolbarColor: Color, tiles: Int) {
 }
 
 // the game image with its label centered, as big as the image allows
-private fun DrawScope.drawGameImage(image: Rect, color: Color, label: String, paint: PreviewPaint) {
+internal fun DrawScope.drawGameImage(image: Rect, color: Color, label: String, paint: PreviewPaint) {
     drawRect(color = color, topLeft = image.topLeft, size = image.size)
     val style = TextStyle(color = PreviewLabelColor, fontWeight = FontWeight.Medium, fontSize = (image.height * 0.2f).toSp())
     var text = paint.textMeasurer.measure(label, style)

@@ -10,6 +10,7 @@
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/GraphicPack/GraphicPack2.h"
+#include "Cafe/GameProfile/GameProfile.h"
 #include "config/ActiveSettings.h"
 #include "WindowSystem.h"
 #include "Cafe/OS/libs/erreula/erreula.h"
@@ -827,7 +828,7 @@ void LatteRenderTarget_itHLEClearColorDepthStencil(uint32 clearMask,
 sint32 _currentOutputImageWidth = 0;
 sint32 _currentOutputImageHeight = 0;
 
-void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, sint32* height, sint32* fullWidth, sint32* fullHeight, bool padView)
+void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, sint32* height, sint32* fullWidth, sint32* fullHeight, bool padView, bool visiblePart)
 {
 	int w, h;
 	const bool separatePadWindow = padView && WindowSystem::IsPadWindowOpen();
@@ -836,16 +837,29 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 	else
 		WindowSystem::GetWindowPhysSize(w, h);
 
+	// fraction of the image that is left after the game profile crops the GamePad image on its own screen
+	float keepX = 1.0f;
+	float keepY = 1.0f;
+#if BOOST_PLAT_ANDROID
+	if (separatePadWindow && !WindowSystem::GetWindowInfo().swap_screens && g_current_game_profile->IsPadCropEnabled())
+	{
+		keepX = 1.0f - (float)g_current_game_profile->GetPadCropHorizontal() / 100.0f;
+		keepY = 1.0f - (float)g_current_game_profile->GetPadCropVertical() / 100.0f;
+	}
+#endif
+	const sint32 outputImageWidth = (sint32)((float)_currentOutputImageWidth * keepX);
+	const sint32 outputImageHeight = (sint32)((float)_currentOutputImageHeight * keepY);
+
 	sint32 scaledOutputX;
 	sint32 scaledOutputY;
 	if (GetConfig().fullscreen_scaling == kKeepAspectRatio)
 	{
 		// calculate maximum possible resolution with intact aspect ratio
 		scaledOutputX = w;
-		scaledOutputY = _currentOutputImageHeight * w / std::max(_currentOutputImageWidth, 1);
+		scaledOutputY = outputImageHeight * w / std::max(outputImageWidth, 1);
 		if (scaledOutputY > h)
 		{
-			scaledOutputX = _currentOutputImageWidth * h / std::max(_currentOutputImageHeight, 1);
+			scaledOutputX = outputImageWidth * h / std::max(outputImageHeight, 1);
 			scaledOutputY = h;
 		}
 	}
@@ -868,6 +882,14 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 	}
 	*width = scaledOutputX;
 	*height = scaledOutputY;
+	// the whole image is bigger than the visible part by the cropped borders, centered around it
+	if (!visiblePart && (keepX < 1.0f || keepY < 1.0f))
+	{
+		*width = (sint32)std::lround((float)scaledOutputX / keepX);
+		*height = (sint32)std::lround((float)scaledOutputY / keepY);
+		*x -= (*width - scaledOutputX) / 2;
+		*y -= (*height - scaledOutputY) / 2;
+	}
 	if (fullWidth)
 		*fullWidth = w;
 	if (fullHeight)
@@ -891,9 +913,11 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 	sint32 fullscreenWidth, fullscreenHeight;
 
 	LatteRenderTarget_getScreenImageArea(&imageX, &imageY, &imageWidth, &imageHeight, &fullscreenWidth, &fullscreenHeight, isPadView);
+	sint32 visibleX, visibleY, visibleWidth, visibleHeight;
+	LatteRenderTarget_getScreenImageArea(&visibleX, &visibleY, &visibleWidth, &visibleHeight, nullptr, nullptr, isPadView, true);
 
 	bool clearBackground = false;
-	if (imageWidth != fullscreenWidth || imageHeight != fullscreenHeight)
+	if (visibleWidth != fullscreenWidth || visibleHeight != fullscreenHeight)
 		clearBackground = true;
 
 	const bool renderUpsideDown = ActiveSettings::RenderUpsideDownEnabled();

@@ -87,7 +87,8 @@ void LatteRenderTarget_updateScissorBox();
 
 void LatteRenderTarget_trackUpdates();
 
-void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, sint32* height, sint32* fullWidth, sint32* fullHeight, bool padView = false);
+// a cropped GamePad image reaches past the part that is left on screen, visiblePart only returns that part
+void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, sint32* height, sint32* fullWidth, sint32* fullHeight, bool padView = false, bool visiblePart = false);
 void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPadView);
 
 void LatteRenderTarget_GetCurrentVirtualViewportSize(sint32* viewportWidth, sint32* viewportHeight);

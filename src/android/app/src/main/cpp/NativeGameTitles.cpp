@@ -6,6 +6,7 @@
 #include "WuaConverter.h"
 #include "CompressTitleCallbacks.h"
 #include "config/ActiveSettings.h"
+#include "Cafe/CafeSystem.h"
 
 namespace NativeGameTitles
 {
@@ -40,6 +41,12 @@ namespace NativeGameTitles
 	}
 
 	std::unique_ptr<WuaConverter> g_wuaConverter;
+
+	// the profile of the running game is loaded on its own when it starts, changes to it have to go there too
+	bool IsRunningTitle(TitleId titleId)
+	{
+		return CafeSystem::IsTitleRunning() && CafeSystem::GetForegroundTitleId() == titleId;
+	}
 } // namespace NativeGameTitles
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
@@ -146,6 +153,53 @@ Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setDriverSettingForTitle([[
 	NativeGameTitles::g_currentGameProfile.SetDriverSetting(driverSetting);
 
 	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getPadCropHorizontalForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.GetPadCropHorizontal();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getPadCropVerticalForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.GetPadCropVertical();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setPadCropForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jint horizontal, jint vertical)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	NativeGameTitles::g_currentGameProfile.SetPadCrop(horizontal, vertical);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+	if (NativeGameTitles::IsRunningTitle(game_title_id))
+		g_current_game_profile->SetPadCrop(horizontal, vertical);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_isPadCropEnabledForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.IsPadCropEnabled();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setPadCropEnabledForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jboolean enabled)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	NativeGameTitles::g_currentGameProfile.SetPadCropEnabled(enabled);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+	if (NativeGameTitles::IsRunningTitle(game_title_id))
+		g_current_game_profile->SetPadCropEnabled(enabled);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jlong JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getRunningTitleId([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return CafeSystem::IsTitleRunning() ? static_cast<jlong>(CafeSystem::GetForegroundTitleId()) : 0;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
