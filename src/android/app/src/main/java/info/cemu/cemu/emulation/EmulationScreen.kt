@@ -197,6 +197,7 @@ fun EmulationScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     EmulationSideMenuContent(
+                        isEmulationInitialized = isEmulationInitialized,
                         sideMenuState = sideMenuState,
                         updateState = {
                             viewModel.updateSideMenuState(it)
@@ -421,6 +422,7 @@ private fun EditInputsLayout(
 
 @Composable
 private fun EmulationSideMenuContent(
+    isEmulationInitialized: Boolean,
     sideMenuState: SideMenuState,
     updateState: (SideMenuState) -> Unit,
     onShowEmulatedUSBDevices: () -> Unit,
@@ -465,7 +467,10 @@ private fun EmulationSideMenuContent(
         enabled = sideMenuState.isPadOnExternalDisplay,
     )
 
-    PadCropQuickSettings(isPadOnSecondScreen = sideMenuState.isPadOnExternalDisplay)
+    PadCropQuickSettings(
+        isEmulationInitialized = isEmulationInitialized,
+        isPadOnSecondScreen = sideMenuState.isPadOnExternalDisplay,
+    )
 
     FrameGenQuickSettings()
 

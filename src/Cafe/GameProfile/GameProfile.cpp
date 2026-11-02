@@ -290,6 +290,7 @@ bool GameProfile::Load(uint64_t title_id)
 			gameProfile_loadIntegerOption(iniParser, "cropHorizontal", m_padCropHorizontal, 0, kPadCropMax);
 			gameProfile_loadIntegerOption(iniParser, "cropVertical", m_padCropVertical, 0, kPadCropMax);
 			gameProfile_loadBooleanOption2(iniParser, "cropEnabled", m_padCropEnabled);
+			gameProfile_loadBooleanOption2(iniParser, "hideToolbar", m_padCropHideToolbar);
 		}
 #endif
 	}
@@ -357,6 +358,7 @@ void GameProfile::Save(uint64_t title_id)
 	fs->writeLine(fmt::format("{} = {}", "cropHorizontal", m_padCropHorizontal).c_str());
 	fs->writeLine(fmt::format("{} = {}", "cropVertical", m_padCropVertical).c_str());
 	fs->writeLine(fmt::format("{} = {}", "cropEnabled", m_padCropEnabled).c_str());
+	fs->writeLine(fmt::format("{} = {}", "hideToolbar", m_padCropHideToolbar).c_str());
 	fs->writeLine("");
 #endif
 
@@ -394,6 +396,7 @@ void GameProfile::ResetOptional()
 	m_padCropHorizontal = 0;
 	m_padCropVertical = 0;
 	m_padCropEnabled = true;
+	m_padCropHideToolbar = false;
 #endif
 }
 
@@ -425,5 +428,6 @@ void GameProfile::Reset()
 	m_padCropHorizontal = 0;
 	m_padCropVertical = 0;
 	m_padCropEnabled = true;
+	m_padCropHideToolbar = false;
 #endif
 }

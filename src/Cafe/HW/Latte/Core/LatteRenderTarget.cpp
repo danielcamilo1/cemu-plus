@@ -828,6 +828,16 @@ void LatteRenderTarget_itHLEClearColorDepthStencil(uint32 clearMask,
 sint32 _currentOutputImageWidth = 0;
 sint32 _currentOutputImageHeight = 0;
 
+bool LatteRenderTarget_isPadCropped()
+{
+#if BOOST_PLAT_ANDROID
+	return WindowSystem::IsPadWindowOpen() && !WindowSystem::GetWindowInfo().swap_screens && g_current_game_profile->IsPadCropEnabled() &&
+		(g_current_game_profile->GetPadCropHorizontal() > 0 || g_current_game_profile->GetPadCropVertical() > 0);
+#else
+	return false;
+#endif
+}
+
 void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, sint32* height, sint32* fullWidth, sint32* fullHeight, bool padView, bool visiblePart)
 {
 	int w, h;
@@ -841,7 +851,7 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 	float keepX = 1.0f;
 	float keepY = 1.0f;
 #if BOOST_PLAT_ANDROID
-	if (separatePadWindow && !WindowSystem::GetWindowInfo().swap_screens && g_current_game_profile->IsPadCropEnabled())
+	if (separatePadWindow && LatteRenderTarget_isPadCropped())
 	{
 		keepX = 1.0f - (float)g_current_game_profile->GetPadCropHorizontal() / 100.0f;
 		keepY = 1.0f - (float)g_current_game_profile->GetPadCropVertical() / 100.0f;

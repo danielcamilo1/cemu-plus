@@ -72,6 +72,9 @@ public:
 	// turns the crop off without losing it
 	[[nodiscard]] bool IsPadCropEnabled() const { return m_padCropEnabled; }
 	void SetPadCropEnabled(bool enabled) { m_padCropEnabled = enabled; }
+	// hides the toolbar in the black bars while this game's GamePad image is cropped
+	[[nodiscard]] bool IsPadCropToolbarHidden() const { return m_padCropHideToolbar; }
+	void SetPadCropToolbarHidden(bool hidden) { m_padCropHideToolbar = hidden; }
 	void SetPadCrop(sint32 horizontal, sint32 vertical)
 	{
 		m_padCropHorizontal = std::clamp(horizontal, 0, kPadCropMax);
@@ -83,6 +86,7 @@ public:
 	sint32 m_padCropHorizontal = 0;
 	sint32 m_padCropVertical = 0;
 	bool m_padCropEnabled = true;
+	bool m_padCropHideToolbar = false;
 
 #endif
 
