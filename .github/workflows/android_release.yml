@@ -1,16 +1,17 @@
 name: Cemu Plus Android
 
-# - pushes and pull requests build the APK and upload it as a workflow artifact
+# - pull requests build the APK and upload it as a workflow artifact. Merging doesn't build again, the pull request
+#   already built that code, so a release only runs one build: the one for its tag
 # - pushing a tag named v<version> (e.g. v0.1.0 or v0.1.0-beta.1) publishes a GitHub release with the APK.
 #   Tags containing a "-" are published as prereleases
 # - the workflow can also be started manually to publish a release for the selected branch
 on:
   push:
-    branches:
-      - android-port
     tags:
       - "v*"
   pull_request:
+    branches:
+      - android-port
   workflow_dispatch:
     inputs:
       version:
