@@ -4,6 +4,7 @@ name: Cemu Plus Android
 #   already built that code, so a release only runs one build: the one for its tag
 # - pushing a tag named v<version> (e.g. v0.1.0 or v0.1.0-beta.1) publishes a GitHub release with the APK.
 #   Tags containing a "-" are published as prereleases
+#   The release notes come from the version's section of CHANGELOG.md
 # - the workflow can also be started manually to publish a release for the selected branch
 on:
   push:
@@ -132,10 +133,23 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
-          cat > release-notes.md <<'EOF'
-          Android build of Cemu Plus, a fork of the Cemu Android port with Lossless Scaling frame generation.
+          # the notes start with this version's section of CHANGELOG.md, prereleases show the section of the
+          # version they lead up to
+          awk -v version="${VERSION%%-*}" '$1 == "##" && $2 == version { found = 1; next } found && /^## / { exit } found' \
+            CHANGELOG.md > changes.md
 
-          ### Frame generation setup
+          {
+            echo "Android build of Cemu Plus, a fork of the Cemu Android port with Lossless Scaling frame generation."
+            echo
+            if [[ -s changes.md ]]; then
+              echo "## What's new"
+              cat changes.md
+              echo
+            fi
+          } > release-notes.md
+
+          cat >> release-notes.md <<'EOF'
+          ## Frame generation setup
           1. Copy `Lossless.dll` from your own copy of Lossless Scaling (its installation folder on Windows) to your device.
           2. In Cemu Plus open **Settings → Graphics settings → Frame generation (Lossless Scaling)** and tap **Select Lossless.dll**.
           3. Enable frame generation there or from the in-game menu, where the multiplier, target frame rate and motion estimation resolution can be changed while playing.
@@ -144,7 +158,14 @@ jobs:
           The FPS overlay shows the displayed frame rate together with the base frame rate while frame generation is active.
           EOF
 
-          ARGS=(--title "Cemu Plus $VERSION" --notes-file release-notes.md --generate-notes --target "$GITHUB_SHA")
+          # link to everything since the previous release, prereleases are skipped
+          PREVIOUS=$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-*' --exclude "v$VERSION" "$GITHUB_SHA" 2>/dev/null || true)
+          if [[ -n "$PREVIOUS" ]]; then
+            echo >> release-notes.md
+            echo "**Full changelog:** [$PREVIOUS...v$VERSION]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$PREVIOUS...v$VERSION)" >> release-notes.md
+          fi
+
+          ARGS=(--title "Cemu Plus $VERSION" --notes-file release-notes.md --target "$GITHUB_SHA")
           if [[ "$PRERELEASE" == "true" ]]; then ARGS+=(--prerelease); else ARGS+=(--latest); fi
 
           if gh release view "v$VERSION" > /dev/null 2>&1; then
