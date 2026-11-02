@@ -1,5 +1,8 @@
 package info.cemu.cemu.settings.input.controller
 
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.os.VibrationEffect
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -44,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -92,6 +96,7 @@ fun ControllerInputSettingsScreen(
     val controllerType by viewModel.controllerType.collectAsState()
     val controls by viewModel.controls.collectAsState()
     val activeController by viewModel.activeController.collectAsState()
+    val isDeviceMotionEnabled by viewModel.isDeviceMotionEnabled.collectAsState()
 
     var showMapAllInputsDialog by rememberSaveable { mutableStateOf(false) }
     var showControllerSettingsDialog by rememberSaveable { mutableStateOf(false) }
@@ -221,6 +226,8 @@ fun ControllerInputSettingsScreen(
             activeController = activeController,
             onSetActiveController = viewModel::setActiveController,
             onSetControllerSettings = viewModel::setControllerSettings,
+            isDeviceMotionEnabled = isDeviceMotionEnabled,
+            onDeviceMotionEnabledChanged = viewModel::setDeviceMotionEnabled,
             onDismissRequest = { showControllerSettingsDialog = false })
     }
 }
@@ -232,8 +239,16 @@ private fun ControllerSettingsDialog(
     activeController: ActiveController?,
     onSetActiveController: (InputController) -> Unit,
     onSetControllerSettings: (InputController, NativeInput.ControllerSettings) -> Unit,
+    isDeviceMotionEnabled: Boolean,
+    onDeviceMotionEnabledChanged: (Boolean) -> Unit,
     controllers: List<InputController>,
 ) {
+    val context = LocalContext.current
+    val deviceHasMotionSensors = remember(context) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager?
+        sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null &&
+                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null
+    }
 
 
     fun updateSettings(settings: NativeInput.ControllerSettings) {
@@ -279,20 +294,30 @@ private fun ControllerSettingsDialog(
 
                 val (controller, settings) = activeController ?: return@Column
 
-                val canUseMotion =
-                    controllerType == EmulatedControllerType.VPAD && controller.hasMotion
+                val isVPAD = controllerType == EmulatedControllerType.VPAD
 
-                Toggle(
-                    label = tr("Use motion"),
-                    checked = settings.motion && canUseMotion,
-                    onCheckedChanged = { updateSettings(settings.copy(motion = it)) },
-                    enabled = canUseMotion,
-                    description = when {
-                        controllerType != EmulatedControllerType.VPAD -> tr("Requires Wii U GamePad")
-                        !controller.hasMotion -> tr("Controller has no motion sensors")
-                        else -> null
-                    },
-                )
+                if (isVPAD && controller.hasMotion) {
+                    Toggle(
+                        label = tr("Use motion"),
+                        checked = settings.motion,
+                        onCheckedChanged = { updateSettings(settings.copy(motion = it)) },
+                        description = tr("Uses the motion sensors of the controller"),
+                    )
+                } else {
+                    // built in controls like on handhelds have no sensors of their own, the device sensors are used instead
+                    val canUseDeviceMotion = isVPAD && deviceHasMotionSensors
+                    Toggle(
+                        label = tr("Use motion"),
+                        checked = isDeviceMotionEnabled && canUseDeviceMotion,
+                        onCheckedChanged = onDeviceMotionEnabledChanged,
+                        enabled = canUseDeviceMotion,
+                        description = when {
+                            !isVPAD -> tr("Requires Wii U GamePad")
+                            !deviceHasMotionSensors -> tr("This device has no motion sensors")
+                            else -> tr("Uses the motion sensors of this device, same as Enable motion in the quick menu")
+                        },
+                    )
+                }
 
                 Slider(
                     label = tr("Rumble"),

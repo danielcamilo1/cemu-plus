@@ -60,12 +60,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -151,6 +153,18 @@ fun EmulationScreen(
         setInputListeningEnabled(drawerState.isClosed && !isSettingsOpen)
     }
 
+    LaunchedEffect(sideMenuState.isMotionEnabled) {
+        setMotionSensorEnabled(sideMenuState.isMotionEnabled)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.menuRequests.collect {
+            if (!drawerState.isAnimationRunning) {
+                toggleMenu()
+            }
+        }
+    }
+
     LaunchedEffect(sideMenuState.areScreensSwapped) {
         NativeEmulation.setSwapScreens(sideMenuState.areScreensSwapped)
     }
@@ -184,7 +198,6 @@ fun EmulationScreen(
                         sideMenuState = sideMenuState,
                         updateState = {
                             viewModel.updateSideMenuState(it)
-                            setMotionSensorEnabled(it.isMotionEnabled)
                             NativeEmulation.setReplaceTVWithPadView(it.isTVReplacedWithPad)
                             closeDrawer()
                         },
@@ -417,10 +430,9 @@ private fun EmulationSideMenuContent(
     )
 
     CheckboxItem(
-        label = tr("External PAD screen"),
+        label = tr("Use second screen"),
         checked = sideMenuState.isPadOnExternalDisplay,
         onCheckedChange = { updateState(sideMenuState.copy(isPadOnExternalDisplay = it)) },
-        enabled = sideMenuState.isPadVisible,
     )
 
     CheckboxItem(
@@ -430,7 +442,7 @@ private fun EmulationSideMenuContent(
     )
 
     CheckboxItem(
-        label = tr("Rotate external screen left"),
+        label = tr("Rotate second screen left"),
         checked = sideMenuState.isExternalScreenRotatedLeft,
         onCheckedChange = { updateState(sideMenuState.copy(isExternalScreenRotatedLeft = it)) },
         enabled = sideMenuState.isPadOnExternalDisplay,
@@ -533,8 +545,9 @@ private fun EmulationSurfaces(
 
     val padDisplay = if (activity != null) rememberPadDisplay(activity) else null
     val isPadVisibleEffective = sideMenuState.isPadVisible && isEmulationInitialized
+    // with a second screen the GamePad always goes there, Show PAD is for splitting a single screen
     val usePadPresentation =
-        isPadVisibleEffective && sideMenuState.isPadOnExternalDisplay && padDisplay != null
+        isEmulationInitialized && sideMenuState.isPadOnExternalDisplay && padDisplay != null
 
     val mainTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
     val padTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
@@ -612,30 +625,27 @@ private fun EmulationSurfaces(
     }
 }
 
+// the TV and GamePad surfaces side by side or stacked, each getting the same share of the screen. The children are
+// only placed in a different order, so moving the GamePad doesn't recreate the surfaces
 @Composable
 private fun LinearLayout(
     gamePadPosition: GamePadPosition,
     content: @Composable (itemModifier: Modifier) -> Unit,
 ) {
-    if (gamePadPosition.isVertical()) {
-        val arrangement =
-            if (gamePadPosition.appearsAfterTV()) Arrangement.Top else Arrangement.Bottom
-
-        Column(
-            modifier = Modifier.fillMaxSize(), verticalArrangement = arrangement
-        ) {
-            content(Modifier.weight(1f))
-        }
-    } else {
-        val arrangement =
-            if (gamePadPosition.appearsAfterTV()) Arrangement.Start else Arrangement.End
-
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = arrangement,
-            ) {
-                content(Modifier.weight(1f))
+    val vertical = gamePadPosition.isVertical()
+    val padFirst = !gamePadPosition.appearsAfterTV()
+    Layout(
+        modifier = Modifier.fillMaxSize(),
+        content = { content(Modifier) },
+    ) { measurables, constraints ->
+        val count = measurables.size.coerceAtLeast(1)
+        val itemWidth = if (vertical) constraints.maxWidth else constraints.maxWidth / count
+        val itemHeight = if (vertical) constraints.maxHeight / count else constraints.maxHeight
+        val placeables = measurables.map { it.measure(Constraints.fixed(itemWidth, itemHeight)) }
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeables.forEachIndexed { index, placeable ->
+                val slot = if (padFirst && placeables.size > 1) placeables.size - 1 - index else index
+                if (vertical) placeable.place(0, slot * itemHeight) else placeable.place(slot * itemWidth, 0)
             }
         }
     }

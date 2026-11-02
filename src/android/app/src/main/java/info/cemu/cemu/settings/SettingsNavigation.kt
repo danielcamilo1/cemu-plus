@@ -1,10 +1,14 @@
 package info.cemu.cemu.settings
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
+import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.settings.account.AccountSettingsScreen
 import info.cemu.cemu.settings.audio.AudioSettingsScreen
 import info.cemu.cemu.settings.customdrivers.CustomDriversScreen
@@ -19,7 +23,10 @@ import info.cemu.cemu.settings.input.hotkeys.HotkeySettingsScreen
 import info.cemu.cemu.settings.input.InputSettingsScreen
 import info.cemu.cemu.settings.inputoverlay.InputOverlaySettingsScreen
 import info.cemu.cemu.settings.overlay.OverlaySettingsScreen
+import info.cemu.cemu.settings.screenlayout.ScreenLayoutSettingsScreen
 import info.cemu.cemu.settings.storage.DataStorageSettingsScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -63,6 +70,9 @@ private object SettingsRoutes {
     object InputSettingsScreenRoute
 
     @Serializable
+    object ScreenLayoutSettingsScreenRoute
+
+    @Serializable
     object EmulatedUSBDevicesSettingsScreenRoute
 
     @Serializable
@@ -85,7 +95,12 @@ private object SettingsRoutes {
 fun NavGraphBuilder.settingsNavigation(navController: NavHostController, onExit: (() -> Unit)? = null) {
     navigation<SettingsRoute>(startDestination = SettingsRoutes.SettingsHomeScreenRoute) {
         composable<SettingsRoutes.SettingsHomeScreenRoute> {
+            val isSecondScreenEnabled by remember {
+                AppSettingsStore.dataStore.data.map { it.emulationSettings.isPadOnExternalDisplay }.distinctUntilChanged()
+            }.collectAsState(initial = false)
             SettingsHomeScreen(
+                isSecondScreenEnabled = isSecondScreenEnabled,
+                goToScreenLayoutSettings = { navController.navigate(SettingsRoutes.ScreenLayoutSettingsScreenRoute) },
                 navigateBack = { if (onExit != null) onExit() else navController.popBackStack() },
                 goToGeneralSettings = { navController.navigate(SettingsRoutes.GeneralSettings) },
                 goToInputSettings = { navController.navigate(SettingsRoutes.InputSettingsRoute) },
@@ -124,6 +139,11 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, onExit:
         }
         composable<SettingsRoutes.OverlaySettingsScreenRoute> {
             OverlaySettingsScreen(
+                navigateBack = { navController.popBackStack() },
+            )
+        }
+        composable<SettingsRoutes.ScreenLayoutSettingsScreenRoute> {
+            ScreenLayoutSettingsScreen(
                 navigateBack = { navController.popBackStack() },
             )
         }

@@ -2,8 +2,10 @@ package info.cemu.cemu.settings.input.controller
 
 import android.view.KeyEvent
 import android.view.MotionEvent
+import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -11,9 +13,15 @@ import info.cemu.cemu.common.android.inputdevice.hasMotion
 import info.cemu.cemu.common.android.inputdevice.hasRumble
 import info.cemu.cemu.common.android.inputdevice.listGameControllers
 import info.cemu.cemu.common.android.inputdevice.toControllerInfo
+import info.cemu.cemu.common.settings.AppSettings
+import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.nativeinterface.NativeInput
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class ButtonInfo(
     val name: String,
@@ -33,7 +41,22 @@ data class ActiveController(
     val settings: NativeInput.ControllerSettings
 )
 
-class ControllersViewModel(val controllerIndex: Int) : ViewModel() {
+class ControllersViewModel(
+    val controllerIndex: Int,
+    private val dataStore: DataStore<AppSettings> = AppSettingsStore.dataStore,
+) : ViewModel() {
+    // the device sensors drive the GamePad motion, same setting as Enable motion in the quick menu
+    val isDeviceMotionEnabled = dataStore.data.map { it.emulationSettings.isMotionEnabled }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setDeviceMotionEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(emulationSettings = it.emulationSettings.copy(isMotionEnabled = enabled))
+            }
+        }
+    }
+
     private var _controllerType = MutableStateFlow(NativeInput.getControllerType(controllerIndex))
     val controllerType = _controllerType.asStateFlow()
 

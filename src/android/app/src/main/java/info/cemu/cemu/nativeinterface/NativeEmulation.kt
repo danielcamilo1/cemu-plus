@@ -67,7 +67,13 @@ object NativeEmulation {
         const val SETTINGS: Int = 2
         const val PAUSE: Int = 3
         const val FRAME_GEN_MODE: Int = 4
+        const val MENU: Int = 5
+        const val VOLUME: Int = 6
     }
+
+    // finger down or moving on the GamePad volume slider of the panel, sets the GamePad volume
+    @JvmStatic
+    external fun onVolumeSliderTouch(x: Int, isTV: Boolean, down: Boolean)
 
     @JvmStatic
     external fun getOverlayActionAt(x: Int, y: Int, isTV: Boolean): Int

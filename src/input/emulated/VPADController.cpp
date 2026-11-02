@@ -8,6 +8,9 @@
 #include "input/InputManager.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/CafeSystem.h"
+#if BOOST_PLAT_ANDROID
+#include "input/api/Device/DeviceController.h"
+#endif
 
 enum ControllerVPADMapping2 : uint32
 {
@@ -239,9 +242,18 @@ void VPADController::update_touch(VPADStatus_t& status)
 void VPADController::update_motion(VPADStatus_t& status)
 {
 	auto& input_manager = InputManager::instance();
-	if (has_motion())
+#if BOOST_PLAT_ANDROID
+	const bool useDeviceMotion = DeviceController::is_motion_enabled();
+#else
+	constexpr bool useDeviceMotion = false;
+#endif
+	if (useDeviceMotion || has_motion())
 	{
+#if BOOST_PLAT_ANDROID
+		MotionSample motionSample = useDeviceMotion ? DeviceController::get_device_motion_sample() : get_motion_data();
+#else
 		MotionSample motionSample = get_motion_data();
+#endif
 		glm::vec3 acc;
 		motionSample.getVPADAccelerometer(&acc[0]);
 		//const auto& acc = motionSample.getVPADAccelerometer();

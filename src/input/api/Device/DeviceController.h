@@ -47,6 +47,11 @@ class DeviceController : public Controller<DeviceControllerProvider>
 
 	static void set_motion_enabled(bool enabled);
 
+	// the device sensors drive the GamePad motion while enabled, even if no device controller is mapped
+	static bool is_motion_enabled();
+
+	static MotionSample get_device_motion_sample();
+
   private:
 	inline static bool s_has_motion{};
 	inline static std::mutex s_mutex{};

@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.display.DisplayManager
+import android.view.Display
 import android.view.Surface
 import info.cemu.cemu.nativeinterface.NativeInput
 
@@ -19,10 +21,27 @@ class DeviceMotionHandler(context: Context) : SensorEventListener {
     private val gyroscope =
         sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
+    private val displayManager =
+        context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+
+    @Volatile
     private var deviceRotation = Surface.ROTATION_0
 
     fun setDeviceRotation(deviceRotation: Int) {
         this.deviceRotation = deviceRotation
+    }
+
+    // turning the device over to the other landscape side doesn't recreate the activity, follow it here
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {}
+
+        override fun onDisplayRemoved(displayId: Int) {}
+
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId == Display.DEFAULT_DISPLAY) {
+                displayManager.getDisplay(displayId)?.let { deviceRotation = it.rotation }
+            }
+        }
     }
 
     private val hasMotionData = accelerometer != null && gyroscope != null
@@ -62,6 +81,7 @@ class DeviceMotionHandler(context: Context) : SensorEventListener {
         isActive = true
 
         NativeInput.setDeviceMotionEnabled(true)
+        displayManager.registerDisplayListener(displayListener, null)
         sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_GAME)
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
     }
@@ -74,6 +94,7 @@ class DeviceMotionHandler(context: Context) : SensorEventListener {
         isActive = false
 
         NativeInput.setDeviceMotionEnabled(false)
+        displayManager.unregisterDisplayListener(displayListener)
         sensorManager.unregisterListener(this)
     }
 
@@ -131,6 +152,7 @@ class DeviceMotionHandler(context: Context) : SensorEventListener {
                 y = -values[0]
             }
         }
-        return SensorValues(x, y, z)
+        // turned half way around the screen normal, without it tilting moves the GamePad view the wrong way on both axes
+        return SensorValues(-x, -y, z)
     }
 }

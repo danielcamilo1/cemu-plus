@@ -167,6 +167,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.screen = overlay_node.get("Screen", OverlayScreen::kPad);
 		overlay.placement = overlay_node.get("Placement", OverlayPlacement::kBlackBars);
 		overlay.style = overlay_node.get("Style", OverlayStyle::kGamePad);
+		overlay.theme = overlay_node.get("Theme", OverlayTheme::kBlack);
 		overlay.text_color = overlay_node.get("TextColor", 0xFFFFFFFF);
 		overlay.text_scale = overlay_node.get("TextScale", 100);
 		overlay.fps = overlay_node.get("FPS", true);
@@ -183,6 +184,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.action_frame_gen_mode = overlay_node.get("ActionFrameGenMode", true);
 		overlay.action_settings = overlay_node.get("ActionSettings", true);
 		overlay.action_pause = overlay_node.get("ActionPause", true);
+		overlay.action_menu = overlay_node.get("ActionMenu", false);
 		overlay.debug = overlay_node.get("Debug", false);
 
 		notification.controller_profiles = overlay_node.get("ControllerProfiles", true);
@@ -420,6 +422,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("Screen", overlay.screen);
 	overlay_node.set("Placement", overlay.placement);
 	overlay_node.set("Style", overlay.style);
+	overlay_node.set("Theme", overlay.theme);
 	overlay_node.set("TextColor", overlay.text_color);
 	overlay_node.set("TextScale", overlay.text_scale);
 	overlay_node.set("FPS", overlay.fps);
@@ -436,6 +439,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("ActionFrameGenMode", overlay.action_frame_gen_mode);
 	overlay_node.set("ActionSettings", overlay.action_settings);
 	overlay_node.set("ActionPause", overlay.action_pause);
+	overlay_node.set("ActionMenu", overlay.action_menu);
 	overlay_node.set("Debug", overlay.debug);
 
 	auto notification_node = graphic.set("Notification");

@@ -91,5 +91,23 @@ void DeviceController::process_motion(std::chrono::steady_clock::time_point time
 void DeviceController::set_motion_enabled(bool enabled)
 {
 	std::scoped_lock lock{s_mutex};
+	if (enabled && !s_has_motion)
+	{
+		// start from a level orientation instead of whatever was left from the last time
+		s_motion_handler = {};
+		s_last_motion_timestamp = {};
+	}
 	s_has_motion = enabled;
+}
+
+bool DeviceController::is_motion_enabled()
+{
+	std::scoped_lock lock{s_mutex};
+	return s_has_motion;
+}
+
+MotionSample DeviceController::get_device_motion_sample()
+{
+	std::scoped_lock lock{s_mutex};
+	return s_motion_handler.getMotionSample();
 }
