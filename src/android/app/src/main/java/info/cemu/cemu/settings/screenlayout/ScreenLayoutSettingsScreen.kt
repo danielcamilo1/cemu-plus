@@ -199,7 +199,7 @@ internal fun toolbarButtonItems() = listOf(
     ToolbarItem(
         label = tr("Quick menu button"),
         shortLabel = tr("Quick menu"),
-        description = tr("Adds a button that opens the in-game quick menu with motion, screens, input overlay and exit"),
+        description = tr("Adds a button that opens the in-game quick menu with the settings, screens, toolbar, GamePad crop and exit"),
         isEnabled = NativeSettings::isOverlayMenuActionEnabled,
         setEnabled = NativeSettings::setOverlayMenuActionEnabled,
     ),

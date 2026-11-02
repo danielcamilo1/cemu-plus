@@ -46,7 +46,8 @@ Bigger, better looking game icons in a clean grid, with search.
 - **GamePad toolbar** in the black bars with per stat toggles (FPS, CPU/GPU usage and clocks, temperatures,
   battery, RAM) and touch buttons for frame generation, pause, the quick menu and settings
 - **First time setup wizard**, which can be reopened from Settings
-- **In-game quick menu** to change frame generation and screen options while playing
+- **In-game quick menu** styled after the Wii U HOME Menu: back to game, settings and exit up top, then the
+  screens, the toolbar, GamePad image position and crop, frame generation and controls. Works with a controller
 - **AMD FSR 1 and Snapdragon GSR** upscale filters with a sharpness slider
 - Installs next to the regular Cemu Android app (package `info.cemu.cemuplus`)
 
