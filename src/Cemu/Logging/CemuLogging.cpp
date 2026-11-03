@@ -255,6 +255,24 @@ void cemuLog_waitForFlush()
 	}
 }
 
+// like cemuLog_waitForFlush, but gives up after the timeout. Used by the crash handler, which must not hang
+void cemuLog_waitForFlush(std::chrono::milliseconds timeout)
+{
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	std::unique_lock lock(LogContext.log_mutex, std::try_to_lock);
+	if (!lock.owns_lock() || !LogContext.file_stream.is_open())
+		return;
+	while (!LogContext.text_cache.empty() && std::chrono::steady_clock::now() < deadline)
+	{
+		lock.unlock();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		lock.lock();
+	}
+	lock.unlock();
+	// the writer thread takes the lines out of the cache before writing them, give it a moment to finish
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
+
 // used to atomically write multiple lines to the log
 std::unique_lock<decltype(LogContext.log_mutex)> cemuLog_acquire()
 {

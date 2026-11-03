@@ -2,6 +2,13 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.3.6-beta.1 - 2026-11-03
+
+### Crash reports
+- **Share log file** and **Open Cemu folder** use the data folder Cemu is using. With a custom data folder they showed the default folder, so the shared log could be from an old session
+- When the emulator crashes, the crash details (signal, native backtrace, the game and the Wii U CPU state) are written to log.txt before the app closes, and to logcat. Before, the app could close before they were written
+- Android also writes its own crash report (tombstone) for emulator crashes now
+
 ## 0.3.5 - 2026-11-03
 
 ### Fixes

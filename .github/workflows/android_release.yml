@@ -174,6 +174,15 @@ jobs:
           name: Cemu-Plus-${{ steps.version.outputs.version }}
           path: upload/*.apk
 
+      # the libraries in the APK are stripped, these keep the symbols needed to read the backtraces of crash reports
+      - name: Upload native debug symbols
+        if: steps.reuse.outputs.found != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cemu-Plus-${{ steps.version.outputs.version }}-native-symbols
+          path: src/android/app/build/intermediates/merged_native_libs/release/**/arm64-v8a/*.so
+          retention-days: 30
+
       # only release signed APKs get reused, pull requests from forks don't have the signing key
       - name: Mark the build for reuse
         if: github.event_name == 'pull_request' && steps.build.outputs.signed == 'true'
