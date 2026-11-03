@@ -17,6 +17,9 @@ data class EmulationSettings(
     val isPadVisible: Boolean = false,
     val isPadOnExternalDisplay: Boolean = false,
     val isExternalScreenRotatedLeft: Boolean = false,
+    // the TV image on the second screen and the GamePad on this one, for second screens that are detected the other
+    // way around, like the Dual Screen add-on of the Retroid Pocket Mini
+    val areScreensSwapped: Boolean = false,
     // the second screen gets turned on once the first time one is detected, after that it is up to the user
     val isSecondScreenDefaultApplied: Boolean = false,
     val isMotionEnabled: Boolean = false,

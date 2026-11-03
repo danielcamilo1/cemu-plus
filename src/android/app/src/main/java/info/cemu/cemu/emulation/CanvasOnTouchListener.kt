@@ -18,12 +18,20 @@ class CanvasOnTouchListener(
     private var rotateLeft: Boolean = false
     private var surfaceWidth: Int = 1
     private var surfaceHeight: Int = 1
+    // the panel is drawn per window, not per image: with swapped screens the GamePad window shows the TV image but
+    // its panel buttons are still the ones of the GamePad window, hit tested in the pixels of that window
+    private var isPadWindow: Boolean = false
+    private var windowWidth: Int = 1
+    private var windowHeight: Int = 1
 
     fun updateConfiguration(
         isTv: Boolean,
         surfaceWidth: Int,
         surfaceHeight: Int,
         rotateLeft: Boolean,
+        isPadWindow: Boolean,
+        windowWidth: Int,
+        windowHeight: Int,
     ) {
         currentPointerId = -1
         releasePressedAction()
@@ -31,6 +39,20 @@ class CanvasOnTouchListener(
         this.rotateLeft = rotateLeft
         this.surfaceWidth = surfaceWidth.coerceAtLeast(1)
         this.surfaceHeight = surfaceHeight.coerceAtLeast(1)
+        this.isPadWindow = isPadWindow
+        this.windowWidth = windowWidth.coerceAtLeast(1)
+        this.windowHeight = windowHeight.coerceAtLeast(1)
+    }
+
+    // position in the pixels of the given size, turned for a second screen rotated to the left
+    private fun mapToSize(normalizedX: Float, normalizedY: Float, width: Int, height: Int): Pair<Int, Int> {
+        var targetX = normalizedX * width
+        var targetY = normalizedY * height
+        if (rotateLeft) {
+            targetX = normalizedY * width
+            targetY = (1f - normalizedX) * height
+        }
+        return targetX.roundToInt().coerceIn(0, width - 1) to targetY.roundToInt().coerceIn(0, height - 1)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -61,17 +83,10 @@ class CanvasOnTouchListener(
         val normalizedX = (event.getX(pointerIndex) / viewWidth).coerceIn(0f, 1f)
         val normalizedY = (event.getY(pointerIndex) / viewHeight).coerceIn(0f, 1f)
 
-        var targetX = normalizedX * surfaceWidth
-        var targetY = normalizedY * surfaceHeight
-        if (rotateLeft) {
-            val rotatedX = normalizedY * surfaceWidth
-            val rotatedY = (1f - normalizedX) * surfaceHeight
-            targetX = rotatedX
-            targetY = rotatedY
-        }
-
-        val x = targetX.roundToInt().coerceIn(0, surfaceWidth - 1)
-        val y = targetY.roundToInt().coerceIn(0, surfaceHeight - 1)
+        val (x, y) = mapToSize(normalizedX, normalizedY, surfaceWidth, surfaceHeight)
+        val (panelX, panelY) = mapToSize(normalizedX, normalizedY, windowWidth, windowHeight)
+        // the native panel functions take the window as "is TV": the main window is the TV one
+        val isPanelTV = !isPadWindow
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
@@ -79,12 +94,12 @@ class CanvasOnTouchListener(
                     return false
                 }
                 currentPointerId = pointerId
-                val action = NativeEmulation.getOverlayActionAt(x, y, isTV)
+                val action = NativeEmulation.getOverlayActionAt(panelX, panelY, isPanelTV)
                 if (action != OverlayAction.NONE) {
                     pressedAction = action
                     NativeEmulation.setOverlayPressedAction(action)
                     if (action == OverlayAction.VOLUME) {
-                        NativeEmulation.onVolumeSliderTouch(x, isTV, true)
+                        NativeEmulation.onVolumeSliderTouch(panelX, isPanelTV, true)
                     }
                     return true
                 }
@@ -96,7 +111,7 @@ class CanvasOnTouchListener(
                 if (pressedAction == OverlayAction.NONE) {
                     NativeInput.onTouchMove(x, y, isTV)
                 } else if (pressedAction == OverlayAction.VOLUME) {
-                    NativeEmulation.onVolumeSliderTouch(x, isTV, false)
+                    NativeEmulation.onVolumeSliderTouch(panelX, isPanelTV, false)
                 }
                 return true
             }
@@ -118,7 +133,7 @@ class CanvasOnTouchListener(
                     }
                     // only fire if the finger is lifted on the same button
                     if (event.actionMasked != MotionEvent.ACTION_CANCEL &&
-                        NativeEmulation.getOverlayActionAt(x, y, isTV) == action
+                        NativeEmulation.getOverlayActionAt(panelX, panelY, isPanelTV) == action
                     ) {
                         onOverlayAction(action)
                     }

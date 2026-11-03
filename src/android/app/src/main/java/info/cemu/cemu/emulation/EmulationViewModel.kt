@@ -126,6 +126,7 @@ class EmulationViewModel(
                             isPadVisible = emulationSettings.isPadVisible,
                             isPadOnExternalDisplay = emulationSettings.isPadOnExternalDisplay,
                             isExternalScreenRotatedLeft = emulationSettings.isExternalScreenRotatedLeft,
+                            areScreensSwapped = emulationSettings.areScreensSwapped,
                             isMotionEnabled = emulationSettings.isMotionEnabled,
                         )
                     }
@@ -168,6 +169,7 @@ class EmulationViewModel(
         if (oldState.isPadVisible != sideMenuState.isPadVisible ||
             oldState.isPadOnExternalDisplay != sideMenuState.isPadOnExternalDisplay ||
             oldState.isExternalScreenRotatedLeft != sideMenuState.isExternalScreenRotatedLeft ||
+            oldState.areScreensSwapped != sideMenuState.areScreensSwapped ||
             oldState.isMotionEnabled != sideMenuState.isMotionEnabled
         ) {
             viewModelScope.launch {
@@ -177,6 +179,7 @@ class EmulationViewModel(
                             isPadVisible = sideMenuState.isPadVisible,
                             isPadOnExternalDisplay = sideMenuState.isPadOnExternalDisplay,
                             isExternalScreenRotatedLeft = sideMenuState.isExternalScreenRotatedLeft,
+                            areScreensSwapped = sideMenuState.areScreensSwapped,
                             isMotionEnabled = sideMenuState.isMotionEnabled,
                         )
                     )
@@ -265,13 +268,13 @@ class EmulationViewModel(
         pausedForSettings = false
     }
 
-    private data class SurfaceLayout(val isTV: Boolean, val bounds: Rect, val dimensions: SurfaceDimensions)
+    private data class SurfaceLayout(val bounds: Rect, val dimensions: SurfaceDimensions)
 
-    // where the surfaces inside the activity are drawn and the size of what they show, keyed by isMainCanvas
+    // where the surfaces inside the activity are drawn and their size in pixels, keyed by isMainCanvas
     private val surfaceLayouts = HashMap<Boolean, SurfaceLayout>()
 
-    fun setSurfaceLayout(isMainCanvas: Boolean, isTV: Boolean, bounds: Rect, dimensions: SurfaceDimensions) {
-        surfaceLayouts[isMainCanvas] = SurfaceLayout(isTV, bounds, dimensions)
+    fun setSurfaceLayout(isMainCanvas: Boolean, bounds: Rect, dimensions: SurfaceDimensions) {
+        surfaceLayouts[isMainCanvas] = SurfaceLayout(bounds, dimensions)
     }
 
     fun removeSurfaceLayout(isMainCanvas: Boolean) {
@@ -280,8 +283,10 @@ class EmulationViewModel(
 
     // bounds of the panel overlay in root coordinates, null if no surface inside the activity draws it
     fun getPanelBounds(): Rect? {
-        for ((isTV, bounds, dimensions) in surfaceLayouts.values) {
-            val rect = NativeEmulation.getOverlayPanelRect(isTV) ?: continue
+        // the panel is drawn per window, the main canvas is the TV window whatever image it shows
+        for ((isMainCanvas, layout) in surfaceLayouts) {
+            val (bounds, dimensions) = layout
+            val rect = NativeEmulation.getOverlayPanelRect(isMainCanvas) ?: continue
             val scaleX = bounds.width / dimensions.width
             val scaleY = bounds.height / dimensions.height
             return Rect(
@@ -307,6 +312,10 @@ class EmulationViewModel(
             OverlayAction.PAUSE -> setPaused(!_isPaused.value)
             OverlayAction.MENU -> _menuRequests.tryEmit(Unit)
             OverlayAction.VOLUME -> viewModelScope.launch(Dispatchers.IO) { NativeSettings.saveSettings() }
+            OverlayAction.HIDE -> {
+                NativeSettings.setOverlayHidden(!NativeSettings.isOverlayHidden())
+                viewModelScope.launch(Dispatchers.IO) { NativeSettings.saveSettings() }
+            }
         }
     }
 

@@ -36,6 +36,10 @@ class ScreenLayoutSettingsViewModel(
         it.copy(isExternalScreenRotatedLeft = rotatedLeft)
     }
 
+    fun setScreensSwapped(swapped: Boolean) = updateEmulationSettings {
+        it.copy(areScreensSwapped = swapped)
+    }
+
     fun setPadVisible(visible: Boolean) = updateEmulationSettings {
         it.copy(isPadVisible = visible)
     }
