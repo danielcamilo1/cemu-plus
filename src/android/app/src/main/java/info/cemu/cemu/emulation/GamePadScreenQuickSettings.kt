@@ -23,6 +23,7 @@ import info.cemu.cemu.settings.screenlayout.FallbackSecondScreen
 import info.cemu.cemu.settings.screenlayout.WII_U_ASPECT_RATIO
 import info.cemu.cemu.settings.screenlayout.alignmentToString
 import info.cemu.cemu.settings.screenlayout.applyToolbarSettings
+import info.cemu.cemu.settings.screenlayout.areScreensSwappedEffective
 import info.cemu.cemu.settings.screenlayout.isToolbarEnabled
 import info.cemu.cemu.settings.screenlayout.toolbarScreenFor
 
@@ -37,6 +38,7 @@ fun GamePadScreenQuickSettings(
     isEmulationInitialized: Boolean,
     isPadOnSecondScreen: Boolean,
     isPadVisible: Boolean,
+    areScreensSwapped: Boolean,
 ) {
     // the menu is composed before the game starts, so look the game up again once it runs
     val titleId = remember(isEmulationInitialized) { NativeGameTitles.getRunningTitleId() }
@@ -50,7 +52,8 @@ fun GamePadScreenQuickSettings(
 
     fun applyToolbar(enabled: Boolean, align: Int) {
         val toolbarScreen = toolbarScreenFor(isPadOnSecondScreen, isPadVisible, NativeSettings.getOverlayScreen())
-        applyToolbarSettings(enabled = enabled, screen = toolbarScreen, alignment = align)
+        val swapped = areScreensSwappedEffective(isPadOnSecondScreen, isPadVisible, areScreensSwapped)
+        applyToolbarSettings(enabled = enabled, screen = toolbarScreen, alignment = align, swapped = swapped)
     }
 
     QuickMenuSection(tr("GamePad screen and toolbar")) {

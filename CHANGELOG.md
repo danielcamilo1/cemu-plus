@@ -6,12 +6,22 @@ What changed in each Cemu Plus release. The release page of each version shows i
 
 ### Swap screens
 - **Swap screens** in the setup wizard and in **Screen layout**, for devices where the second screen is found the other way around, like the Dual Screen add-on of the Retroid Pocket Mini. It puts the GamePad on the main screen and the TV image on the second screen
+- While setting up the screens, the setup wizard shows on the second screen itself whether it gets the TV or the GamePad image, so it is easy to see if swapping is needed
 - The choice is remembered, including when it is changed from the quick menu
 - Fix: the toolbar buttons work with swapped screens when the toolbar fills the black bar
 
+### Toolbar
+- The toolbar goes with the GamePad image by default, so swapping the screens moves it along. **Toolbar goes on** in the setup wizard and in **Screen layout** puts it on the TV screen instead
+- The setup wizard's toolbar step shows the layout preview on the second screen itself, with the toolbar and the game image, to judge it on the real screen and its shape
+- The setup wizard and the settings say when the black bars are too thin for the toolbar, so it floats over the game, and how to minimize it
+
 ### Toolbar over the game
-- When the toolbar is drawn over the game instead of in a black bar, it has a hide button in its top right corner
-- A hidden toolbar becomes a small bubble with the frame rate in the same corner. Tap the bubble to bring the toolbar back. The choice is remembered
+- When the toolbar is drawn over the game instead of in a black bar, it has a hide key in its top right corner
+- A hidden toolbar becomes a small bubble with the frame rate. Tap the bubble to bring the toolbar back. The choice is remembered
+- **Minimized toolbar position** picks the corner of the bubble: top left, top, top right, bottom left, bottom or bottom right
+
+### Controls
+- The Android back button opens the quick menu with one press during the game, also the back button of handhelds with built-in controls
 
 ## 0.3.2 - 2026-11-02
 

@@ -179,6 +179,13 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayHidden(hidden: Boolean)
 
+    // corner of the screen the hidden toolbar bubble goes to, one of OverlayScreenPosition
+    @JvmStatic
+    external fun getOverlayHiddenPosition(): Int
+
+    @JvmStatic
+    external fun setOverlayHiddenPosition(value: Int)
+
     object PadScreenAlignment {
         const val CENTER: Int = 0
         const val TOP: Int = 1

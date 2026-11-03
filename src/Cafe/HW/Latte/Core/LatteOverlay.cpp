@@ -1559,7 +1559,9 @@ enum class OverlayBar
 	kPillarbox, // bars left and right of the image
 };
 
-// the panel over gameplay when it is hidden: a small bubble with the frame rate where the panel was, tapping it brings
+void LatteOverlay_translateScreenPosition(ScreenPosition pos, const Vector2f& window_size, ImVec2& position, ImVec2& pivot, sint32& direction);
+
+// the panel over gameplay when it is hidden: a small bubble with the frame rate in the chosen corner, tapping it brings
 // the panel back. Leaving a bubble instead of nothing keeps the way back to the panel and its buttons visible
 static bool LatteOverlay_renderHiddenPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
 {
@@ -1606,7 +1608,7 @@ static bool LatteOverlay_renderHiddenPanel(ImVec2& position, const ImVec2& pivot
 
 // renders the stats as a GamePad styled panel. When a black bar was found the panel fills all of it, otherwise a
 // compact panel is drawn over gameplay, which can be hidden. Returns true if the panel was placed in the black bar
-static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
+static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const Vector2f& windowSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
 {
 	s_panel = GetConfig().overlay.theme == OverlayTheme::kWhite ? &kWhitePanel : &kBlackPanel;
 	const auto tiles = LatteOverlay_buildTiles();
@@ -1657,7 +1659,12 @@ static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint
 		}
 	}
 	if (!inBar && GetConfig().overlay.hidden)
-		return LatteOverlay_renderHiddenPanel(position, pivot, direction, fontSize, buttons, panelRect);
+	{
+		ImVec2 bubblePosition, bubblePivot;
+		sint32 bubbleDirection;
+		LatteOverlay_translateScreenPosition(GetConfig().overlay.hidden_position, windowSize, bubblePosition, bubblePivot, bubbleDirection);
+		return LatteOverlay_renderHiddenPanel(bubblePosition, bubblePivot, bubbleDirection, fontSize, buttons, panelRect);
+	}
 	if (!inBar)
 	{
 		// compact panel over gameplay, it can be hidden as it covers the game
@@ -2050,9 +2057,12 @@ void LatteOverlay_translateScreenPosition(ScreenPosition pos, const Vector2f& wi
 	}
 }
 
-// the stats overlay can be limited to the TV or the GamePad screen. If the GamePad screen isn't shown it always goes to the TV screen
+// the stats overlay can be limited to the TV or the GamePad screen. If the GamePad screen isn't shown it always goes to the TV screen.
+// The choice follows the image, so with swapped screens the GamePad screen is the main window
 static bool LatteOverlay_isStatsScreen(bool pad_view)
 {
+	if (WindowSystem::IsPadWindowOpen() && WindowSystem::GetWindowInfo().swap_screens)
+		pad_view = !pad_view;
 	switch (GetConfig().overlay.screen)
 	{
 	case OverlayScreen::kTV:
@@ -2197,7 +2207,7 @@ void LatteOverlay_render(bool pad_view)
 		if (config.overlay.style == OverlayStyle::kGamePad)
 		{
 			ImVec4 panelRect{};
-			statsInBar = LatteOverlay_renderPanel(position, pivot, direction, overlayFontSize, areaMin, areaSize, bar, buttons, panelRect);
+			statsInBar = LatteOverlay_renderPanel(position, pivot, direction, overlayFontSize, window_size, areaMin, areaSize, bar, buttons, panelRect);
 			LatteOverlay_publishButtons(pad_view, std::move(buttons), panelRect);
 			if (config.overlay.debug)
 			{

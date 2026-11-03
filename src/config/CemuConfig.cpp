@@ -169,6 +169,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		overlay.style = overlay_node.get("Style", OverlayStyle::kGamePad);
 		overlay.theme = overlay_node.get("Theme", OverlayTheme::kBlack);
 		overlay.hidden = overlay_node.get("Hidden", false);
+		overlay.hidden_position = overlay_node.get("HiddenPosition", ScreenPosition::kTopRight);
 		overlay.text_color = overlay_node.get("TextColor", 0xFFFFFFFF);
 		overlay.text_scale = overlay_node.get("TextScale", 100);
 		overlay.fps = overlay_node.get("FPS", true);
@@ -425,6 +426,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	overlay_node.set("Style", overlay.style);
 	overlay_node.set("Theme", overlay.theme);
 	overlay_node.set("Hidden", overlay.hidden);
+	overlay_node.set("HiddenPosition", overlay.hidden_position);
 	overlay_node.set("TextColor", overlay.text_color);
 	overlay_node.set("TextScale", overlay.text_scale);
 	overlay_node.set("FPS", overlay.fps);

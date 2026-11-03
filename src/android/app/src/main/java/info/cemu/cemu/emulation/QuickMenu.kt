@@ -62,6 +62,7 @@ import info.cemu.cemu.R
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeSettings
 import info.cemu.cemu.settings.screenlayout.applyToolbarSettings
+import info.cemu.cemu.settings.screenlayout.areScreensSwappedEffective
 import info.cemu.cemu.settings.screenlayout.isToolbarEnabled
 import info.cemu.cemu.settings.screenlayout.toolbarScreenFor
 
@@ -183,16 +184,19 @@ fun QuickMenuContent(
         }
     }
 
-    // the toolbar moves along when the GamePad changes screens, the same as in the screen layout settings
+    // the toolbar moves along when the screens change, the same as in the screen layout settings
     fun updateScreens(newState: SideMenuState) {
         updateState(newState)
         if (isToolbarEnabled()) {
+            // turning the second screen on starts the toolbar out with the GamePad
+            val turnedSecondScreenOn = newState.isPadOnExternalDisplay && !sideMenuState.isPadOnExternalDisplay
             val screen = toolbarScreenFor(
                 useSecondScreen = newState.isPadOnExternalDisplay,
                 isPadVisible = newState.isPadVisible,
-                chosenScreen = NativeSettings.getOverlayScreen(),
+                chosenScreen = if (turnedSecondScreenOn) NativeSettings.OverlayScreen.PAD else NativeSettings.getOverlayScreen(),
             )
-            applyToolbarSettings(enabled = true, screen = screen, alignment = NativeSettings.getPadScreenAlignment())
+            val swapped = areScreensSwappedEffective(newState.isPadOnExternalDisplay, newState.isPadVisible, newState.areScreensSwapped)
+            applyToolbarSettings(enabled = true, screen = screen, alignment = NativeSettings.getPadScreenAlignment(), swapped = swapped)
             NativeSettings.saveSettings()
         }
     }
@@ -214,7 +218,7 @@ fun QuickMenuContent(
             label = tr("Swap screens"),
             checked = sideMenuState.areScreensSwapped,
             enabled = sideMenuState.isPadOnExternalDisplay || sideMenuState.isPadVisible,
-            onCheckedChange = { updateState(sideMenuState.copy(areScreensSwapped = it)) },
+            onCheckedChange = { updateScreens(sideMenuState.copy(areScreensSwapped = it)) },
         )
         // with a second screen the GamePad always goes there, this splits a single screen
         QuickMenuToggle(
@@ -241,6 +245,7 @@ fun QuickMenuContent(
         isEmulationInitialized = isEmulationInitialized,
         isPadOnSecondScreen = sideMenuState.isPadOnExternalDisplay,
         isPadVisible = sideMenuState.isPadVisible,
+        areScreensSwapped = sideMenuState.areScreensSwapped,
     )
 
     FrameGenQuickSettings(isOpen = isOpen)

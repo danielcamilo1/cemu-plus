@@ -104,6 +104,12 @@ class EmulationActivity : AppCompatActivity() {
             }
         }
 
+        // back opens the quick menu with one press, also when it comes from the built-in controls of a handheld,
+        // which would otherwise send it to the game as a controller button
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            return super.dispatchKeyEvent(event)
+        }
+
         if (processInputEvents && InputHandler.onKeyEvent(event)) {
             return true
         }

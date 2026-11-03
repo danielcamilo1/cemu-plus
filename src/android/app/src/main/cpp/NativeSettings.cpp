@@ -76,6 +76,18 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayHidden([[maybe_unus
 	GetConfig().overlay.hidden = hidden;
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_getOverlayHiddenPosition([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(GetConfig().overlay.hidden_position);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayHiddenPosition([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint position)
+{
+	GetConfig().overlay.hidden_position = static_cast<ScreenPosition>(position);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_isOverlayGPUUsageEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
