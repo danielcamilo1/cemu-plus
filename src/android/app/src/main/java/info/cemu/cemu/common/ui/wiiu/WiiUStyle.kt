@@ -181,10 +181,11 @@ internal fun WiiUCard(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
+    // for cards made focusable through the modifier, so they light up too
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(18.dp)
-    val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val highlighted = selected || isFocused
     val borderColor by animateColorAsState(if (highlighted) WiiUColors.Accent else WiiUColors.CardBorder, label = "border")

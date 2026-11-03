@@ -1,6 +1,9 @@
 package info.cemu.cemu.common.ui.components
 
 import androidx.annotation.IntRange
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,11 +13,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,11 +44,33 @@ fun Slider(
     onValueChange: (Int) -> Unit,
 ) {
     var sliderValue by rememberSaveable(value) { mutableFloatStateOf(value.toFloat()) }
+    // with a gamepad or keyboard the whole card takes the focus, not the slider in it
+    val adjustState = rememberGamepadAdjustState()
+    var valueBeforeAdjusting by remember { mutableFloatStateOf(sliderValue) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val keyStep = (valueTo - valueFrom).toFloat() / (steps + 1)
+
+    fun setValue(newValue: Float) {
+        sliderValue = newValue.coerceIn(valueFrom.toFloat(), valueTo.toFloat())
+        onValueChanging(sliderValue.roundToInt())
+        onValueChange(sliderValue.roundToInt())
+    }
 
     WiiUCard(
+        selected = adjustState.isAdjusting,
+        interactionSource = interactionSource,
         modifier = modifier
             .fillMaxWidth()
             .alpha(if (enabled) 1f else 0.5f)
+            .gamepadAdjustable(
+                state = adjustState,
+                enabled = enabled,
+                onStart = { valueBeforeAdjusting = sliderValue },
+                onStep = { setValue(sliderValue + it * keyStep) },
+                onCancel = { if (sliderValue != valueBeforeAdjusting) setValue(valueBeforeAdjusting) },
+            )
+            .focusable(enabled = enabled, interactionSource = interactionSource)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -68,7 +95,9 @@ fun Slider(
                 fontSize = 14.sp,
             )
         }
+        if (isFocused) GamepadAdjustHint(adjustState, modifier = Modifier.padding(top = 2.dp))
         MaterialSlider(
+            modifier = Modifier.focusProperties { canFocus = false },
             valueRange = valueFrom.toFloat()..valueTo.toFloat(),
             steps = steps,
             value = sliderValue,

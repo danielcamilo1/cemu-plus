@@ -327,6 +327,14 @@ object NativeInput {
     @JvmStatic
     external fun deleteControllerProfile(name: String)
 
+    // until the edit ends the controller is set up from the profile and changes are saved to it, a new profile
+    // starts as a copy of the global settings of the controller
+    @JvmStatic
+    external fun beginControllerProfileEdit(index: Int, name: String): Boolean
+
+    @JvmStatic
+    external fun endControllerProfileEdit(index: Int)
+
     // the profile the running game uses for the controller, null when it uses the global settings
     @JvmStatic
     external fun getGameControllerProfile(index: Int): String?

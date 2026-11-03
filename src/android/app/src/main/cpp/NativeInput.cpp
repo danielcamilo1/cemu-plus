@@ -144,6 +144,19 @@ namespace NativeInput
 		return controller;
 	}
 
+	ControllerPtr GetDeviceController(size_t index)
+	{
+		auto emulatedController = InputManager::instance().get_controller(index);
+		if (!emulatedController)
+			return {};
+		for (const auto& controller : emulatedController->get_controllers())
+		{
+			if (controller->api() == InputAPI::Device)
+				return controller;
+		}
+		return {};
+	}
+
 	// the touch screen, sensors and vibration of the device belong to one controller. A loaded profile may come with
 	// them or without, either way they stay with a single controller and with the one that had them if it can
 	void KeepSingleDeviceController(size_t index, ControllerPtr previousDeviceController)
@@ -615,21 +628,50 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_loadControllerProfile(JNIEnv* en
 		return false;
 
 	auto& inputManager = InputManager::instance();
-	ControllerPtr previousDeviceController;
-	if (auto previous = inputManager.get_controller(index))
-	{
-		for (const auto& controller : previous->get_controllers())
-		{
-			if (controller->api() == InputAPI::Device)
-				previousDeviceController = controller;
-		}
-	}
+	ControllerPtr previousDeviceController = NativeInput::GetDeviceController(index);
 
 	if (!inputManager.load(index, profileName))
 		return false;
 
 	NativeInput::KeepSingleDeviceController(index, previousDeviceController);
 	return true;
+}
+
+// the controller is set up from the profile and saved to it until the edit ends, so the controls of a game can be
+// changed without a game running. A new profile starts as a copy of the global settings of the controller
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_beginControllerProfileEdit(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring name)
+{
+	auto profileName = JNIUtils::FromJString(env, name);
+	if (!InputManager::is_valid_profilename(profileName))
+		return false;
+
+	auto& inputManager = InputManager::instance();
+	ControllerPtr previousDeviceController = NativeInput::GetDeviceController(index);
+	if (inputManager.load(index, profileName))
+	{
+		// the touch screen, sensors and vibration of the device stay with the controller if the profile has none,
+		// the other controllers are left as they are since their global settings are not edited
+		if (previousDeviceController && !NativeInput::GetDeviceController(index))
+			inputManager.get_controller(index)->add_controller(previousDeviceController);
+	}
+	else if (inputManager.get_controller(index))
+	{
+		inputManager.save(index, profileName);
+	}
+	inputManager.set_edited_profile(index, profileName);
+	return true;
+}
+
+// back to the global settings of the controller
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_endControllerProfileEdit([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	auto& inputManager = InputManager::instance();
+	inputManager.save(index);
+	inputManager.set_edited_profile(index, {});
+	if (!inputManager.load(index))
+		inputManager.delete_controller(index);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL

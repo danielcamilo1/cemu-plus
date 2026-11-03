@@ -50,8 +50,13 @@ data class ActiveController(
 
 class ControllersViewModel(
     val controllerIndex: Int,
+    // the profile of a game being edited instead of the global settings of the controller
+    val editedProfile: String? = null,
     private val dataStore: DataStore<AppSettings> = AppSettingsStore.dataStore,
 ) : ViewModel() {
+    // first, so everything below reads the controller from the profile
+    val isEditingProfile = editedProfile != null && NativeInput.beginControllerProfileEdit(controllerIndex, editedProfile)
+
     // the device sensors drive the GamePad motion, same setting as Enable motion in the quick menu
     val isDeviceMotionEnabled = dataStore.data.map { it.emulationSettings.isMotionEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -304,12 +309,20 @@ class ControllersViewModel(
         refreshAvailableControllers()
     }
 
+    override fun onCleared() {
+        if (isEditingProfile) {
+            NativeInput.endControllerProfileEdit(controllerIndex)
+        }
+    }
+
     companion object {
         val CONTROLLER_INDEX_KEY = object : CreationExtras.Key<Int> {}
+        val EDITED_PROFILE_KEY = object : CreationExtras.Key<String?> {}
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ControllersViewModel(
-                    this[CONTROLLER_INDEX_KEY] as Int
+                    this[CONTROLLER_INDEX_KEY] as Int,
+                    this[EDITED_PROFILE_KEY],
                 )
             }
         }

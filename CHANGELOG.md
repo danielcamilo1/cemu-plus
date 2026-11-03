@@ -14,12 +14,17 @@ What changed in each Cemu Plus release. The release page of each version shows i
 
 ### Controller profiles per game
 - A controller can be saved as a named profile, and loaded or deleted again, from its page
-- The game settings start with a new **Controls** section where each controller can use the global input settings or a profile for that game. Changes made while that game runs are saved to its profile
+- The game settings start with a new **Controls** section. Each controller uses your global controls until you tap **Customize for this game**, which gives the game its own copy of them and opens it to change. **Edit controls** opens it again later and **Use global controls** goes back. Profiles saved in the input settings can be picked there too. Changes made while that game runs are saved to its controls
 - The game settings show the most used settings first: **Controls**, **GamePad screen crop** and **Graphics**, with **Thread quantum** last under **Advanced**
 
 ### Wii U style settings
 - Every settings screen has the white and silver look of the Wii U settings, with panels, round switches and a cyan highlight, like the game settings on the second screen
 - The settings home has an icon for each section
+- **Overlay settings** are now **Toolbar settings**, the name used everywhere else
+
+### Sliders with a gamepad
+- Up and down on the D-pad move past a slider to the next setting instead of changing it
+- Press A on a slider to change it with left and right, A again keeps the value and B puts the old one back. Left and right also change it right away
 
 ## 0.3.6-beta.1 - 2026-11-03
 

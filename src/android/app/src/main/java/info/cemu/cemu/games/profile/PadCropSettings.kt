@@ -1,5 +1,8 @@
 package info.cemu.cemu.games.profile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider as MaterialSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,6 +44,10 @@ import info.cemu.cemu.R
 import info.cemu.cemu.common.android.display.SecondScreenInfo
 import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.AppSettingsStore
+import info.cemu.cemu.common.ui.components.GamepadAdjustHint
+import info.cemu.cemu.common.ui.components.GamepadAdjustState
+import info.cemu.cemu.common.ui.components.gamepadAdjustable
+import info.cemu.cemu.common.ui.components.rememberGamepadAdjustState
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.common.ui.wiiu.WiiUBodyText
 import info.cemu.cemu.common.ui.wiiu.WiiUButton
@@ -172,6 +181,13 @@ internal fun PadCropSettings(titleId: Long) {
     var horizontal by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropHorizontalForTitle(titleId)) }
     var vertical by rememberSaveable { mutableIntStateOf(NativeGameTitles.getPadCropVerticalForTitle(titleId)) }
 
+    val horizontalAdjustState = rememberGamepadAdjustState()
+    val verticalAdjustState = rememberGamepadAdjustState()
+    val horizontalInteractionSource = remember { MutableInteractionSource() }
+    val verticalInteractionSource = remember { MutableInteractionSource() }
+    val isHorizontalFocused by horizontalInteractionSource.collectIsFocusedAsState()
+    val isVerticalFocused by verticalInteractionSource.collectIsFocusedAsState()
+
     fun save(newHorizontal: Int, newVertical: Int) {
         horizontal = newHorizontal
         vertical = newVertical
@@ -230,13 +246,14 @@ internal fun PadCropSettings(titleId: Long) {
                 Column(modifier = Modifier.alpha(if (enabled) 1f else 0.6f)) {
                     Column(modifier = Modifier.width(previewsWidth)) {
                         SliderValueLabel(tr("Crop left and right"), tr("{0}% of the width", horizontal.toString()))
-                        MaterialSlider(
-                            value = horizontal.toFloat(),
-                            valueRange = 0f..NativeGameTitles.PAD_CROP_MAX.toFloat(),
-                            steps = NativeGameTitles.PAD_CROP_MAX - 1,
+                        CropSlider(
+                            value = horizontal,
                             enabled = enabled,
-                            onValueChange = { horizontal = it.roundToInt() },
-                            onValueChangeFinished = { save(horizontal, vertical) },
+                            vertical = false,
+                            adjustState = horizontalAdjustState,
+                            interactionSource = horizontalInteractionSource,
+                            onValueChanging = { horizontal = it },
+                            onValueChange = { save(horizontal, vertical) },
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(PreviewSpacing)) {
@@ -275,6 +292,8 @@ internal fun PadCropSettings(titleId: Long) {
                                 modifier = Modifier.weight(1f),
                                 value = vertical,
                                 enabled = enabled,
+                                adjustState = verticalAdjustState,
+                                interactionSource = verticalInteractionSource,
                                 onValueChanging = { vertical = it },
                                 onValueChange = { save(horizontal, vertical) },
                             )
@@ -284,6 +303,8 @@ internal fun PadCropSettings(titleId: Long) {
                         text = tr("The slider beside the previews crops the top and bottom."),
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                    if (isHorizontalFocused) GamepadAdjustHint(horizontalAdjustState)
+                    if (isVerticalFocused) GamepadAdjustHint(verticalAdjustState, vertical = true)
                 }
             }
         }
@@ -333,22 +354,75 @@ private fun SliderValueLabel(label: String, value: String) {
     }
 }
 
-// a slider turned upright, more crop towards the top
+// a crop slider the gamepad goes past unless A is pressed on it, see gamepadAdjustable
 @Composable
-private fun VerticalSlider(
+private fun CropSlider(
     value: Int,
     enabled: Boolean,
+    vertical: Boolean,
+    adjustState: GamepadAdjustState,
+    interactionSource: MutableInteractionSource,
     onValueChanging: (Int) -> Unit,
     onValueChange: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val currentValue by rememberUpdatedState(value)
+    var valueBeforeAdjusting by remember { mutableIntStateOf(value) }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    fun setValue(newValue: Int) {
+        onValueChanging(newValue.coerceIn(0, NativeGameTitles.PAD_CROP_MAX))
+        onValueChange()
+    }
+
     MaterialSlider(
         value = value.toFloat(),
         valueRange = 0f..NativeGameTitles.PAD_CROP_MAX.toFloat(),
         steps = NativeGameTitles.PAD_CROP_MAX - 1,
         enabled = enabled,
+        interactionSource = interactionSource,
         onValueChange = { onValueChanging(it.roundToInt()) },
         onValueChangeFinished = onValueChange,
+        modifier = Modifier
+            .background(
+                when {
+                    adjustState.isAdjusting -> WiiUColors.AccentTint
+                    isFocused -> WiiUColors.Bar
+                    else -> Color.Transparent
+                },
+                RoundedCornerShape(12.dp),
+            )
+            .gamepadAdjustable(
+                state = adjustState,
+                enabled = enabled,
+                vertical = vertical,
+                onStart = { valueBeforeAdjusting = currentValue },
+                onStep = { setValue(currentValue + it) },
+                onCancel = { setValue(valueBeforeAdjusting) },
+            )
+            .then(modifier),
+    )
+}
+
+// a slider turned upright, more crop towards the top
+@Composable
+private fun VerticalSlider(
+    value: Int,
+    enabled: Boolean,
+    adjustState: GamepadAdjustState,
+    interactionSource: MutableInteractionSource,
+    onValueChanging: (Int) -> Unit,
+    onValueChange: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    CropSlider(
+        value = value,
+        enabled = enabled,
+        vertical = true,
+        adjustState = adjustState,
+        interactionSource = interactionSource,
+        onValueChanging = onValueChanging,
+        onValueChange = onValueChange,
         modifier = modifier
             .graphicsLayer {
                 rotationZ = 270f

@@ -43,19 +43,19 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
         AppSettingsStore.dataStore.data.map { it.emulationSettings.isPadOnExternalDisplay }
     }.collectAsState(initial = false)
     ScreenContent(
-        appBarText = tr("Overlay settings"),
+        appBarText = tr("Toolbar settings"),
         navigateBack = navigateBack,
     ) {
         run {
             Text(
                 text = if (isSecondScreenEnabled) tr("Playing with a second screen? Screen layout has an easier setup for the toolbar in its black bars.")
-                else tr("Screen layout has an easier setup for putting this overlay as a toolbar in the black bars."),
+                else tr("Screen layout has an easier setup for putting the toolbar in the black bars."),
                 fontSize = 14.sp,
                 color = LocalContentColor.current.copy(alpha = 0.8f),
                 modifier = Modifier.padding(8.dp),
             )
         }
-        Header(tr("Overlay"))
+        Header(tr("Toolbar"))
         SingleSelection(
             label = tr("Position"),
             choice = overlayPosition,

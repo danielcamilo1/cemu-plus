@@ -73,6 +73,7 @@ import info.cemu.cemu.common.ui.components.FilledSearchToolbar
 import info.cemu.cemu.common.ui.extensions.showMessage
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.games.GameIcon
+import info.cemu.cemu.games.profile.EditGameControls
 import info.cemu.cemu.games.profile.GameSettingsSecondScreen
 import info.cemu.cemu.nativeinterface.NativeActiveSettings
 import info.cemu.cemu.nativeinterface.NativeGameTitles
@@ -89,6 +90,7 @@ fun GamesListScreen(
     gamesListViewModel: GamesListViewModel = viewModel(),
     goToGameDetails: (Game) -> Unit,
     goToGameEditProfile: (Game) -> Unit,
+    goToGameControls: EditGameControls,
     startGame: (Game) -> Unit,
     goToSettings: () -> Unit,
     goToTitleManager: () -> Unit,
@@ -131,7 +133,7 @@ fun GamesListScreen(
         enabled = showsSettingsOnSecondScreen && lifecycleState.isAtLeast(Lifecycle.State.RESUMED),
         touchable = true,
     ) {
-        GameSettingsSecondScreen(game = selectedGame, startGame = startGame)
+        GameSettingsSecondScreen(game = selectedGame, startGame = startGame, editControls = goToGameControls)
     }
 
     LaunchedEffect(lifecycleState) {

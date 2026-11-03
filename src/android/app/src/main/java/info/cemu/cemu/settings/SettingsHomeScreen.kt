@@ -62,7 +62,7 @@ fun SettingsHomeScreen(
             onClick = dropUnlessResumed(block = goToAudioSettings)
         )
         Button(
-            label = tr("Overlay settings"),
+            label = tr("Toolbar settings"),
             icon = R.drawable.ic_layers,
             onClick = dropUnlessResumed(block = goToOverlaySettings)
         )

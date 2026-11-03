@@ -95,11 +95,16 @@ private val ControllerTypeChoices = listOf(
 fun ControllerInputSettingsScreen(
     navigateBack: () -> Unit,
     controllerIndex: Int,
+    // set to change the controls of one game, which are saved to its own profile
+    gameProfile: String? = null,
+    gameName: String? = null,
     viewModel: ControllersViewModel = viewModel(
         factory = ControllersViewModel.Factory, extras = MutableCreationExtras().apply {
             set(ControllersViewModel.CONTROLLER_INDEX_KEY, controllerIndex)
+            set(ControllersViewModel.EDITED_PROFILE_KEY, gameProfile)
         }),
 ) {
+    val isEditingGame = viewModel.isEditingProfile
     DisposableEffect(Unit) {
         onDispose {
             viewModel.save()
@@ -137,7 +142,12 @@ fun ControllerInputSettingsScreen(
         appBarText = tr("Controller {0}", controllerIndex + 1),
         navigateBack = navigateBack,
     ) {
-        viewModel.gameProfileName?.let {
+        if (isEditingGame) {
+            NoticeCard(
+                icon = R.drawable.ic_videogame,
+                text = tr("These controls are only for {0}. The global ones in Settings, Input settings stay as they are", gameName ?: gameProfile.orEmpty()),
+            )
+        } else viewModel.gameProfileName?.let {
             NoticeCard(
                 icon = R.drawable.ic_videogame,
                 text = tr("The running game uses the profile {0} for this controller, changes are saved to that profile", it),
@@ -150,7 +160,8 @@ fun ControllerInputSettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ControllerTypeChoices.forEach { type ->
+                // no Off for a game, it can use the global settings of a controller that is off instead
+                ControllerTypeChoices.filter { !isEditingGame || it != EmulatedControllerType.DISABLED }.forEach { type ->
                     WiiUChip(
                         label = if (type == EmulatedControllerType.DISABLED) tr("Off") else controllerTypeToString(type),
                         selected = controllerType == type,
@@ -191,7 +202,8 @@ fun ControllerInputSettingsScreen(
             },
         )
         val hasDeviceControls = deviceControllerIndex == controllerIndex
-        Toggle(
+        // moving them changes the global settings of the other controllers
+        if (!isEditingGame) Toggle(
             label = tr("Touch screen, sensors and vibration of this device"),
             icon = R.drawable.ic_tablet,
             checked = hasDeviceControls,

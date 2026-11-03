@@ -80,6 +80,10 @@ public:
 	void apply_game_profile();
 	// true while the controller uses the profile set for the running game
 	bool is_game_profile_set(size_t player_index) const { return m_is_gameprofile_set.at(player_index); }
+#if BOOST_PLAT_ANDROID
+	// while set, the controller is saved to this profile instead of to its global settings
+	void set_edited_profile(size_t player_index, std::string profile) { m_edited_profile.at(player_index) = std::move(profile); }
+#endif
 	void on_device_changed();
 
 
@@ -114,6 +118,9 @@ private:
 	std::array<EmulatedControllerPtr, kMaxWPADControllers> m_wpad;
 
 	std::array<bool, kMaxController> m_is_gameprofile_set{};
+#if BOOST_PLAT_ANDROID
+	std::array<std::string, kMaxController> m_edited_profile{};
+#endif
 
 	template<std::derived_from<ControllerProviderBase> TProvider>
 	void create_provider()

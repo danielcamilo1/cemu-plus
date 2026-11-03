@@ -459,6 +459,10 @@ void InputManager::save() noexcept
 
 bool InputManager::save(size_t player_index, std::string_view filename)
 {
+#if BOOST_PLAT_ANDROID
+	if (filename.empty() && !m_edited_profile[player_index].empty())
+		filename = m_edited_profile[player_index];
+#endif
 	// dont overwrite files if set by gameprofile
 	if (m_is_gameprofile_set[player_index] && filename.empty())
 	{
@@ -705,9 +709,16 @@ EmulatedControllerPtr InputManager::delete_controller(size_t player_index, bool 
 		{
 			controller = {};
 
-			std::error_code ec{};
-			fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
-			fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
+#if BOOST_PLAT_ANDROID
+			// like the GamePad, changing the type of a controller keeps its file. Its settings may be saved to a
+			// game profile at that moment and the global ones must stay
+			if (delete_profile)
+#endif
+			{
+				std::error_code ec{};
+				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
+				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
+			}
 
 			return result;
 		}
