@@ -1079,8 +1079,10 @@ void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uin
 		isDRCPrimary = !isDRCPrimary;
 	togglePressedLast = togglePressed;
 
-	bool showDRC = swkbd::hasKeyboardInputHook() == false && (isDRCPrimary ^ altScreenRequested);
 	const bool swapScreens = WindowSystem::GetWindowInfo().swap_screens;
+	// swapped screens put the GamePad image on the main window. It is read here every frame instead of setting
+	// isDRCPrimary, which the game boot resets after the swap was set, leaving the TV image on both screens
+	bool showDRC = swkbd::hasKeyboardInputHook() == false && (isDRCPrimary ^ swapScreens ^ altScreenRequested);
 
 	if (g_renderer->IsPadWindowActive())
 	{

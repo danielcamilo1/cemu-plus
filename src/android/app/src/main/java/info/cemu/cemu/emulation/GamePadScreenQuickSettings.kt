@@ -69,6 +69,8 @@ fun GamePadScreenQuickSettings(
         )
         if (!isPadOnSecondScreen) {
             QuickMenuNote(tr("The position and crop below are used while the GamePad is on the second screen"))
+        } else if (areScreensSwapped) {
+            QuickMenuNote(tr("Swap screens puts the GamePad image on the main screen, the crop below is used once it is back on the second screen"))
         }
         if (isLetterboxed) {
             QuickMenuChoices(
