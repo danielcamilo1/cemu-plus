@@ -291,6 +291,9 @@ bool GameProfile::Load(uint64_t title_id)
 			gameProfile_loadIntegerOption(iniParser, "cropVertical", m_padCropVertical, 0, kPadCropMax);
 			gameProfile_loadBooleanOption2(iniParser, "cropEnabled", m_padCropEnabled);
 			gameProfile_loadBooleanOption2(iniParser, "hideToolbar", m_padCropHideToolbar);
+			// the crop used to be on by default, so profiles saved without a crop show it as on while nothing is cut
+			if (m_padCropHorizontal == 0 && m_padCropVertical == 0)
+				m_padCropEnabled = false;
 		}
 #endif
 	}
@@ -395,7 +398,7 @@ void GameProfile::ResetOptional()
 #if BOOST_PLAT_ANDROID
 	m_padCropHorizontal = 0;
 	m_padCropVertical = 0;
-	m_padCropEnabled = true;
+	m_padCropEnabled = false;
 	m_padCropHideToolbar = false;
 #endif
 }
@@ -427,7 +430,7 @@ void GameProfile::Reset()
 #if BOOST_PLAT_ANDROID
 	m_padCropHorizontal = 0;
 	m_padCropVertical = 0;
-	m_padCropEnabled = true;
+	m_padCropEnabled = false;
 	m_padCropHideToolbar = false;
 #endif
 }

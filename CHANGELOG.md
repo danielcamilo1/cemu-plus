@@ -2,6 +2,16 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.3.5 - 2026-11-03
+
+### Fixes
+- With **Swap screens** on, a game starts with the GamePad image on its screen. Before, both screens showed the TV image until Swap screens was turned off and on again
+- Swapping the screens keeps the toolbar where you put it. It moved to the top when the GamePad image was centered on its screen
+
+### GamePad screen crop
+- The crop is off for every game until it is turned on in that game's settings. Before, the switch showed as on for all games even when nothing was cropped
+- The game settings and the quick menu say when Swap screens is on, because the crop is only used while the GamePad is on the second screen
+
 ## 0.3.4 - 2026-11-03
 
 ### Game settings on the second screen

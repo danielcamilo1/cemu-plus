@@ -73,10 +73,25 @@ internal fun isToolbarEnabled() =
         NativeSettings.getOverlayStyle() == NativeSettings.OverlayStyle.GAMEPAD &&
         NativeSettings.getOverlayPlacement() == NativeSettings.OverlayPlacement.BLACK_BARS
 
-// the overlay prefers the bar on the side of its position, so put it opposite to the image
-private fun toolbarPositionFor(alignment: Int) =
-    if (alignment == NativeSettings.PadScreenAlignment.TOP) NativeSettings.OverlayScreenPosition.BOTTOM_CENTER
-    else NativeSettings.OverlayScreenPosition.TOP_CENTER
+private fun isTopPosition(position: Int) =
+    position == NativeSettings.OverlayScreenPosition.TOP_LEFT ||
+        position == NativeSettings.OverlayScreenPosition.TOP_CENTER ||
+        position == NativeSettings.OverlayScreenPosition.TOP_RIGHT
+
+// the overlay prefers the bar on the side of its position, so put it opposite to the image. A centered image has
+// a bar on both sides, then the position the user picked is kept, also when swapping the screens moves the toolbar
+private fun toolbarPositionFor(alignment: Int): Int {
+    val current = NativeSettings.getOverlayPosition()
+    val hasPosition = current != NativeSettings.OverlayScreenPosition.DISABLED
+    return when {
+        alignment == NativeSettings.PadScreenAlignment.TOP ->
+            if (hasPosition && !isTopPosition(current)) current else NativeSettings.OverlayScreenPosition.BOTTOM_CENTER
+        alignment == NativeSettings.PadScreenAlignment.BOTTOM ->
+            if (hasPosition && isTopPosition(current)) current else NativeSettings.OverlayScreenPosition.TOP_CENTER
+        hasPosition -> current
+        else -> NativeSettings.OverlayScreenPosition.TOP_CENTER
+    }
+}
 
 private fun enableToolbar(overlayScreen: Int, alignment: Int) {
     NativeSettings.setOverlayStyle(NativeSettings.OverlayStyle.GAMEPAD)

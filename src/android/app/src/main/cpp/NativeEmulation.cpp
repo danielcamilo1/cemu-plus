@@ -258,7 +258,6 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_setSwapScreens([[maybe_unuse
 {
 	auto& windowInfo = WindowSystem::GetWindowInfo();
 	windowInfo.swap_screens = swapped;
-	LatteGPUState.isDRCPrimary = swapped;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL

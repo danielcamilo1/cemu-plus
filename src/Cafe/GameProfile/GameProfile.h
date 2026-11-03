@@ -85,7 +85,7 @@ public:
 	DriverSetting m_driverSetting;
 	sint32 m_padCropHorizontal = 0;
 	sint32 m_padCropVertical = 0;
-	bool m_padCropEnabled = true;
+	bool m_padCropEnabled = false;
 	bool m_padCropHideToolbar = false;
 
 #endif

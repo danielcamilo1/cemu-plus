@@ -160,6 +160,9 @@ internal fun PadCropSettings(titleId: Long) {
     val isPadOnSecondScreen by remember {
         AppSettingsStore.dataStore.data.map { it.emulationSettings.isPadOnExternalDisplay }
     }.collectAsState(initial = true)
+    val areScreensSwapped by remember {
+        AppSettingsStore.dataStore.data.map { it.emulationSettings.areScreensSwapped }
+    }.collectAsState(initial = false)
     val alignment = remember { NativeSettings.getPadScreenAlignment() }
     val isToolbarOn = remember { isToolbarEnabled() }
 
@@ -188,10 +191,15 @@ internal fun PadCropSettings(titleId: Long) {
                 text = tr("Only used while the GamePad is on the second screen. Turn on Use second screen in Settings, Screen layout."),
                 color = WiiUColors.AccentDark,
             )
+        } else if (areScreensSwapped) {
+            WiiUBodyText(
+                text = tr("Swap screens is on, so the GamePad image is on the main screen and is not cropped. The crop is used while the GamePad is on the second screen."),
+                color = WiiUColors.AccentDark,
+            )
         }
         WiiUSwitchRow(
             label = tr("Crop the GamePad image"),
-            description = tr("Turn off to see the whole GamePad image again without losing the crop. The in-game menu has the same switch"),
+            description = tr("Off for every game until you turn it on here. Turn off to see the whole GamePad image again without losing the crop. The in-game menu has the same switch"),
             icon = R.drawable.ic_resize,
             checked = enabled,
             onCheckedChange = {
