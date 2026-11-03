@@ -4,6 +4,9 @@ What changed in each Cemu Plus release. The release page of each version shows i
 
 ## 0.3.6-beta.1 - 2026-11-03
 
+### Fixes
+- Star Fox Zero no longer crashes when shots hit the ships in the tutorial. The game uses 64-bit values that the emulator handled with ARM64 instructions that need a stricter memory alignment than the Wii U does
+
 ### Crash reports
 - **Share log file** and **Open Cemu folder** use the data folder Cemu is using. With a custom data folder they showed the default folder, so the shared log could be from an old session
 - When the emulator crashes, the crash details (signal, native backtrace, the game and the Wii U CPU state) are written to log.txt before the app closes, and to logcat. Before, the app could close before they were written
