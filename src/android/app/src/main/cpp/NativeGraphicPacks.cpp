@@ -7,6 +7,15 @@ namespace NativeGraphicPacks
 {
 	std::unordered_map<sint64, GraphicPackPtr> g_graphicPacks;
 
+	void RegisterLoadedGraphicPacks()
+	{
+		g_graphicPacks.clear();
+		for (auto&& graphicPack : GraphicPack2::GetGraphicPacks())
+		{
+			g_graphicPacks[reinterpret_cast<sint64>(graphicPack.get())] = graphicPack;
+		}
+	}
+
 	void SaveGraphicPackStateToConfig(const GraphicPackPtr& graphicPack)
 	{
 		auto& data = GetConfig();
@@ -93,14 +102,14 @@ Java_info_cemu_cemu_nativeinterface_NativeGraphicPacks_refreshGraphicPacks([[may
 
 	GraphicPack2::ClearGraphicPacks();
 	GraphicPack2::LoadAll();
-	NativeGraphicPacks::g_graphicPacks.clear();
+	NativeGraphicPacks::RegisterLoadedGraphicPacks();
+}
 
-	auto graphicPacks = GraphicPack2::GetGraphicPacks();
-
-	for (auto&& graphicPack : graphicPacks)
-	{
-		NativeGraphicPacks::g_graphicPacks[reinterpret_cast<sint64>(graphicPack.get())] = graphicPack;
-	}
+// the emulator init already loads every graphic pack, the app only needs to list them
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGraphicPacks_registerLoadedGraphicPacks([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	NativeGraphicPacks::RegisterLoadedGraphicPacks();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL

@@ -61,6 +61,15 @@ import info.cemu.cemu.common.framegen.losslessDllStatusToString
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.ui.localization.controllerTypeToString
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.common.ui.wiiu.WiiUBodyText
+import info.cemu.cemu.common.ui.wiiu.WiiUButton
+import info.cemu.cemu.common.ui.wiiu.WiiUCard
+import info.cemu.cemu.common.ui.wiiu.WiiUChip
+import info.cemu.cemu.common.ui.wiiu.WiiUColors
+import info.cemu.cemu.common.ui.wiiu.WiiUOptionCard
+import info.cemu.cemu.common.ui.wiiu.WiiURowIcon
+import info.cemu.cemu.common.ui.wiiu.WiiUSectionTitle
+import info.cemu.cemu.common.ui.wiiu.WiiUSwitchRow
 import info.cemu.cemu.nativeinterface.NativeFrameGen
 import info.cemu.cemu.nativeinterface.NativeFrameGen.LosslessDllStatus
 import info.cemu.cemu.nativeinterface.NativeInput

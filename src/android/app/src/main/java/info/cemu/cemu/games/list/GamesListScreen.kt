@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -49,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +62,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import info.cemu.cemu.R
+import info.cemu.cemu.common.android.display.SecondScreenPresentation
+import info.cemu.cemu.common.android.display.rememberSecondScreen
+import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.settings.DEFAULT_GAME_GRID_SIZE
 import info.cemu.cemu.common.settings.GameListLayout
 import info.cemu.cemu.common.settings.MAX_GAME_GRID_SIZE
@@ -68,11 +73,13 @@ import info.cemu.cemu.common.ui.components.FilledSearchToolbar
 import info.cemu.cemu.common.ui.extensions.showMessage
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.games.GameIcon
+import info.cemu.cemu.games.profile.GameSettingsSecondScreen
 import info.cemu.cemu.nativeinterface.NativeActiveSettings
 import info.cemu.cemu.nativeinterface.NativeGameTitles
 import info.cemu.cemu.nativeinterface.NativeGameTitles.Game
 import info.cemu.cemu.provider.DocumentsProvider
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
 import androidx.compose.material3.DropdownMenuItem as MaterialDropdownMenuItem
@@ -101,6 +108,31 @@ fun GamesListScreen(
     val context = LocalContext.current
 
     val state = rememberPullToRefreshState()
+
+    // with the second screen in use, the picked game shows its settings there and a second tap starts it,
+    // like picking a title on the Wii U Menu
+    val secondScreen = rememberSecondScreen()
+    val isSecondScreenOn by remember {
+        AppSettingsStore.dataStore.data.map { it.emulationSettings.isPadOnExternalDisplay }
+    }.collectAsState(initial = false)
+    val showsSettingsOnSecondScreen = secondScreen != null && isSecondScreenOn
+    var selectedGamePath by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedGame = games.firstOrNull { it.path == selectedGamePath }
+    val onGameTapped: (Game) -> Unit = { game ->
+        if (showsSettingsOnSecondScreen && game.path != selectedGamePath) {
+            selectedGamePath = game.path
+        } else {
+            startGame(game)
+        }
+    }
+
+    SecondScreenPresentation(
+        // gone once a game starts or another screen opens, so the GamePad can use the second screen
+        enabled = showsSettingsOnSecondScreen && lifecycleState.isAtLeast(Lifecycle.State.RESUMED),
+        touchable = true,
+    ) {
+        GameSettingsSecondScreen(game = selectedGame, startGame = startGame)
+    }
 
     LaunchedEffect(lifecycleState) {
         if (lifecycleState == Lifecycle.State.RESUMED && gamesListViewModel.gamePathsHaveChanged())
@@ -208,6 +240,9 @@ fun GamesListScreen(
                 GameListLayout.GRID -> WiiUGameGrid(
                     games = games,
                     gridSize = gridSize ?: DEFAULT_GAME_GRID_SIZE,
+                    selectedGamePath = if (showsSettingsOnSecondScreen) selectedGamePath else null,
+                    onGameSelected = { selectedGamePath = it.path },
+                    onGameTapped = onGameTapped,
                     startGame = startGame,
                     gameMenu = { game, expanded, onDismissRequest ->
                         GameMenu(game, expanded, onDismissRequest, gameActions)
@@ -216,7 +251,8 @@ fun GamesListScreen(
 
                 GameListLayout.LIST -> GameList(
                     games = games,
-                    startGame = startGame,
+                    selectedGamePath = if (showsSettingsOnSecondScreen) selectedGamePath else null,
+                    onGameTapped = onGameTapped,
                     gameActions = gameActions,
                 )
 
@@ -303,7 +339,8 @@ private fun LayoutToggleButton(layout: GameListLayout, onLayoutChanged: (GameLis
 @Composable
 private fun GameList(
     games: List<Game>,
-    startGame: (Game) -> Unit,
+    selectedGamePath: String?,
+    onGameTapped: (Game) -> Unit,
     gameActions: GameActions,
 ) {
     LazyVerticalGrid(
@@ -316,7 +353,8 @@ private fun GameList(
             GameListItem(
                 modifier = Modifier.animateItem(),
                 game = game,
-                onStartGame = startGame,
+                isSelected = game.path == selectedGamePath,
+                onTap = onGameTapped,
                 gameMenu = { expanded, onDismissRequest ->
                     GameMenu(game, expanded, onDismissRequest, gameActions)
                 },
@@ -342,17 +380,20 @@ private fun ShaderCachesConfirmationDialog(
 
 @Composable
 private fun GameListItem(
-    onStartGame: (Game) -> Unit,
+    onTap: (Game) -> Unit,
     gameMenu: @Composable (expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
     game: Game,
+    isSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var contextMenuExpanded by rememberSaveable { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .combinedClickable(
-                onClick = { onStartGame(game) },
+                onClick = { onTap(game) },
                 onLongClick = {
                     contextMenuExpanded = true
                 },

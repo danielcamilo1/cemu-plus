@@ -15,7 +15,7 @@ import info.cemu.cemu.nativeinterface.NativeActiveSettings.setNativeLibDir
 import info.cemu.cemu.nativeinterface.NativeEmulation.initializeEmulation
 import info.cemu.cemu.nativeinterface.NativeEmulation.setDPI
 import info.cemu.cemu.nativeinterface.NativeFiles
-import info.cemu.cemu.nativeinterface.NativeGraphicPacks.refreshGraphicPacks
+import info.cemu.cemu.nativeinterface.NativeGraphicPacks.registerLoadedGraphicPacks
 import info.cemu.cemu.nativeinterface.NativeLogging.crashLog
 import info.cemu.cemu.nativeinterface.NativeSwkbd.initializeSwkbd
 import kotlinx.coroutines.flow.first
@@ -154,7 +154,7 @@ class CemuApplication : Application() {
         setInternalDir(dataDir.absolutePath)
         initializeEmulation()
         initializeSwkbd()
-        refreshGraphicPacks()
+        registerLoadedGraphicPacks()
     }
 
     private val cemuDataFolder: File
@@ -169,7 +169,7 @@ class CemuApplication : Application() {
             if (startedActivities.updateAndGet { (it - 1).coerceAtLeast(0) } == 0 &&
                 !EmulationSessionState.isEmulationRunning
             ) {
-                CemuSaveSyncManager.flushNow(activity.applicationContext)
+                CemuSaveSyncManager.flushInBackground(activity.applicationContext)
             }
         }
 

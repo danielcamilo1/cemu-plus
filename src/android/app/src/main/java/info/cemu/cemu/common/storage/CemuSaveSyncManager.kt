@@ -30,10 +30,15 @@ object CemuSaveSyncManager {
     private var observer: RecursiveSaveObserver? = null
     private var flushJob: Job? = null
 
-    fun start(context: Context) {
+    // true while the custom root holds every save of the mirror except the changes still pending, so quitting only
+    // needs to export those instead of copying all the saves again
+    private var isCustomRootInSync = false
+
+    fun start(context: Context, isCustomRootInSync: Boolean) {
         synchronized(this) {
             val applicationContext = context.applicationContext
             observer?.stopWatching()
+            this.isCustomRootInSync = isCustomRootInSync
 
             val settings = runBlocking { AppSettingsStore.dataStore.data.first().storageSettings }
             if (settings.customRootUri.isNullOrBlank()) {
@@ -59,13 +64,17 @@ object CemuSaveSyncManager {
         return flushNow(context)
     }
 
+    fun flushInBackground(context: Context) {
+        scope.launch { flushNow(context) }
+    }
+
     fun flushNow(context: Context): Boolean {
-        val (paths, keepDirtyAfterFlush) = synchronized(this) {
+        val (paths, keepDirtyAfterFlush, isInSync) = synchronized(this) {
             flushJob?.cancel()
             flushJob = null
             val snapshot = pendingRelativePaths.toSet()
             pendingRelativePaths.clear()
-            snapshot to (observer != null)
+            Triple(snapshot, observer != null, isCustomRootInSync)
         }
 
         return runBlocking(Dispatchers.IO) {
@@ -76,7 +85,12 @@ object CemuSaveSyncManager {
             if (paths.isNotEmpty()) {
                 CemuDataStorage.markSavesDirty(context.applicationContext)
             }
-            if (paths.isEmpty()) {
+            val isSynced = if (paths.isEmpty() && isInSync) {
+                if (!keepDirtyAfterFlush) {
+                    CemuDataStorage.markSavesClean(context.applicationContext)
+                }
+                true
+            } else if (paths.isEmpty()) {
                 CemuDataStorage.syncSavesToCustomRoot(
                     context = context.applicationContext,
                     force = true,
@@ -89,6 +103,14 @@ object CemuSaveSyncManager {
                     clearDirty = !keepDirtyAfterFlush,
                 )
             }
+            onSyncFinished(isSynced)
+            isSynced
+        }
+    }
+
+    private fun onSyncFinished(isSynced: Boolean) {
+        synchronized(this) {
+            isCustomRootInSync = isSynced
         }
     }
 
@@ -106,6 +128,8 @@ object CemuSaveSyncManager {
                     val snapshot = pendingRelativePaths.toSet()
                     pendingRelativePaths.clear()
                     flushJob = null
+                    // until this export finishes, quitting cancels it and has to copy all the saves
+                    isCustomRootInSync = false
                     snapshot
                 }
                 if (paths.isNotEmpty()) {
@@ -113,7 +137,7 @@ object CemuSaveSyncManager {
                         context = context.applicationContext,
                         changedSaveRelativePaths = paths,
                         clearDirty = false,
-                    )
+                    ).also(::onSyncFinished)
                 }
             }
         }

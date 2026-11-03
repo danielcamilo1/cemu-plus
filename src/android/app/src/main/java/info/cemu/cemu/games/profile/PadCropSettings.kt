@@ -3,13 +3,12 @@ package info.cemu.cemu.games.profile
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider as MaterialSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,12 +35,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import info.cemu.cemu.R
 import info.cemu.cemu.common.android.display.SecondScreenInfo
 import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.AppSettingsStore
-import info.cemu.cemu.common.ui.components.Header
-import info.cemu.cemu.common.ui.components.Toggle
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.common.ui.wiiu.WiiUBodyText
+import info.cemu.cemu.common.ui.wiiu.WiiUButton
+import info.cemu.cemu.common.ui.wiiu.WiiUCard
+import info.cemu.cemu.common.ui.wiiu.WiiUColors
+import info.cemu.cemu.common.ui.wiiu.WiiUSwitchRow
 import info.cemu.cemu.nativeinterface.NativeGameTitles
 import info.cemu.cemu.nativeinterface.NativeSettings
 import info.cemu.cemu.settings.screenlayout.FallbackSecondScreen
@@ -178,127 +181,128 @@ internal fun PadCropSettings(titleId: Long) {
     // the same rule as in game, the toolbar is only hidden while something is cut off
     val showToolbar = isToolbarOn && !(hideToolbar && (shownHorizontal > 0 || shownVertical > 0))
 
-    Column {
-        Header(tr("GamePad screen crop"))
-        InfoText(tr("Cuts the borders of the GamePad image so the middle of it gets bigger on your second screen. Useful for games that keep the important things near the center. What is cut off cannot be seen or touched."))
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        WiiUBodyText(tr("Cuts the borders of the GamePad image so the middle of it gets bigger on your second screen. Useful for games that keep the important things near the center. What is cut off cannot be seen or touched."))
         if (!isPadOnSecondScreen) {
-            InfoText(tr("Only used while the GamePad is on the second screen. Turn on Use second screen in Settings, Screen layout."))
+            WiiUBodyText(
+                text = tr("Only used while the GamePad is on the second screen. Turn on Use second screen in Settings, Screen layout."),
+                color = WiiUColors.AccentDark,
+            )
         }
-        Toggle(
+        WiiUSwitchRow(
             label = tr("Crop the GamePad image"),
             description = tr("Turn off to see the whole GamePad image again without losing the crop. The in-game menu has the same switch"),
+            icon = R.drawable.ic_resize,
             checked = enabled,
-            onCheckedChanged = {
+            onCheckedChange = {
                 enabled = it
                 NativeGameTitles.setPadCropEnabledForTitle(titleId, it)
             },
         )
         if (isToolbarOn) {
-            Toggle(
+            WiiUSwitchRow(
                 label = tr("Hide the toolbar for this game"),
                 description = tr("Hides the toolbar in the black bars of the second screen while the GamePad image is cropped. The quick menu still opens with its hotkey or the back button"),
+                icon = R.drawable.ic_dashboard,
                 enabled = enabled,
                 checked = hideToolbar,
-                onCheckedChanged = {
+                onCheckedChange = {
                     hideToolbar = it
                     NativeGameTitles.setPadCropToolbarHiddenForTitle(titleId, it)
                 },
             )
         }
-        // the left and right crop above the previews and the top and bottom crop beside them, so the
-        // previews stay in sight while dragging either one
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            val previewsWidth = (maxWidth - SideSliderWidth - PreviewSpacing).coerceAtMost(MaxPreviewsWidth)
-            // both previews are the same height, weighted by their shapes
-            val previewHeight = (previewsWidth - PreviewSpacing) / (WII_U_ASPECT_RATIO + screen.aspectRatio())
-            Column(modifier = Modifier.alpha(if (enabled) 1f else 0.6f)) {
-                Column(modifier = Modifier.width(previewsWidth)) {
-                    SliderValueLabel(tr("Crop left and right"), tr("{0}% of the width", horizontal.toString()))
-                    MaterialSlider(
-                        value = horizontal.toFloat(),
-                        valueRange = 0f..NativeGameTitles.PAD_CROP_MAX.toFloat(),
-                        steps = NativeGameTitles.PAD_CROP_MAX - 1,
-                        enabled = enabled,
-                        onValueChange = { horizontal = it.roundToInt() },
-                        onValueChangeFinished = { save(horizontal, vertical) },
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(PreviewSpacing)) {
-                    Row(
-                        modifier = Modifier.width(previewsWidth),
-                        horizontalArrangement = Arrangement.spacedBy(PreviewSpacing),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        PreviewWithCaption(
-                            modifier = Modifier.weight(WII_U_ASPECT_RATIO),
-                            screen = GamePadScreen,
-                            caption = tr("GamePad image"),
-                        ) { paint ->
-                            drawCropFrame(shownHorizontal, shownVertical, paint)
-                        }
-                        PreviewWithCaption(
-                            modifier = Modifier.weight(screen.aspectRatio()),
-                            screen = screen,
-                            caption = if (detectedScreen != null) {
-                                tr("Second screen, {0}x{1}", screen.width.toString(), screen.height.toString())
-                            } else {
-                                tr("Second screen (AYN Thor shape)")
-                            },
-                        ) { paint ->
-                            drawCroppedSecondScreen(shownHorizontal, shownVertical, alignment, showToolbar, paint)
-                        }
-                    }
-                    Column(
-                        modifier = Modifier
-                            .width(SideSliderWidth)
-                            .height(previewHeight),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(text = tr("{0}%", vertical.toString()), fontSize = 14.sp)
-                        VerticalSlider(
-                            modifier = Modifier.weight(1f),
-                            value = vertical,
+        WiiUCard(modifier = Modifier.fillMaxWidth()) {
+            // the left and right crop above the previews and the top and bottom crop beside them, so the
+            // previews stay in sight while dragging either one
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val previewsWidth = (maxWidth - SideSliderWidth - PreviewSpacing).coerceAtMost(MaxPreviewsWidth)
+                // both previews are the same height, weighted by their shapes
+                val previewHeight = (previewsWidth - PreviewSpacing) / (WII_U_ASPECT_RATIO + screen.aspectRatio())
+                Column(modifier = Modifier.alpha(if (enabled) 1f else 0.6f)) {
+                    Column(modifier = Modifier.width(previewsWidth)) {
+                        SliderValueLabel(tr("Crop left and right"), tr("{0}% of the width", horizontal.toString()))
+                        MaterialSlider(
+                            value = horizontal.toFloat(),
+                            valueRange = 0f..NativeGameTitles.PAD_CROP_MAX.toFloat(),
+                            steps = NativeGameTitles.PAD_CROP_MAX - 1,
                             enabled = enabled,
-                            onValueChanging = { vertical = it },
-                            onValueChange = { save(horizontal, vertical) },
+                            onValueChange = { horizontal = it.roundToInt() },
+                            onValueChangeFinished = { save(horizontal, vertical) },
                         )
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(PreviewSpacing)) {
+                        Row(
+                            modifier = Modifier.width(previewsWidth),
+                            horizontalArrangement = Arrangement.spacedBy(PreviewSpacing),
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            PreviewWithCaption(
+                                modifier = Modifier.weight(WII_U_ASPECT_RATIO),
+                                screen = GamePadScreen,
+                                caption = tr("GamePad image"),
+                            ) { paint ->
+                                drawCropFrame(shownHorizontal, shownVertical, paint)
+                            }
+                            PreviewWithCaption(
+                                modifier = Modifier.weight(screen.aspectRatio()),
+                                screen = screen,
+                                caption = if (detectedScreen != null) {
+                                    tr("Second screen, {0}x{1}", screen.width.toString(), screen.height.toString())
+                                } else {
+                                    tr("Second screen (AYN Thor shape)")
+                                },
+                            ) { paint ->
+                                drawCroppedSecondScreen(shownHorizontal, shownVertical, alignment, showToolbar, paint)
+                            }
+                        }
+                        Column(
+                            modifier = Modifier
+                                .width(SideSliderWidth)
+                                .height(previewHeight),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(text = tr("{0}%", vertical.toString()), color = WiiUColors.Text, fontSize = 14.sp)
+                            VerticalSlider(
+                                modifier = Modifier.weight(1f),
+                                value = vertical,
+                                enabled = enabled,
+                                onValueChanging = { vertical = it },
+                                onValueChange = { save(horizontal, vertical) },
+                            )
+                        }
+                    }
+                    WiiUBodyText(
+                        text = tr("The slider beside the previews crops the top and bottom."),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
-                Text(
-                    text = tr("The slider beside the previews crops the top and bottom."),
-                    fontSize = 12.sp,
-                    color = LocalContentColor.current.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(top = 4.dp),
-                )
             }
         }
-        InfoText(
+        WiiUBodyText(
             tr(
                 "The GamePad image fills {0}% of the second screen, {1}% without cropping.",
                 screenPercentUsed(screen, croppedAspectRatio(shownHorizontal, shownVertical)).toString(),
                 screenPercentUsed(screen, WII_U_ASPECT_RATIO).toString(),
             )
         )
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedButton(
+            WiiUButton(
+                text = tr("Fill the screen"),
+                icon = R.drawable.ic_resize,
+                primary = true,
                 enabled = enabled && fill != (horizontal to vertical),
                 onClick = { save(fill.first, fill.second) },
-            ) {
-                Text(tr("Fill the screen"))
-            }
-            OutlinedButton(
+            )
+            WiiUButton(
+                text = tr("Reset"),
+                icon = R.drawable.ic_restart,
                 enabled = enabled && (horizontal != 0 || vertical != 0),
                 onClick = { save(0, 0) },
-            ) {
-                Text(tr("Reset"))
-            }
+            )
         }
     }
 }
@@ -313,10 +317,11 @@ private fun SliderValueLabel(label: String, value: String) {
         Text(
             text = label,
             modifier = Modifier.weight(1f),
-            fontWeight = FontWeight.Medium,
+            color = WiiUColors.Text,
+            fontWeight = FontWeight.SemiBold,
             fontSize = 16.sp,
         )
-        Text(text = value, fontWeight = FontWeight.Light, fontSize = 14.sp)
+        Text(text = value, color = WiiUColors.TextSecondary, fontSize = 14.sp)
     }
 }
 
@@ -370,18 +375,9 @@ private fun PreviewWithCaption(
         Text(
             text = caption,
             modifier = Modifier.padding(top = 8.dp),
+            color = WiiUColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
         )
     }
-}
-
-@Composable
-private fun InfoText(text: String) {
-    Text(
-        text = text,
-        fontSize = 14.sp,
-        color = LocalContentColor.current.copy(alpha = 0.8f),
-        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-    )
 }

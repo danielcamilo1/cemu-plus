@@ -11,6 +11,9 @@ object NativeGraphicPacks {
     external fun refreshGraphicPacks()
 
     @JvmStatic
+    external fun registerLoadedGraphicPacks()
+
+    @JvmStatic
     external fun getGraphicPack(id: Long): GraphicPack?
 
     @JvmStatic
