@@ -59,7 +59,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import info.cemu.cemu.R
+import info.cemu.cemu.common.ui.localization.controllerTypeToString
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.nativeinterface.NativeInput
 import info.cemu.cemu.nativeinterface.NativeSettings
 import info.cemu.cemu.settings.screenlayout.applyToolbarSettings
 import info.cemu.cemu.settings.screenlayout.areScreensSwappedEffective
@@ -153,7 +155,7 @@ fun QuickMenuSheet(isOpen: Boolean, content: @Composable ColumnScope.() -> Unit)
 
 /**
  * The in-game quick menu. The big buttons on top are what is used the most, then the screens, how the GamePad
- * image looks, frame generation and the controls. Toggles apply right away and keep the menu open so several
+ * image looks, frame generation, the controls and shortcuts to the input settings. Toggles apply right away and keep the menu open so several
  * can be tried in a row.
  */
 @Composable
@@ -165,6 +167,8 @@ fun QuickMenuContent(
     onBackToGame: () -> Unit,
     onOpenSettings: () -> Unit,
     onQuit: () -> Unit,
+    onOpenInputSettings: () -> Unit,
+    onOpenControllerSettings: (controllerIndex: Int) -> Unit,
     onShowEmulatedUSBDevices: () -> Unit,
     onEditInputOverlay: () -> Unit,
     onResetInputOverlay: () -> Unit,
@@ -256,6 +260,19 @@ fun QuickMenuContent(
             checked = sideMenuState.isMotionEnabled,
             onCheckedChange = { updateState(sideMenuState.copy(isMotionEnabled = it)) },
         )
+        // also for the motion of controllers, so they don't depend on the device motion being on
+        QuickMenuToggle(
+            label = tr("Invert motion X axis"),
+            description = tr("Turning left and right"),
+            checked = sideMenuState.isMotionXInverted,
+            onCheckedChange = { updateState(sideMenuState.copy(isMotionXInverted = it)) },
+        )
+        QuickMenuToggle(
+            label = tr("Invert motion Y axis"),
+            description = tr("Tilting up and down"),
+            checked = sideMenuState.isMotionYInverted,
+            onCheckedChange = { updateState(sideMenuState.copy(isMotionYInverted = it)) },
+        )
         QuickMenuToggle(
             label = tr("Show input overlay"),
             checked = sideMenuState.isInputOverlayVisible,
@@ -275,6 +292,26 @@ fun QuickMenuContent(
             label = tr("Emulated USB Devices"),
             onClick = onShowEmulatedUSBDevices,
         )
+    }
+
+    // read again each time the menu opens, the settings opened from it can change the controllers
+    val controllers = remember(isOpen) {
+        (0..<NativeInput.MAX_CONTROLLERS)
+            .filterNot { NativeInput.isControllerDisabled(it) }
+            .map { it to NativeInput.getControllerType(it) }
+    }
+    QuickMenuSection(tr("Input")) {
+        QuickMenuAction(
+            label = tr("Input settings"),
+            onClick = onOpenInputSettings,
+        )
+        controllers.forEach { (controllerIndex, controllerType) ->
+            QuickMenuAction(
+                label = tr("Controller {0}", controllerIndex + 1),
+                description = controllerTypeToString(controllerType),
+                onClick = { onOpenControllerSettings(controllerIndex) },
+            )
+        }
     }
 }
 
@@ -472,7 +509,12 @@ internal fun QuickMenuToggle(
 }
 
 @Composable
-internal fun QuickMenuAction(label: String, onClick: () -> Unit, enabled: Boolean = true) {
+internal fun QuickMenuAction(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    description: String? = null,
+) {
     val colors = LocalQuickMenuColors.current
     QuickMenuSurface(
         onClick = onClick,
@@ -486,7 +528,12 @@ internal fun QuickMenuAction(label: String, onClick: () -> Unit, enabled: Boolea
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = label, modifier = Modifier.weight(1f), fontSize = 16.sp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = label, fontSize = 16.sp)
+                if (description != null) {
+                    Text(text = description, color = colors.secondaryText, fontSize = 13.sp)
+                }
+            }
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_right),
                 contentDescription = null,
