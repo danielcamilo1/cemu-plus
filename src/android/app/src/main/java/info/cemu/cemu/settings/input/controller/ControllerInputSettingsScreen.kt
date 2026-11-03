@@ -195,8 +195,8 @@ fun ControllerInputSettingsScreen(
             label = tr("Touch screen, sensors and vibration of this device"),
             icon = R.drawable.ic_tablet,
             checked = hasDeviceControls,
-            enabled = !hasDeviceControls,
-            description = if (hasDeviceControls) tr("Used by this controller")
+            // they always belong to a controller, so they are moved by turning them on for another one
+            description = if (hasDeviceControls) tr("Used by this controller, turn them on for another controller to move them")
             else tr("Used by Controller {0}, turn on to use them with this controller", deviceControllerIndex + 1),
             onCheckedChanged = { if (it) viewModel.useDeviceControls() },
         )

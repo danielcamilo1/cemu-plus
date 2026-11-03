@@ -793,8 +793,32 @@ void InputManager::apply_game_profile()
 	{
 		if (profiles[i] && !profiles[i]->empty())
 		{
+#if BOOST_PLAT_ANDROID
+			// the touch screen, sensors and vibration of the device stay with the controller if the profile has none
+			std::vector<ControllerPtr> deviceControllers;
+			if (const auto previous = get_controller(i))
+			{
+				for (const auto& controller : previous->get_controllers())
+				{
+					if (controller->api() == InputAPI::Device)
+						deviceControllers.emplace_back(controller);
+				}
+			}
+#endif
 			if (load(i, profiles[i].value()))
 			{
+#if BOOST_PLAT_ANDROID
+				if (const auto loaded = get_controller(i))
+				{
+					const auto& loadedControllers = loaded->get_controllers();
+					const bool hasDeviceController = std::ranges::any_of(loadedControllers, [](const ControllerPtr& c) { return c->api() == InputAPI::Device; });
+					if (!hasDeviceController)
+					{
+						for (const auto& controller : deviceControllers)
+							loaded->add_controller(controller);
+					}
+				}
+#endif
 				m_is_gameprofile_set[i] = true;
 				if (const auto controller = get_controller(i))
 				{
