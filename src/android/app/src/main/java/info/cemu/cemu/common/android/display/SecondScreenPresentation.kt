@@ -26,11 +26,12 @@ private tailrec fun Context.findActivity(): ComponentActivity? = when (this) {
 
 // shows content full screen on the second screen while this is in the composition, for previews of how the screen
 // will look in game. The content recomposes with the screen that shows it, so it follows the settings live.
-// A touchable one can be used with touch on the second screen, the controller stays with the main screen
+// A touchable one can be used with touch on the second screen, and with the controller through control
 @Composable
 fun SecondScreenPresentation(
     enabled: Boolean = true,
     touchable: Boolean = false,
+    control: SecondScreenControl? = null,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -39,7 +40,7 @@ fun SecondScreenPresentation(
     val compositionContext = rememberCompositionContext()
     val currentContent by rememberUpdatedState(content)
 
-    DisposableEffect(activity, secondScreen, enabled, touchable) {
+    DisposableEffect(activity, secondScreen, enabled, touchable, control) {
         val display = activity?.let { DisplayUtils.getExternalDisplay(it) }
         if (!enabled || activity == null || display == null) {
             return@DisposableEffect onDispose { }
@@ -52,18 +53,21 @@ fun SecondScreenPresentation(
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         (if (touchable) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
                 )
-                setContentView(ComposeView(this.context).apply {
+                val view = ComposeView(this.context).apply {
                     setViewTreeLifecycleOwner(activity)
                     setViewTreeViewModelStoreOwner(activity)
                     setViewTreeSavedStateRegistryOwner(activity)
                     setParentCompositionContext(compositionContext)
                     setContent { currentContent() }
-                })
+                }
+                setContentView(view)
+                control?.view = view
             }
         }
         // the screen can go away between finding it and showing on it
         val isShown = runCatching { presentation.show() }.isSuccess
         onDispose {
+            control?.view = null
             if (isShown) {
                 presentation.dismiss()
             }

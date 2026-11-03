@@ -69,6 +69,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import info.cemu.cemu.R
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.common.ui.wiiu.ButtonGuideItem
+import info.cemu.cemu.common.ui.wiiu.WiiUButtonGuide
 import info.cemu.cemu.nativeinterface.NativeGameTitles.Game
 import kotlinx.coroutines.launch
 
@@ -97,8 +99,9 @@ private fun Modifier.wiiUMenuBackground() = drawBehind {
     }
 }
 
-// the games as icons on pages of slots like the Wii U Menu. A tap goes to onGameTapped, A starts the game and a long
-// press opens its menu. The picked game is drawn like the focused one
+// the games as icons on pages of slots like the Wii U Menu. A tap goes to onGameTapped and a long press opens its
+// menu. With a controller A starts the game, Y opens its settings, X all of its settings when Y opens them on the
+// second screen, and Start its menu. The picked game is drawn like the focused one
 @Composable
 fun WiiUGameGrid(
     games: List<Game>,
@@ -107,6 +110,10 @@ fun WiiUGameGrid(
     onGameSelected: (Game) -> Unit,
     onGameTapped: (Game) -> Unit,
     startGame: (Game) -> Unit,
+    openSettings: (Game) -> Unit,
+    openAllSettings: ((Game) -> Unit)?,
+    // the controller is on the second screen, the grid waits for it
+    isSecondScreenControlled: Boolean,
     gameMenu: @Composable (game: Game, expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
 ) {
     BoxWithConstraints(
@@ -202,6 +209,8 @@ fun WiiUGameGrid(
                                         },
                                         onTap = { onGameTapped(game) },
                                         onStart = { startGame(game) },
+                                        onSettings = { openSettings(game) },
+                                        onAllSettings = openAllSettings?.let { { it(game) } },
                                         onPreviousPage = if (column == 0) {
                                             { goToPage(page - 1, index - pageSize + columns - 1) }
                                         } else null,
@@ -243,6 +252,29 @@ fun WiiUGameGrid(
                 currentPage = pagerState.currentPage,
             )
         }
+
+        if (isSecondScreenControlled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MenuBackgroundTop.copy(alpha = 0.6f))
+            )
+        }
+        WiiUButtonGuide(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 12.dp),
+            message = if (isSecondScreenControlled) tr("Controller on the second screen") else null,
+            alwaysShown = isSecondScreenControlled,
+            items = if (isSecondScreenControlled) {
+                listOf(ButtonGuideItem("B", tr("Back to games")))
+            } else buildList {
+                add(ButtonGuideItem("A", tr("Start")))
+                add(ButtonGuideItem("Y", tr("Settings")))
+                if (openAllSettings != null) add(ButtonGuideItem("X", tr("All settings")))
+                add(ButtonGuideItem("START", tr("Options")))
+            },
+        )
     }
 }
 
@@ -256,6 +288,8 @@ private fun GameTile(
     onFocusChanged: (Boolean) -> Unit,
     onTap: () -> Unit,
     onStart: () -> Unit,
+    onSettings: () -> Unit,
+    onAllSettings: (() -> Unit)?,
     onPreviousPage: (() -> Unit)?,
     onNextPage: (() -> Unit)?,
     onPreviousPageShoulder: () -> Unit,
@@ -295,7 +329,10 @@ private fun GameTile(
                     }
                     when (event.nativeKeyEvent.keyCode) {
                         AndroidKeyEvent.KEYCODE_BUTTON_A -> onStart().let { true }
-                        AndroidKeyEvent.KEYCODE_BUTTON_X, AndroidKeyEvent.KEYCODE_BUTTON_Y -> {
+                        AndroidKeyEvent.KEYCODE_BUTTON_Y -> onSettings().let { true }
+                        // without the second screen Y already opens all of them
+                        AndroidKeyEvent.KEYCODE_BUTTON_X -> (onAllSettings ?: onSettings)().let { true }
+                        AndroidKeyEvent.KEYCODE_BUTTON_START, AndroidKeyEvent.KEYCODE_MENU -> {
                             menuExpanded = true
                             true
                         }

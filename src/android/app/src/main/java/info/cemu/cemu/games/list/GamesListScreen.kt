@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import info.cemu.cemu.R
+import info.cemu.cemu.common.android.display.SecondScreenControl
 import info.cemu.cemu.common.android.display.SecondScreenPresentation
 import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.AppSettingsStore
@@ -128,12 +129,26 @@ fun GamesListScreen(
         }
     }
 
+    val secondScreenControl = remember { SecondScreenControl() }
     SecondScreenPresentation(
         // gone once a game starts or another screen opens, so the GamePad can use the second screen
         enabled = showsSettingsOnSecondScreen && lifecycleState.isAtLeast(Lifecycle.State.RESUMED),
         touchable = true,
+        control = secondScreenControl,
     ) {
-        GameSettingsSecondScreen(game = selectedGame, startGame = startGame, editControls = goToGameControls)
+        GameSettingsSecondScreen(
+            game = selectedGame,
+            startGame = startGame,
+            editControls = goToGameControls,
+            isControlled = secondScreenControl.isActive,
+        )
+    }
+    // Y opens the settings where they are shown, X always on the main screen
+    val openSettings: (Game) -> Unit = { game ->
+        selectedGamePath = game.path
+        if (!showsSettingsOnSecondScreen || !secondScreenControl.enter()) {
+            goToGameEditProfile(game)
+        }
     }
 
     LaunchedEffect(lifecycleState) {
@@ -246,6 +261,9 @@ fun GamesListScreen(
                     onGameSelected = { selectedGamePath = it.path },
                     onGameTapped = onGameTapped,
                     startGame = startGame,
+                    openSettings = openSettings,
+                    openAllSettings = if (showsSettingsOnSecondScreen) goToGameEditProfile else null,
+                    isSecondScreenControlled = secondScreenControl.isActive,
                     gameMenu = { game, expanded, onDismissRequest ->
                         GameMenu(game, expanded, onDismissRequest, gameActions)
                     },

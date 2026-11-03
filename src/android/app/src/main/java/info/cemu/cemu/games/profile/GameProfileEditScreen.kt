@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -36,6 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +55,9 @@ import info.cemu.cemu.common.ui.localization.regionToString
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.common.ui.wiiu.WiiUBackground
 import info.cemu.cemu.common.ui.wiiu.WiiUBar
+import info.cemu.cemu.common.ui.wiiu.ButtonGuideItem
 import info.cemu.cemu.common.ui.wiiu.WiiUBodyText
+import info.cemu.cemu.common.ui.wiiu.WiiUButtonGuide
 import info.cemu.cemu.common.ui.wiiu.WiiUButton
 import info.cemu.cemu.common.ui.wiiu.WiiUCard
 import info.cemu.cemu.common.ui.wiiu.WiiUChip
@@ -104,13 +110,24 @@ fun GameProfileEditScreen(
 }
 
 // the settings of the game picked in the library, shown on the second screen like the Wii U Menu shows the picked
-// title on the TV. They can be changed there with touch
+// title on the TV. They can be changed there with touch, or with the controller while isControlled
 @Composable
 fun GameSettingsSecondScreen(
     game: NativeGameTitles.Game?,
     startGame: (NativeGameTitles.Game) -> Unit,
     editControls: EditGameControls,
+    isControlled: Boolean = false,
 ) {
+    val focusManager = LocalFocusManager.current
+    val settingsFocus = remember { FocusRequester() }
+    LaunchedEffect(isControlled, game?.path) {
+        if (isControlled) {
+            // the first setting, the game can be started with Start right above it
+            runCatching { settingsFocus.requestFocus() }
+        } else {
+            focusManager.clearFocus(force = true)
+        }
+    }
     WiiUTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             WiiUBackground()
@@ -125,11 +142,23 @@ fun GameSettingsSecondScreen(
                             game = game,
                             editControls = editControls,
                             startGame = { startGame(game) },
+                            settingsFocus = settingsFocus,
                             modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
+            WiiUButtonGuide(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 12.dp),
+                alwaysShown = true,
+                visible = isControlled,
+                items = listOf(
+                    ButtonGuideItem("A", tr("Select")),
+                    ButtonGuideItem("B", tr("Back to games")),
+                ),
+            )
         }
     }
 }
@@ -195,6 +224,7 @@ private fun GameSettingsContent(
     editControls: EditGameControls,
     modifier: Modifier = Modifier,
     startGame: (() -> Unit)? = null,
+    settingsFocus: FocusRequester? = null,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         if (maxWidth >= TwoPaneWidth) {
@@ -215,6 +245,7 @@ private fun GameSettingsContent(
                 GameSettingsList(
                     game = game,
                     editControls = editControls,
+                    settingsFocus = settingsFocus,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -222,6 +253,7 @@ private fun GameSettingsContent(
             GameSettingsList(
                 game = game,
                 editControls = editControls,
+                settingsFocus = settingsFocus,
                 header = { GameCard(game = game, isWide = false, startGame = startGame) },
             )
         }
@@ -372,6 +404,8 @@ private fun GameSettingsList(
     editControls: EditGameControls,
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
+    // takes the focus to the first setting
+    settingsFocus: FocusRequester? = null,
 ) {
     val viewModel: GameProfileEditViewModel = viewModel(
         key = "GameProfileEditViewModel:${game.path}",
@@ -410,7 +444,12 @@ private fun GameSettingsList(
             header?.invoke()
 
             WiiUSectionTitle(tr("Controls"))
-            ControllerProfileSettings(game, editControls)
+            Column(
+                modifier = if (settingsFocus != null) Modifier.focusRequester(settingsFocus) else Modifier,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ControllerProfileSettings(game, editControls)
+            }
 
             WiiUSectionTitle(tr("GamePad screen crop"))
             PadCropSettings(titleId)

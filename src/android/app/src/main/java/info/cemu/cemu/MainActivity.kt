@@ -26,6 +26,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import info.cemu.cemu.about.AboutCemuRoute
 import info.cemu.cemu.about.aboutCemuNavigation
+import info.cemu.cemu.common.android.display.SecondScreenControl
 import info.cemu.cemu.common.android.display.applySecondScreenDefault
 import info.cemu.cemu.common.input.GamepadInputSource
 import info.cemu.cemu.common.settings.AppSettingsStore
@@ -60,6 +61,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         GamepadInputSource.emitKey(event)
+
+        if (SecondScreenControl.dispatchKeyEvent(event)) {
+            return true
+        }
 
         if (GamepadInputSource.hasKeySubscribers) {
             return true
