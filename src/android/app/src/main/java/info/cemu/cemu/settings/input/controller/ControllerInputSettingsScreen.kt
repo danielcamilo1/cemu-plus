@@ -177,7 +177,7 @@ fun ControllerInputSettingsScreen(
                 text = tr("Pick what this controller emulates to set it up"),
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
-            ProfilesSection(
+            if (!isEditingGame) ProfilesSection(
                 profiles = profiles,
                 onSave = { showSaveProfileDialog = true },
                 onLoad = { showLoadProfileDialog = true },
@@ -275,7 +275,8 @@ fun ControllerInputSettingsScreen(
             onSetControllerSettings = viewModel::setControllerSettings,
         )
 
-        ProfilesSection(
+        // a game picks saved profiles in its settings, and loading one here could move the device controls
+        if (!isEditingGame) ProfilesSection(
             profiles = profiles,
             onSave = { showSaveProfileDialog = true },
             onLoad = { showLoadProfileDialog = true },
