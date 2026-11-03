@@ -1,10 +1,12 @@
 name: Cemu Plus Android
 
-# - pull requests build the APK and upload it as a workflow artifact. Merging doesn't build again, the pull request
-#   already built that code, so a release only runs one build: the one for its tag
+# - pull requests build the APK and upload it as a workflow artifact. Its version is the newest one in CHANGELOG.md, or
+#   dev-<commit> if that version was already released. Merging doesn't build again
 # - pushing a tag named v<version> (e.g. v0.1.0 or v0.1.0-beta.1) publishes a GitHub release with the APK.
 #   Tags containing a "-" are published as prereleases
 #   The release notes come from the version's section of CHANGELOG.md
+#   A release reuses the APK of the pull request that built the same code (same git tree) for the same version, so it
+#   doesn't build it again. Without one it builds the APK itself
 # - the workflow can also be started manually to publish a release for the selected branch
 on:
   push:
@@ -26,6 +28,7 @@ on:
         default: true
 
 permissions:
+  actions: read
   contents: write
   packages: write
 
@@ -46,7 +49,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          submodules: "recursive"
           fetch-depth: 0
 
       - name: Determine version
@@ -64,7 +66,11 @@ jobs:
             PUBLISH=true
             PRERELEASE="$INPUT_PRERELEASE"
           else
-            VERSION="dev-$(git rev-parse --short HEAD)"
+            # the version being worked on is the newest one in the changelog, unless it was released already
+            VERSION=$(awk '$1 == "##" && $2 ~ /^[0-9]/ { print $2; exit }' CHANGELOG.md)
+            if [[ -z "$VERSION" ]] || git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+              VERSION="dev-$(git rev-parse --short HEAD)"
+            fi
             PUBLISH=false
             PRERELEASE=false
           fi
@@ -72,13 +78,49 @@ jobs:
           echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION, publish: $PUBLISH, prerelease: $PRERELEASE"
+          # names the build of this code for this version, a release looks for it to reuse the APK
+          echo "build_id=build-$(git rev-parse 'HEAD^{tree}')-v${VERSION%%-*}" >> "$GITHUB_OUTPUT"
+
+      - name: Reuse the pull request build
+        id: reuse
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_ID: ${{ steps.version.outputs.build_id }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$BUILD_ID" \
+            --jq '[.artifacts[] | select(.expired | not)][0].workflow_run.id // empty')
+          if [[ -z "$RUN" ]]; then
+            echo "No pull request build of this code, building the APK"
+            exit 0
+          fi
+          if ! gh run download "$RUN" -R "$GITHUB_REPOSITORY" -p 'Cemu-Plus-*' -D reused; then
+            echo "Couldn't download the APK of run $RUN, building it instead"
+            exit 0
+          fi
+          APK=$(find reused -name '*.apk' | head -n 1)
+          if [[ -z "$APK" ]]; then
+            echo "Run $RUN has no APK, building it instead"
+            exit 0
+          fi
+          mkdir upload
+          mv "$APK" "upload/Cemu-Plus-$VERSION.apk"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "Reusing the APK of $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN"
+
+      - name: Checkout submodules
+        if: steps.reuse.outputs.found != 'true'
+        run: git submodule update --init --recursive
 
       - name: Install system dependencies
+        if: steps.reuse.outputs.found != 'true'
         run: |
           sudo apt update -qq
           sudo apt install -y gettext mono-complete
 
       - name: Uncompile message catalogs
+        if: steps.reuse.outputs.found != 'true'
         run: |
           for mo_file in bin/resources/*/cemu.mo
           do
@@ -89,11 +131,14 @@ jobs:
           done
 
       - name: Setup vcpkg binary cache
+        if: steps.reuse.outputs.found != 'true'
         uses: ./.github/actions/set-up-vcpkg-binary-cache-action
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Build APK
+        id: build
+        if: steps.reuse.outputs.found != 'true'
         env:
           ANDROID_STORE_FILE_BASE64: ${{ secrets.ANDROID_STORE_FILE_BASE64 }}
           ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
@@ -108,6 +153,7 @@ jobs:
             base64 --decode <<< "${ANDROID_STORE_FILE_BASE64}" > store.jks
             export ANDROID_STORE_FILE=$(pwd)/store.jks
             echo "Android signing store file has been set up."
+            echo "signed=true" >> "$GITHUB_OUTPUT"
           else
             echo "No Android signing store file provided. The APK will be signed with a debug key."
           fi
@@ -115,16 +161,30 @@ jobs:
           ./gradlew assembleRelease
 
       - name: Prepare APK
+        if: steps.reuse.outputs.found != 'true'
         run: |
           mkdir upload
           mv ./src/android/app/build/outputs/apk/release/*.apk "upload/Cemu-Plus-${{ steps.version.outputs.version }}.apk"
           ls -la upload
 
       - name: Upload artifact
+        if: steps.reuse.outputs.found != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Cemu-Plus-${{ steps.version.outputs.version }}
           path: upload/*.apk
+
+      # only release signed APKs get reused, pull requests from forks don't have the signing key
+      - name: Mark the build for reuse
+        if: github.event_name == 'pull_request' && steps.build.outputs.signed == 'true'
+        run: git rev-parse HEAD > build-commit.txt
+
+      - name: Upload build marker
+        if: github.event_name == 'pull_request' && steps.build.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.build_id }}
+          path: build-commit.txt
 
       - name: Publish release
         if: steps.version.outputs.publish == 'true'
