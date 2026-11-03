@@ -76,6 +76,13 @@ object NativeGameTitles {
     @JvmStatic
     external fun setDriverSettingForTitle(gameTitleId: Long, driverSetting: DriverSetting)
 
+    // the controller profile the game starts with for the controller, null for the global settings
+    @JvmStatic
+    external fun getControllerProfileForTitle(gameTitleId: Long, controllerIndex: Int): String?
+
+    @JvmStatic
+    external fun setControllerProfileForTitle(gameTitleId: Long, controllerIndex: Int, profile: String?)
+
     // percent of the GamePad image cut off on the second screen, split evenly between both sides
     const val PAD_CROP_MAX = 40
 

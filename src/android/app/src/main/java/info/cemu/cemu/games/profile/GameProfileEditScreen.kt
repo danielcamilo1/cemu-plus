@@ -65,6 +65,7 @@ import info.cemu.cemu.games.details.getLastPlayedDate
 import info.cemu.cemu.games.details.getTimePlayed
 import info.cemu.cemu.nativeinterface.NativeEmulation
 import info.cemu.cemu.nativeinterface.NativeGameTitles
+import info.cemu.cemu.nativeinterface.NativeInput
 import info.cemu.cemu.nativeinterface.NativeGameTitles.DriverSettingMode
 
 // wide enough to show the game beside its settings instead of above them
@@ -394,6 +395,9 @@ private fun GameSettingsList(
         ) {
             header?.invoke()
 
+            WiiUSectionTitle(tr("Controls"))
+            ControllerProfileSettings(titleId)
+
             WiiUSectionTitle(tr("GamePad screen crop"))
             PadCropSettings(titleId)
 
@@ -428,18 +432,6 @@ private fun GameSettingsList(
                     NativeGameTitles.setCpuModeForTitle(titleId, it)
                 },
             )
-            ChoiceCard(
-                icon = R.drawable.ic_restart,
-                title = tr("Thread quantum"),
-                description = tr("How long each emulated CPU thread runs before the next one gets its turn"),
-                choices = NativeGameTitles.THREAD_QUANTUM_VALUES,
-                selected = threadQuantum,
-                choiceToString = { it.toString() },
-                onChoiceSelected = {
-                    threadQuantum = it
-                    NativeGameTitles.setThreadQuantumForTitle(titleId, it)
-                },
-            )
             WiiUSwitchRow(
                 label = tr("Shader multiplication accuracy"),
                 description = tr("Controls the accuracy of floating point multiplication in shaders"),
@@ -460,7 +452,68 @@ private fun GameSettingsList(
                     NativeGameTitles.setLoadingSharedLibrariesForTitleEnabled(titleId, it)
                 },
             )
+            ChoiceCard(
+                icon = R.drawable.ic_restart,
+                title = tr("Thread quantum"),
+                description = tr("How long each emulated CPU thread runs before the next one gets its turn"),
+                choices = NativeGameTitles.THREAD_QUANTUM_VALUES,
+                selected = threadQuantum,
+                choiceToString = { it.toString() },
+                onChoiceSelected = {
+                    threadQuantum = it
+                    NativeGameTitles.setThreadQuantumForTitle(titleId, it)
+                },
+            )
         }
+    }
+}
+
+// the controllers the game starts with: the global input settings or a saved profile for each of them. Controller 1
+// and the ones in use are shown, and any other one this game already has a profile for
+@Composable
+private fun ControllerProfileSettings(titleId: Long) {
+    val profiles = remember { NativeInput.getControllerProfiles().sorted() }
+    var controllerProfiles by remember(titleId) {
+        mutableStateOf(
+            (0..<NativeInput.MAX_CONTROLLERS).associateWith { NativeGameTitles.getControllerProfileForTitle(titleId, it) }
+        )
+    }
+    val shownControllers = remember(titleId) {
+        (0..<NativeInput.MAX_CONTROLLERS).filter {
+            it == 0 || !NativeInput.isControllerDisabled(it) || controllerProfiles[it] != null
+        }
+    }
+
+    if (profiles.isEmpty() && controllerProfiles.values.all { it == null }) {
+        WiiUCard(modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WiiURowIcon(R.drawable.ic_controller)
+                WiiUBodyText(
+                    text = tr("This game uses the global input settings. To give it its own controls, save a profile in Settings, Input settings, then a controller, and pick it here"),
+                    modifier = Modifier.padding(start = 14.dp),
+                )
+            }
+        }
+        return
+    }
+
+    for (controllerIndex in shownControllers) {
+        val selected = controllerProfiles[controllerIndex]
+        // a profile that was deleted stays visible so it can be changed
+        val choices = listOf<String?>(null) + profiles + listOfNotNull(selected?.takeIf { it !in profiles })
+        ChoiceCard(
+            icon = R.drawable.ic_controller,
+            title = tr("Controller {0}", controllerIndex + 1),
+            description = if (selected == null) tr("Uses the global input settings")
+            else tr("Starts with the profile {0}, changes made while playing are saved to it", selected),
+            choices = choices,
+            selected = selected,
+            choiceToString = { it ?: tr("Global") },
+            onChoiceSelected = {
+                controllerProfiles = controllerProfiles + (controllerIndex to it)
+                NativeGameTitles.setControllerProfileForTitle(titleId, controllerIndex, it)
+            },
+        )
     }
 }
 

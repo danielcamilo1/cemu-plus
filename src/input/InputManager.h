@@ -78,6 +78,8 @@ public:
 	}
 
 	void apply_game_profile();
+	// true while the controller uses the profile set for the running game
+	bool is_game_profile_set(size_t player_index) const { return m_is_gameprofile_set.at(player_index); }
 	void on_device_changed();
 
 

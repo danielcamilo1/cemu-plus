@@ -109,6 +109,28 @@ Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setShaderMultiplicationAccu
 	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
 }
 
+// the controller profile the game starts with for the controller, null when it uses the global settings
+extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getControllerProfileForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jint index)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	const auto& profile = NativeGameTitles::g_currentGameProfile.GetControllerProfile().at(index);
+	if (!profile || profile->empty())
+		return nullptr;
+	return JNIUtils::ToJString(env, profile.value());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setControllerProfileForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jint index, jstring profile)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	std::optional<std::string> profileName;
+	if (profile != nullptr)
+		profileName = JNIUtils::FromJString(env, profile);
+	NativeGameTitles::g_currentGameProfile.SetControllerProfile(index, profileName);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getDriverSettingForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
 {

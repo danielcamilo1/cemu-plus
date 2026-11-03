@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.common.ui.wiiu.WiiUColors
+import info.cemu.cemu.common.ui.wiiu.WiiUDialogPanel
 
 @Composable
 fun GenericDialog(
@@ -31,20 +33,10 @@ fun GenericDialog(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            modifier = modifier,
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Text(
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-                text = title,
-                fontSize = 24.sp,
-            )
-
+        WiiUDialogPanel(title = title, modifier = modifier) {
             content()
 
-            HorizontalDivider()
+            HorizontalDivider(color = WiiUColors.CardBorder)
 
             buttons()
         }

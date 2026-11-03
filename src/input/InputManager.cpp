@@ -460,8 +460,18 @@ void InputManager::save() noexcept
 bool InputManager::save(size_t player_index, std::string_view filename)
 {
 	// dont overwrite files if set by gameprofile
-	if (m_is_gameprofile_set[player_index])
+	if (m_is_gameprofile_set[player_index] && filename.empty())
+	{
+#if BOOST_PLAT_ANDROID
+		// changes made while the game runs go to the profile it uses
+		const auto& profile = g_current_game_profile->GetControllerProfile()[player_index];
+		if (!profile || profile->empty())
+			return true;
+		filename = profile.value();
+#else
 		return true;
+#endif
+	}
 
 	auto emulated_controller = get_controller(player_index);
 	if (!emulated_controller)

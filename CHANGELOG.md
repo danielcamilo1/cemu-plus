@@ -2,6 +2,25 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.3.6-beta.2 - 2026-11-03
+
+### Input settings, redone
+- Each controller has all its settings on one page, the ones used most first: what it emulates, the controller in use with **Set up all inputs**, its buttons and sticks, motion, rumble, profiles, and the stick and trigger sensitivity at the end under **Advanced**. The **Controller settings** dialog and the separate **Device settings** screen are gone
+- The controller in use is picked from the connected ones right on the page, and **Set up all inputs** binds that one directly
+- **Invert motion X axis** and **Invert motion Y axis** are next to **Use motion** on each controller's page
+- The touch screen, sensors and vibration of the device can be moved to a controller from its page, and the vibration strength of the device is set there too
+- The inputs are shown as a grid of tiles that say **Not set** when nothing is bound
+- The input settings list the controllers in use, with **Add a controller** for the next free one, then **Hotkeys** and **On-screen controls**
+
+### Controller profiles per game
+- A controller can be saved as a named profile, and loaded or deleted again, from its page
+- The game settings start with a new **Controls** section where each controller can use the global input settings or a profile for that game. Changes made while that game runs are saved to its profile
+- The game settings show the most used settings first: **Controls**, **GamePad screen crop** and **Graphics**, with **Thread quantum** last under **Advanced**
+
+### Wii U style settings
+- Every settings screen has the white and silver look of the Wii U settings, with panels, round switches and a cyan highlight, like the game settings on the second screen
+- The settings home has an icon for each section
+
 ## 0.3.6-beta.1 - 2026-11-03
 
 ### Motion controls

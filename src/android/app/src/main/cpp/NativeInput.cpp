@@ -5,6 +5,8 @@
 #include "input/InputManager.h"
 #include "JNIUtils.h"
 #include "input/emulated/EmulatedController.h"
+#include "Cafe/GameProfile/GameProfile.h"
+#include "config/ActiveSettings.h"
 
 #include <android/sensor.h>
 #include <atomic>
@@ -140,6 +142,41 @@ namespace NativeInput
 		std::shared_ptr<ControllerBase> controller = ControllerFactory::CreateController(InputAPI::Android, uuid, name);
 		emulatedController->add_controller(controller);
 		return controller;
+	}
+
+	// the touch screen, sensors and vibration of the device belong to one controller. A loaded profile may come with
+	// them or without, either way they stay with a single controller and with the one that had them if it can
+	void KeepSingleDeviceController(size_t index, ControllerPtr previousDeviceController)
+	{
+		auto& inputManager = InputManager::instance();
+		auto emulatedController = inputManager.get_controller(index);
+		if (!emulatedController)
+			return;
+
+		auto isDevice = [](const ControllerPtr& c) { return c->api() == InputAPI::Device; };
+		const auto& controllers = emulatedController->get_controllers();
+		bool hasDeviceController = std::ranges::any_of(controllers, isDevice);
+
+		if (!hasDeviceController && previousDeviceController)
+		{
+			emulatedController->add_controller(previousDeviceController);
+			hasDeviceController = true;
+		}
+
+		if (!hasDeviceController)
+			return;
+
+		for (size_t i = 0; i < InputManager::kMaxController; ++i)
+		{
+			auto other = i != index ? inputManager.get_controller(i) : nullptr;
+			if (!other)
+				continue;
+			for (const auto& controller : std::vector(other->get_controllers()))
+			{
+				if (isDevice(controller))
+					other->remove_controller(controller);
+			}
+		}
 	}
 
 	// set from the app settings, applied to the motion of the device and of every controller
@@ -547,4 +584,73 @@ extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeInput_saveInputs([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	InputManager::instance().save();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerProfiles(JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return JNIUtils::CreateStringObjectArray(env, InputManager::get_profiles());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_isValidControllerProfileName(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring name)
+{
+	return InputManager::is_valid_profilename(JNIUtils::FromJString(env, name));
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_saveControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring name)
+{
+	auto profileName = JNIUtils::FromJString(env, name);
+	if (!InputManager::is_valid_profilename(profileName))
+		return false;
+	return InputManager::instance().save(index, profileName);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_loadControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring name)
+{
+	auto profileName = JNIUtils::FromJString(env, name);
+	if (!InputManager::is_valid_profilename(profileName))
+		return false;
+
+	auto& inputManager = InputManager::instance();
+	ControllerPtr previousDeviceController;
+	if (auto previous = inputManager.get_controller(index))
+	{
+		for (const auto& controller : previous->get_controllers())
+		{
+			if (controller->api() == InputAPI::Device)
+				previousDeviceController = controller;
+		}
+	}
+
+	if (!inputManager.load(index, profileName))
+		return false;
+
+	NativeInput::KeepSingleDeviceController(index, previousDeviceController);
+	return true;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_deleteControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring name)
+{
+	auto profileName = JNIUtils::FromJString(env, name);
+	if (!InputManager::is_valid_profilename(profileName))
+		return;
+	std::error_code ec;
+	fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/{}.xml", profileName), ec);
+	fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/{}.txt", profileName), ec);
+}
+
+// the profile the running game set for the controller, null when it uses the global settings
+extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_getGameControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	if (!InputManager::instance().is_game_profile_set(index))
+		return nullptr;
+	const auto& profile = g_current_game_profile->GetControllerProfile()[index];
+	if (!profile)
+		return nullptr;
+	return JNIUtils::ToJString(env, profile.value());
 }

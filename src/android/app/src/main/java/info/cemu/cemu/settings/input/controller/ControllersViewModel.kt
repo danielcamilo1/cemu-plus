@@ -38,6 +38,11 @@ data class InputController(
     val hasRumble: Boolean,
 )
 
+data class MotionInversion(
+    val isXInverted: Boolean = false,
+    val isYInverted: Boolean = false,
+)
+
 data class ActiveController(
     val controller: InputController,
     val settings: NativeInput.ControllerSettings
@@ -57,6 +62,80 @@ class ControllersViewModel(
                 it.copy(emulationSettings = it.emulationSettings.copy(isMotionEnabled = enabled))
             }
         }
+    }
+
+    // turning left and right or tilting up and down goes the other way, for every controller
+    val motionInversion = dataStore.data.map {
+        MotionInversion(it.emulationSettings.isMotionXInverted, it.emulationSettings.isMotionYInverted)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MotionInversion())
+
+    fun setMotionXInverted(inverted: Boolean) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(emulationSettings = it.emulationSettings.copy(isMotionXInverted = inverted))
+            }
+        }
+    }
+
+    fun setMotionYInverted(inverted: Boolean) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(emulationSettings = it.emulationSettings.copy(isMotionYInverted = inverted))
+            }
+        }
+    }
+
+    // the controller that has the touch screen, sensors and vibration of this device
+    private val _deviceControllerIndex = MutableStateFlow(NativeInput.getDeviceControllerIndex())
+    val deviceControllerIndex = _deviceControllerIndex.asStateFlow()
+
+    private val _deviceRumble = MutableStateFlow(NativeInput.getDeviceRumble())
+    val deviceRumble = _deviceRumble.asStateFlow()
+
+    fun useDeviceControls() {
+        NativeInput.setDeviceControllerIndex(controllerIndex)
+        refreshDeviceControls()
+    }
+
+    fun setDeviceRumble(rumble: Float) {
+        NativeInput.setDeviceRumble(rumble)
+        _deviceRumble.value = rumble
+    }
+
+    private fun refreshDeviceControls() {
+        _deviceControllerIndex.value = NativeInput.getDeviceControllerIndex()
+        _deviceRumble.value = NativeInput.getDeviceRumble()
+    }
+
+    // set while a game runs that starts with a profile for this controller, changes then go to that profile
+    val gameProfileName: String? = NativeInput.getGameControllerProfile(controllerIndex)
+
+    private val _profiles = MutableStateFlow(NativeInput.getControllerProfiles().sorted())
+    val profiles = _profiles.asStateFlow()
+
+    fun isValidProfileName(name: String) =
+        name.isNotBlank() && NativeInput.isValidControllerProfileName(name.trim())
+
+    fun saveProfile(name: String): Boolean {
+        val saved = NativeInput.saveControllerProfile(controllerIndex, name.trim())
+        _profiles.value = NativeInput.getControllerProfiles().sorted()
+        return saved
+    }
+
+    fun loadProfile(name: String): Boolean {
+        if (!NativeInput.loadControllerProfile(controllerIndex, name)) {
+            return false
+        }
+        _controllerType.value = NativeInput.getControllerType(controllerIndex)
+        refreshControllerData()
+        refreshDeviceControls()
+        setActiveController(_activeController.value?.controller)
+        return true
+    }
+
+    fun deleteProfile(name: String) {
+        NativeInput.deleteControllerProfile(name)
+        _profiles.value = NativeInput.getControllerProfiles().sorted()
     }
 
     private var _controllerType = MutableStateFlow(NativeInput.getControllerType(controllerIndex))
@@ -90,6 +169,8 @@ class ControllersViewModel(
         _controllerType.value = controllerType
         NativeInput.setControllerType(controllerIndex, controllerType)
         refreshControllerData()
+        refreshDeviceControls()
+        setActiveController(_activeController.value?.controller)
     }
 
     fun mapKeyEvent(keyEvent: KeyEvent, buttonId: Int) {
@@ -97,6 +178,7 @@ class ControllersViewModel(
         _controls.value += getControllerMapping(buttonId)
     }
 
+    // keeps the picked controller if it is still connected
     fun refreshAvailableControllers(): Boolean {
         val gameControllers = listGameControllers()
 
@@ -109,7 +191,8 @@ class ControllersViewModel(
                 hasRumble = it.hasRumble(),
             )
         }
-        setActiveController(inputControllers.firstOrNull())
+        val activeDescriptor = _activeController.value?.controller?.descriptor
+        setActiveController(inputControllers.firstOrNull { it.descriptor == activeDescriptor } ?: inputControllers.firstOrNull())
         _controllers.value = inputControllers
 
         NativeInput.setControllers(gameControllers.map { it.toControllerInfo() }.toTypedArray())
@@ -126,6 +209,9 @@ class ControllersViewModel(
 
         val buttons = getNativeButtonsForControllerType(controllerType.value)
         buttons.forEach { _controls.value += getControllerMapping(it.nativeKeyCode) }
+
+        // its motion, rumble and sticks are the ones shown next
+        _controllers.value.firstOrNull { it.id == deviceId }?.let(::setActiveController)
 
         applyDefaultHotkeys()
     }
@@ -215,6 +301,7 @@ class ControllersViewModel(
 
     init {
         refreshControllerData()
+        refreshAvailableControllers()
     }
 
     companion object {

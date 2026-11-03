@@ -1,56 +1,71 @@
 package info.cemu.cemu.common.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import info.cemu.cemu.R
+import info.cemu.cemu.common.ui.wiiu.WiiUCard
+import info.cemu.cemu.common.ui.wiiu.WiiUColors
+import info.cemu.cemu.common.ui.wiiu.WiiURowIcon
 
+// a white panel that opens something, with a chevron at its end like the Wii U settings lists
 @Composable
 fun Button(
     label: String,
     description: String? = null,
     enabled: Boolean = true,
+    @DrawableRes icon: Int? = null,
     onClick: () -> Unit = {},
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-        enabled = enabled,
-        onClick = onClick,
+    WiiUCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .alpha(if (enabled) 1f else 0.5f),
+        onClick = if (enabled) onClick else null,
     ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-        ) {
-            Text(
-                modifier = Modifier,
-                text = label,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            if (description != null) {
-                Text(
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = LocalContentColor.current.copy(alpha = 0.6f),
-                    text = description,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                WiiURowIcon(icon)
             }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = if (icon != null) 14.dp else 0.dp, end = 12.dp)
+            ) {
+                Text(
+                    text = label,
+                    color = WiiUColors.Text,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (description != null) {
+                    Text(
+                        modifier = Modifier.padding(top = 2.dp),
+                        color = WiiUColors.TextSecondary,
+                        text = description,
+                        fontSize = 14.sp,
+                    )
+                }
+            }
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = WiiUColors.TextSecondary,
+                modifier = Modifier.size(24.dp),
+            )
         }
     }
 }

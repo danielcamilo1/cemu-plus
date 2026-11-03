@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -438,4 +439,34 @@ internal fun WiiUBar(top: Boolean, modifier: Modifier = Modifier, content: @Comp
             },
         content = content,
     )
+}
+
+// the white rounded window of a dialog, with its title at the top
+@Composable
+internal fun WiiUDialogPanel(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(22.dp)
+    WiiUTheme {
+        Column(
+            modifier = modifier
+                .sizeIn(maxWidth = 560.dp, maxHeight = 600.dp)
+                .fillMaxWidth()
+                .shadow(12.dp, shape)
+                .clip(shape)
+                .background(Brush.verticalGradient(listOf(WiiUColors.BackgroundTop, WiiUColors.Bar)))
+                .border(1.dp, WiiUColors.CardBorder, shape),
+        ) {
+            Text(
+                text = title,
+                color = WiiUColors.Text,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+            )
+            content()
+        }
+    }
 }

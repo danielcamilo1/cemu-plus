@@ -10,7 +10,6 @@ class EmulatedControllerManager
   private:
 	size_t m_index;
 	inline static std::array<std::unique_ptr<EmulatedControllerManager>, InputManager::kMaxController> s_emulatedControllers;
-	EmulatedControllerPtr m_emulatedController;
 
 	EmulatedControllerManager(size_t index);
 
