@@ -394,27 +394,23 @@ private fun GameSettingsList(
         ) {
             header?.invoke()
 
-            WiiUSectionTitle(tr("Emulation"))
-            WiiUSwitchRow(
-                label = tr("Load shared libraries"),
-                description = tr("Load libraries from the cafeLibs directory"),
-                icon = R.drawable.ic_package_2,
-                checked = loadSharedLibraries,
-                onCheckedChange = {
-                    loadSharedLibraries = it
-                    NativeGameTitles.setLoadingSharedLibrariesForTitleEnabled(titleId, it)
-                },
-            )
-            WiiUSwitchRow(
-                label = tr("Shader multiplication accuracy"),
-                description = tr("Controls the accuracy of floating point multiplication in shaders"),
-                icon = R.drawable.ic_auto_awesome,
-                checked = shaderMultiplicationAccuracy,
-                onCheckedChange = {
-                    shaderMultiplicationAccuracy = it
-                    NativeGameTitles.setShaderMultiplicationAccuracyForTitleEnabled(titleId, it)
-                },
-            )
+            WiiUSectionTitle(tr("GamePad screen crop"))
+            PadCropSettings(titleId)
+
+            if (supportsLoadingCustomDrivers && driverSettingChoices.isNotEmpty()) {
+                WiiUSectionTitle(tr("Graphics"))
+                ChoiceCard(
+                    icon = R.drawable.ic_upgrade,
+                    title = tr("Custom driver"),
+                    description = tr("The graphics driver this game runs with"),
+                    choices = driverSettingChoices,
+                    selected = selectedDriverSetting,
+                    choiceToString = ::customDriverSettingChoiceToString,
+                    onChoiceSelected = viewModel::setSelectedDriverSetting,
+                )
+            }
+
+            WiiUSectionTitle(tr("Advanced"))
             ChoiceCard(
                 icon = R.drawable.ic_build,
                 title = tr("CPU mode"),
@@ -444,20 +440,26 @@ private fun GameSettingsList(
                     NativeGameTitles.setThreadQuantumForTitle(titleId, it)
                 },
             )
-            if (supportsLoadingCustomDrivers && driverSettingChoices.isNotEmpty()) {
-                ChoiceCard(
-                    icon = R.drawable.ic_upgrade,
-                    title = tr("Custom driver"),
-                    description = tr("The graphics driver this game runs with"),
-                    choices = driverSettingChoices,
-                    selected = selectedDriverSetting,
-                    choiceToString = ::customDriverSettingChoiceToString,
-                    onChoiceSelected = viewModel::setSelectedDriverSetting,
-                )
-            }
-
-            WiiUSectionTitle(tr("GamePad screen crop"))
-            PadCropSettings(titleId)
+            WiiUSwitchRow(
+                label = tr("Shader multiplication accuracy"),
+                description = tr("Controls the accuracy of floating point multiplication in shaders"),
+                icon = R.drawable.ic_auto_awesome,
+                checked = shaderMultiplicationAccuracy,
+                onCheckedChange = {
+                    shaderMultiplicationAccuracy = it
+                    NativeGameTitles.setShaderMultiplicationAccuracyForTitleEnabled(titleId, it)
+                },
+            )
+            WiiUSwitchRow(
+                label = tr("Load shared libraries"),
+                description = tr("Load libraries from the cafeLibs directory"),
+                icon = R.drawable.ic_package_2,
+                checked = loadSharedLibraries,
+                onCheckedChange = {
+                    loadSharedLibraries = it
+                    NativeGameTitles.setLoadingSharedLibrariesForTitleEnabled(titleId, it)
+                },
+            )
         }
     }
 }

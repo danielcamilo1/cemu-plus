@@ -8,6 +8,7 @@ What changed in each Cemu Plus release. The release page of each version shows i
 - With the second screen in use, picking a game in the library shows its settings on the second screen, where they can be changed with touch. Tap a game once to pick it and again to start it, or tap **Start** on the second screen. With a controller, the game the cursor is on is shown and A starts it
 - The game settings (**Edit game profile**) are redone in the style of the Wii U Menu: the game's icon with its play time, last played date, region and version, switches on white panels and one tap choices for CPU mode, thread quantum and custom driver
 - The GamePad screen crop section has the same look
+- The game settings start with the ones used most: GamePad screen crop first, then the custom driver under **Graphics**, and the CPU, shader and library settings last under **Advanced**
 
 ### Fixes
 - The app opens faster. Graphic packs were loaded twice at startup, and with a custom data folder every save was synced with it before the app could show anything. That sync now runs in the background, and games wait for it before they start
