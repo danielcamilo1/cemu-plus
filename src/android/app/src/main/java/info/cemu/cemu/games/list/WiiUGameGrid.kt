@@ -97,11 +97,15 @@ private fun Modifier.wiiUMenuBackground() = drawBehind {
     }
 }
 
-// the games as icons on pages of slots like the Wii U Menu. Tap or A starts a game, a long press opens its menu
+// the games as icons on pages of slots like the Wii U Menu. A tap goes to onGameTapped, A starts the game and a long
+// press opens its menu. The picked game is drawn like the focused one
 @Composable
 fun WiiUGameGrid(
     games: List<Game>,
     gridSize: Int,
+    selectedGamePath: String?,
+    onGameSelected: (Game) -> Unit,
+    onGameTapped: (Game) -> Unit,
     startGame: (Game) -> Unit,
     gameMenu: @Composable (game: Game, expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
 ) {
@@ -179,7 +183,7 @@ fun WiiUGameGrid(
                                 Box(
                                     modifier = Modifier
                                         .size(slot)
-                                        .zIndex(if (isFocused) 1f else 0f),
+                                        .zIndex(if (isFocused || (game != null && game.path == selectedGamePath)) 1f else 0f),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (game == null) {
@@ -189,9 +193,14 @@ fun WiiUGameGrid(
                                     GameTile(
                                         game = game,
                                         tileSize = tileSize,
+                                        isSelected = game.path == selectedGamePath,
                                         requestFocus = pendingFocus == index,
                                         onFocusRequested = { pendingFocus = null },
-                                        onFocusChanged = { isFocused = it },
+                                        onFocusChanged = {
+                                            isFocused = it
+                                            if (it) onGameSelected(game)
+                                        },
+                                        onTap = { onGameTapped(game) },
                                         onStart = { startGame(game) },
                                         onPreviousPage = if (column == 0) {
                                             { goToPage(page - 1, index - pageSize + columns - 1) }
@@ -241,9 +250,11 @@ fun WiiUGameGrid(
 private fun GameTile(
     game: Game,
     tileSize: Dp,
+    isSelected: Boolean,
     requestFocus: Boolean,
     onFocusRequested: () -> Unit,
     onFocusChanged: (Boolean) -> Unit,
+    onTap: () -> Unit,
     onStart: () -> Unit,
     onPreviousPage: (() -> Unit)?,
     onNextPage: (() -> Unit)?,
@@ -254,8 +265,9 @@ private fun GameTile(
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val isHighlighted = isFocused || isSelected
     val focusRequester = remember { FocusRequester() }
-    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "tileScale")
+    val scale by animateFloatAsState(if (isHighlighted) 1.08f else 1f, label = "tileScale")
 
     LaunchedEffect(isFocused) { onFocusChanged(isFocused) }
     LaunchedEffect(requestFocus) {
@@ -267,7 +279,7 @@ private fun GameTile(
 
     val frameShape = RoundedCornerShape(tileSize * 0.16f)
     Box(contentAlignment = Alignment.Center) {
-        if (isFocused) {
+        if (isHighlighted) {
             SelectionGlow(tileSize = tileSize * scale, shape = RoundedCornerShape(tileSize * scale * 0.19f))
         }
         Box(
@@ -298,7 +310,7 @@ private fun GameTile(
                 .combinedClickable(
                     interactionSource = interactionSource,
                     indication = null,
-                    onClick = onStart,
+                    onClick = onTap,
                     onLongClick = { menuExpanded = true },
                 )
                 .padding(tileSize * 0.05f),
@@ -343,7 +355,7 @@ private fun GameTile(
             }
             gameMenu(game, menuExpanded) { menuExpanded = false }
         }
-        if (isFocused) {
+        if (isHighlighted) {
             NameBubble(
                 name = game.name ?: "",
                 // sits right above the icon without taking any space in the grid

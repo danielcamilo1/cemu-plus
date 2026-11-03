@@ -97,7 +97,7 @@ fun GameDetailsScreen(game: Game?, navigateBack: () -> Unit) {
     }
 }
 
-private fun getTimePlayed(game: Game): String {
+internal fun getTimePlayed(game: Game): String {
     if (game.minutesPlayed == 0) {
         return tr("Never played")
     }
@@ -115,7 +115,7 @@ private val DateFormatter = DateTimeFormatter.ofLocalizedDate(
     FormatStyle.SHORT
 )
 
-private fun getLastPlayedDate(game: Game): String {
+internal fun getLastPlayedDate(game: Game): String {
     if (game.lastPlayedYear.toInt() == 0) {
         return tr("Never played")
     }

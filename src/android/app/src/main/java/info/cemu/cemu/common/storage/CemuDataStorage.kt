@@ -7,8 +7,12 @@ import androidx.documentfile.provider.DocumentFile
 import info.cemu.cemu.common.android.context.internalFolder
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.settings.StorageSettings
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
@@ -48,6 +52,11 @@ object CemuDataStorage {
     @Volatile
     private var activeRootPath: String? = null
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var startupSyncJob: Job? = null
+
     fun setActiveRoot(root: File) {
         activeRootPath = root.absolutePath
     }
@@ -78,7 +87,7 @@ object CemuDataStorage {
     fun saveRoot(root: File): File = root.resolve(SAVE_RELATIVE_PATH)
 
     suspend fun prepareActiveRoot(context: Context): File = withContext(Dispatchers.IO) {
-        var storageSettings = AppSettingsStore.dataStore.data.first().storageSettings
+        val storageSettings = AppSettingsStore.dataStore.data.first().storageSettings
         val customRootUri = storageSettings.customRootUri
         if (customRootUri.isNullOrBlank()) {
             return@withContext resolveCurrentRoot(context, storageSettings)
@@ -104,20 +113,30 @@ object CemuDataStorage {
                     )
                 )
             }
-            storageSettings = storageSettings.copy(
-                mirrorRootPath = mirrorRoot.absolutePath,
-                isSaveMirrorDirty = migratedDirty,
-            )
         }
 
+        // syncing with the custom root copies every save through SAF, which takes a while, so it runs in the background
+        // and the app opens right away. Games wait for it before they start
+        startupSyncJob = scope.launch { syncWithCustomRootOnStartup(context.applicationContext) }
+
+        mirrorRoot
+    }
+
+    suspend fun awaitStartupSync() {
+        startupSyncJob?.join()
+    }
+
+    private suspend fun syncWithCustomRootOnStartup(context: Context) {
+        val storageSettings = AppSettingsStore.dataStore.data.first().storageSettings
+        val customRootUri = storageSettings.customRootUri ?: return
         val documentRoot = documentRootOrNull(context, customRootUri)
         if (documentRoot == null) {
             setLastStorageError("Custom root is not available. Cemu is using the local mirror until SAF access returns.")
-            return@withContext mirrorRoot
+            return
         }
-        cleanupDocumentScratchDirectories(documentRoot)
 
         runCatching {
+            cleanupDocumentScratchDirectories(documentRoot)
             if (storageSettings.isSaveMirrorDirty) {
                 syncSavesToCustomRoot(context, force = true)
             } else {
@@ -128,8 +147,6 @@ object CemuDataStorage {
                 throwable.message ?: "Save sync failed. Cemu is using the local mirror."
             )
         }
-
-        mirrorRoot
     }
 
     suspend fun migrateToCustomRoot(
@@ -237,6 +254,18 @@ object CemuDataStorage {
                     )
                 )
             }
+        }
+    }
+
+    suspend fun markSavesClean(context: Context) = withContext(Dispatchers.IO) {
+        AppSettingsStore.dataStore.updateData {
+            it.copy(
+                storageSettings = it.storageSettings.copy(
+                    isSaveMirrorDirty = false,
+                    lastSaveSyncAtMillis = System.currentTimeMillis(),
+                    lastStorageError = null,
+                )
+            )
         }
     }
 

@@ -460,6 +460,7 @@ class EmulationViewModel(
         }
 
         emulationInitializationJob = viewModelScope.launch {
+            EmulationSessionState.awaitSavesReady()
             prepareTitle()
                 .bind { initializeSystems() }
                 .bind { initializeRenderer() }

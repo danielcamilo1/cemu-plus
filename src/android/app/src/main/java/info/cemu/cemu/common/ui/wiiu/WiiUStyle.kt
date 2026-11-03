@@ -1,4 +1,4 @@
-package info.cemu.cemu.setupwizard
+package info.cemu.cemu.common.ui.wiiu
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
@@ -309,8 +309,14 @@ internal fun WiiUSwitchRow(
     modifier: Modifier = Modifier,
     description: String? = null,
     @DrawableRes icon: Int? = null,
+    enabled: Boolean = true,
 ) {
-    WiiUCard(modifier = modifier.fillMaxWidth(), onClick = { onCheckedChange(!checked) }) {
+    WiiUCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.5f),
+        onClick = if (enabled) ({ onCheckedChange(!checked) }) else null,
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
                 WiiURowIcon(icon)
@@ -343,12 +349,13 @@ internal fun WiiUSwitchRow(
 
 // a pill that is lit cyan with a check mark when picked
 @Composable
-internal fun WiiUChip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun WiiUChip(label: String, selected: Boolean, onClick: () -> Unit, enabled: Boolean = true) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val background by animateColorAsState(if (selected) WiiUColors.Accent else Color.White, label = "chip")
     Row(
         modifier = Modifier
+            .alpha(if (enabled) 1f else 0.5f)
             .heightIn(min = 40.dp)
             .clip(PillShape)
             .background(background)
@@ -365,6 +372,7 @@ internal fun WiiUChip(label: String, selected: Boolean, onClick: () -> Unit) {
                 interactionSource = interactionSource,
                 indication = ripple(color = if (selected) Color.White else WiiUColors.Accent),
                 role = Role.Checkbox,
+                enabled = enabled,
                 onClick = onClick,
             )
             .padding(horizontal = 14.dp, vertical = 8.dp),

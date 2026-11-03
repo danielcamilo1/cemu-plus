@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Bundle
+import android.os.Process
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.WindowManager
@@ -36,7 +37,7 @@ import info.cemu.cemu.nativeinterface.NativeEmulation
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlin.system.exitProcess
+import kotlin.concurrent.thread
 
 private class InputDelegateManager(context: Context) {
     private val nativeInputDeviceListener = NativeInputDeviceListener(context)
@@ -77,6 +78,7 @@ private class InputDelegateManager(context: Context) {
 class EmulationActivity : AppCompatActivity() {
     private lateinit var inputManager: InputDelegateManager
     private var processInputEvents = true
+    private var isQuitting = false
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         // the controller settings opened from the game listen for input like in the main activity
@@ -231,9 +233,20 @@ class EmulationActivity : AppCompatActivity() {
     }
 
     private fun onQuit() {
-        EmulationSessionState.syncSavesToCustomRoot(this)
-        finish()
-        exitProcess(0)
+        if (isQuitting) {
+            return
+        }
+        isQuitting = true
+        // saving to a custom data folder can take a moment, off the main thread the app keeps responding meanwhile
+        thread(name = "EmulationQuit") {
+            EmulationSessionState.syncSavesToCustomRoot(this)
+            runOnUiThread {
+                finish()
+                // ends the process right away: a normal exit runs the emulator's global destructors while its threads
+                // are still running, which can hang the app
+                Process.killProcess(Process.myPid())
+            }
+        }
     }
 
     companion object {

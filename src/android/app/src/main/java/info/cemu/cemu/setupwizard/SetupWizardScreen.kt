@@ -52,6 +52,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import info.cemu.cemu.R
 import info.cemu.cemu.common.settings.AppSettingsStore
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.common.ui.wiiu.WiiUBackground
+import info.cemu.cemu.common.ui.wiiu.WiiUBar
+import info.cemu.cemu.common.ui.wiiu.WiiUButton
+import info.cemu.cemu.common.ui.wiiu.WiiUColors
+import info.cemu.cemu.common.ui.wiiu.WiiUHeroIcon
+import info.cemu.cemu.common.ui.wiiu.WiiUStepIndicator
+import info.cemu.cemu.common.ui.wiiu.WiiUTheme
 import info.cemu.cemu.nativeinterface.NativeFrameGen
 import info.cemu.cemu.nativeinterface.NativeFrameGen.LosslessDllStatus
 import info.cemu.cemu.nativeinterface.NativeInput
