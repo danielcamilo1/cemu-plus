@@ -19,6 +19,28 @@ generation, pause, the quick menu and settings.
 
 <img src="docs/images/toolbar-fills-black-bars.jpg" alt="Black bars on the GamePad screen replaced by the Cemu Plus toolbar" width="720">
 
+### GamePad screen crop, per game
+
+For games that keep their important information away from the edges, cut the borders of the GamePad image so
+it fills the whole second screen with no black bars. It is set per game in the game settings, with a live
+preview, and can also be changed from the in-game quick menu.
+
+<img src="docs/images/gamepad-screen-crop.jpg" alt="The GamePad image with black bars next to the same image cropped to fill the second screen" width="720">
+
+### Frame generation
+
+Lossless Scaling frame generation in Cemu's Vulkan renderer: 2x, 3x or 4x, or a 60/90/120 FPS target, changed
+in game from the quick menu or the toolbar.
+
+<img src="docs/images/frame-generation.jpg" alt="The frame generation settings in the quick menu during a game" width="480">
+
+### Game settings on the second screen
+
+Pick a game in the Wii U style library and its settings show on the second screen, ready to change with touch
+before you start it.
+
+<img src="docs/images/game-settings-second-screen.jpg" alt="The game library on the main screen and the picked game's settings on the second screen" width="480">
+
 ### First time setup wizard
 
 A Wii U style setup that walks you through picking your games folder, setting up controls (the GamePad goes to
@@ -26,12 +48,6 @@ the second screen automatically, and every button can be mapped in one tap), fra
 Every step can be skipped and opened again later from Settings.
 
 <img src="docs/images/setup-wizard.jpg" alt="The Cemu Plus setup wizard welcome screen" width="480">
-
-### A nicer home screen
-
-Bigger, better looking game icons in a clean grid, with search.
-
-<img src="docs/images/home-game-icons.jpg" alt="The Cemu Plus home screen with the game icon grid" width="480">
 
 ## Features
 
