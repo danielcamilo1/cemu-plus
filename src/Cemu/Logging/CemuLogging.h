@@ -77,6 +77,7 @@ inline bool cemuLog_isLoggingEnabled(LogType type)
 bool cemuLog_log(LogType type, std::string_view text);
 bool cemuLog_log(LogType type, std::u8string_view text);
 void cemuLog_waitForFlush(); // wait until all log lines are written
+void cemuLog_waitForFlush(std::chrono::milliseconds timeout); // same, but gives up after the timeout
 
 template<typename... TArgs>
 bool cemuLog_log(LogType type, fmt::format_string<TArgs...> formatStr, TArgs&&... args)

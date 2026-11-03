@@ -15,6 +15,10 @@
 
 #if BOOST_PLAT_ANDROID
 #include <boost/stacktrace.hpp>
+#include <dlfcn.h>
+
+// the handlers that were installed before ours (Android's debuggerd), so a crash still produces a tombstone
+static struct sigaction s_previousActions[NSIG];
 #endif
 
 #if BOOST_OS_LINUX && !BOOST_PLAT_ANDROID
@@ -93,6 +97,19 @@ void handlerDumpingSignal(int sig, siginfo_t *info, void *context)
 	}
     CrashLog_WriteLine(fmt::format("Error: signal {}:", sig));
 #if BOOST_PLAT_ANDROID
+    {
+        // the address of the faulting instruction, as library + offset when it's inside a library
+#if defined(__aarch64__)
+        uint64 pc = ((ucontext_t*)context)->uc_mcontext.pc;
+#else
+        uint64 pc = ((ucontext_t*)context)->uc_mcontext.gregs[REG_RIP];
+#endif
+        Dl_info dlInfo{};
+        std::string location = "outside of any library (recompiled code?)";
+        if (dladdr((void*)pc, &dlInfo) && dlInfo.dli_fname)
+            location = fmt::format("{} + 0x{:x}", dlInfo.dli_fname, pc - (uint64)dlInfo.dli_fbase);
+        CrashLog_WriteLine(fmt::format("PC 0x{:016x} ({}), fault address 0x{:016x}, code {}", pc, location, (uint64)info->si_addr, info->si_code));
+    }
     CrashLog_WriteLine(to_string(boost::stacktrace::stacktrace()));
 #else
 	void* backtraceArray[128];
@@ -125,6 +142,19 @@ void handlerDumpingSignal(int sig, siginfo_t *info, void *context)
 
     std::cerr << fmt::format("\nStacktrace and additional info written to:") << std::endl;
     std::cerr << cemuLog_GetLogFilePath().generic_string() << std::endl;
+
+#if BOOST_PLAT_ANDROID
+    // log.txt can't be opened by the user on Android, so the game and PPC info goes to logcat too
+    ExceptionHandler_LogGeneralInfo();
+    // the log is written by a background thread, let it finish before the process ends
+    cemuLog_waitForFlush(std::chrono::milliseconds(500));
+    // hand the signal to Android's handler, which writes a tombstone with the native backtrace
+    sigaction(sig, &s_previousActions[sig], nullptr);
+    if (info->si_code <= 0)
+        raise(sig); // sent by abort() or kill, it has to be sent again
+    // a fault happens again when the faulting instruction runs again, this time handled by Android
+    return;
+#endif
 
     CrashLog_SetOutputChannels(false, true);
     ExceptionHandler_LogGeneralInfo();
@@ -166,13 +196,12 @@ void ExceptionHandler_Init()
     action.sa_flags = SA_SIGINFO;
     action.sa_handler = nullptr;
 	action.sa_sigaction = handlerDumpingSignal;
-	sigaction(SIGABRT, &action, nullptr);
-	sigaction(SIGBUS, &action, nullptr);
-	sigaction(SIGFPE, &action, nullptr);
-	sigaction(SIGILL, &action, nullptr);
-	sigaction(SIGIOT, &action, nullptr);
-	sigaction(SIGQUIT, &action, nullptr);
-	sigaction(SIGSEGV, &action, nullptr);
-	sigaction(SIGSYS, &action, nullptr);
-	sigaction(SIGTRAP, &action, nullptr);
+	for (int sig : {SIGABRT, SIGBUS, SIGFPE, SIGILL, SIGIOT, SIGQUIT, SIGSEGV, SIGSYS, SIGTRAP})
+	{
+#if BOOST_PLAT_ANDROID
+		sigaction(sig, &action, &s_previousActions[sig]);
+#else
+		sigaction(sig, &action, nullptr);
+#endif
+	}
 }

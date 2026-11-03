@@ -74,7 +74,7 @@ target_link_libraries(CemuCommon PRIVATE
 )
 
 if(ANDROID)
-  target_link_libraries(CemuCommon PRIVATE Boost::iostreams)
+  target_link_libraries(CemuCommon PRIVATE Boost::iostreams log)
 endif()
 
 if (UNIX AND NOT APPLE AND NOT ANDROID)

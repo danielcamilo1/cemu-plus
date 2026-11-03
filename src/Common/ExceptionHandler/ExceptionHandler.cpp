@@ -6,6 +6,10 @@
 #include "Cafe/HW/Espresso/Debugger/GDBStub.h"
 #include "ExceptionHandler.h"
 
+#if BOOST_PLAT_ANDROID
+#include <android/log.h>
+#endif
+
 bool crashLogCreated = false;
 
 bool CrashLog_Create()
@@ -27,6 +31,33 @@ void CrashLog_SetOutputChannels(bool writeToStdErr, bool writeToLogTxt)
     s_writeToLogTxt = writeToLogTxt;
 }
 
+#if BOOST_PLAT_ANDROID
+// stderr isn't shown anywhere on Android, so the crash log goes to logcat instead, one line at a time
+static std::string s_logcatLine;
+
+static void CrashLog_WriteToLogcat(std::string_view text, bool newLine)
+{
+    s_logcatLine.append(text);
+    if (!newLine)
+        return;
+    std::string_view remaining = s_logcatLine;
+    while (true)
+    {
+        size_t lineEnd = remaining.find('\n');
+        std::string line{remaining.substr(0, lineEnd)};
+        if (lineEnd == std::string_view::npos)
+        {
+            if (!line.empty())
+                __android_log_write(ANDROID_LOG_ERROR, "Cemu", line.c_str());
+            break;
+        }
+        __android_log_write(ANDROID_LOG_ERROR, "Cemu", line.c_str());
+        remaining.remove_prefix(lineEnd + 1);
+    }
+    s_logcatLine.clear();
+}
+#endif
+
 // outputs to both stderr and log.txt
 void CrashLog_WriteLine(std::string_view text, bool newLine)
 {
@@ -34,9 +65,13 @@ void CrashLog_WriteLine(std::string_view text, bool newLine)
         cemuLog_writeLineToLog(text, false, newLine);
     if(s_writeToStdErr)
     {
+#if BOOST_PLAT_ANDROID
+        CrashLog_WriteToLogcat(text, newLine);
+#else
         fwrite(text.data(), sizeof(char), text.size(), stderr);
         if(newLine)
             fwrite("\n", sizeof(char), 1, stderr);
+#endif
     }
 }
 
