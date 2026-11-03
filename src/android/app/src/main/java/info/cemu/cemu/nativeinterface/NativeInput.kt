@@ -240,6 +240,10 @@ object NativeInput {
     @JvmStatic
     external fun setDeviceMotionEnabled(motionEnabled: Boolean)
 
+    // applies to the motion of the device and of every controller
+    @JvmStatic
+    external fun setMotionInverted(invertX: Boolean, invertY: Boolean)
+
     @JvmStatic
     external fun setDeviceRumble(rumble: Float)
 

@@ -23,6 +23,9 @@ data class EmulationSettings(
     // the second screen gets turned on once the first time one is detected, after that it is up to the user
     val isSecondScreenDefaultApplied: Boolean = false,
     val isMotionEnabled: Boolean = false,
+    // for every motion source, X turns the GamePad left and right and Y tilts it up and down
+    val isMotionXInverted: Boolean = false,
+    val isMotionYInverted: Boolean = false,
 )
 
 enum class GameListLayout {

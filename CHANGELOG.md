@@ -4,6 +4,12 @@ What changed in each Cemu Plus release. The release page of each version shows i
 
 ## 0.3.6-beta.1 - 2026-11-03
 
+### Motion controls
+- **Invert motion X axis** and **Invert motion Y axis** flip turning left and right, and tilting up and down. They work for the motion of the device and of controllers, and can be found in **Input settings** and in the quick menu under Controls
+
+### Quick menu
+- A new **Input** section opens the input settings, or the settings of each controller in use, without leaving the game
+
 ### Fixes
 - Star Fox Zero no longer crashes when shots hit the ships in the tutorial. The game uses 64-bit values that the emulator handled with ARM64 instructions that need a stricter memory alignment than the Wii U does
 

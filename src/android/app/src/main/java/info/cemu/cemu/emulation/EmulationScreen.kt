@@ -78,8 +78,10 @@ import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.D
 import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_POSITION
 import info.cemu.cemu.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_SIZE
 import info.cemu.cemu.nativeinterface.NativeEmulation
+import info.cemu.cemu.nativeinterface.NativeInput
 import info.cemu.cemu.settings.SettingsRoute
-import info.cemu.cemu.settings.navigateToFrameGenSettings
+import info.cemu.cemu.settings.SettingsStartScreen
+import info.cemu.cemu.settings.navigateToStartScreen
 import info.cemu.cemu.settings.settingsNavigation
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -148,6 +150,10 @@ fun EmulationScreen(
         setMotionSensorEnabled(sideMenuState.isMotionEnabled)
     }
 
+    LaunchedEffect(sideMenuState.isMotionXInverted, sideMenuState.isMotionYInverted) {
+        NativeInput.setMotionInverted(sideMenuState.isMotionXInverted, sideMenuState.isMotionYInverted)
+    }
+
     LaunchedEffect(Unit) {
         viewModel.menuRequests.collect {
             if (!drawerState.isAnimationRunning) {
@@ -191,6 +197,14 @@ fun EmulationScreen(
                     onQuit = {
                         showQuitConfirmationDialog = true
                         closeDrawer()
+                    },
+                    onOpenInputSettings = {
+                        closeDrawer()
+                        viewModel.openSettings(SettingsStartScreen.Input)
+                    },
+                    onOpenControllerSettings = { controllerIndex ->
+                        closeDrawer()
+                        viewModel.openSettings(SettingsStartScreen.Controller(controllerIndex))
                     },
                     onShowEmulatedUSBDevices = {
                         showEmulatedUSBDevices = true
@@ -246,10 +260,10 @@ fun EmulationScreen(
 
     if (isSettingsOpen) {
         val panelBounds = remember { viewModel.getPanelBounds() }
-        val startAtFrameGen = remember { viewModel.settingsStartAtFrameGen.value }
+        val startScreen = remember { viewModel.settingsStartScreen.value }
         EmulationSettings(
             panelBounds = panelBounds,
-            startAtFrameGen = startAtFrameGen,
+            startScreen = startScreen,
             onClose = viewModel::closeSettings,
         )
     }
@@ -338,7 +352,7 @@ private const val MIN_SETTINGS_AREA = 0.35f
 // the emulator settings on top of the paused game, opened from the panel overlay. The panel stays visible
 // next to them so its settings button can close them again
 @Composable
-private fun EmulationSettings(panelBounds: Rect?, startAtFrameGen: Boolean, onClose: () -> Unit) {
+private fun EmulationSettings(panelBounds: Rect?, startScreen: SettingsStartScreen, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screen = Rect(0f, 0f, constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
@@ -358,9 +372,7 @@ private fun EmulationSettings(panelBounds: Rect?, startAtFrameGen: Boolean, onCl
             ) {
                 settingsNavigation(navController, onExit = onClose)
             }
-            if (startAtFrameGen) {
-                LaunchedEffect(Unit) { navController.navigateToFrameGenSettings() }
-            }
+            LaunchedEffect(Unit) { navController.navigateToStartScreen(startScreen) }
         }
     }
 }

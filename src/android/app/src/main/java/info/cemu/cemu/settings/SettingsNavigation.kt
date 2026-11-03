@@ -91,8 +91,27 @@ private object SettingsRoutes {
     object AccountSettingsScreenRoute
 }
 
-// used by the frame generation setup dialog of a running game, the settings graph must already be set
-fun NavHostController.navigateToFrameGenSettings() = navigate(SettingsRoutes.FrameGenSettingsScreenRoute)
+// the screen the settings opened from a running game start at, frame generation for its setup dialog and the
+// input screens for the shortcuts of the quick menu
+sealed interface SettingsStartScreen {
+    object Home : SettingsStartScreen
+    object FrameGen : SettingsStartScreen
+    object Input : SettingsStartScreen
+    data class Controller(val index: Int) : SettingsStartScreen
+}
+
+// the settings graph must already be set. Going back from a controller leads to the input settings
+fun NavHostController.navigateToStartScreen(startScreen: SettingsStartScreen) {
+    when (startScreen) {
+        SettingsStartScreen.Home -> {}
+        SettingsStartScreen.FrameGen -> navigate(SettingsRoutes.FrameGenSettingsScreenRoute)
+        SettingsStartScreen.Input -> navigate(SettingsRoutes.InputSettingsRoute)
+        is SettingsStartScreen.Controller -> {
+            navigate(SettingsRoutes.InputSettingsRoute)
+            navigate(SettingsRoutes.ControllerInputSettingsScreenRoute(startScreen.index))
+        }
+    }
+}
 
 // onExit replaces going back from the settings home screen, used when the settings are opened from a running game.
 // goToSetupWizard is null where the wizard can not be opened, like in game

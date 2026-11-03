@@ -28,6 +28,7 @@ import info.cemu.cemu.nativeinterface.NativeEmulation.PrepareTitleResult
 import info.cemu.cemu.nativeinterface.NativeException
 import info.cemu.cemu.nativeinterface.NativeFrameGen
 import info.cemu.cemu.nativeinterface.NativeSettings
+import info.cemu.cemu.settings.SettingsStartScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,6 +46,8 @@ import kotlinx.coroutines.launch
 
 data class SideMenuState(
     val isMotionEnabled: Boolean = false,
+    val isMotionXInverted: Boolean = false,
+    val isMotionYInverted: Boolean = false,
     val isTVReplacedWithPad: Boolean = false,
     val isPadVisible: Boolean = false,
     val isPadOnExternalDisplay: Boolean = false,
@@ -114,6 +117,8 @@ class EmulationViewModel(
             _sideMenuState.update {
                 it.copy(
                     isMotionEnabled = settings.emulationSettings.isMotionEnabled,
+                    isMotionXInverted = settings.emulationSettings.isMotionXInverted,
+                    isMotionYInverted = settings.emulationSettings.isMotionYInverted,
                     isInputOverlayVisible = settings.inputOverlaySettings.isOverlayEnabled,
                 )
             }
@@ -128,6 +133,8 @@ class EmulationViewModel(
                             isExternalScreenRotatedLeft = emulationSettings.isExternalScreenRotatedLeft,
                             areScreensSwapped = emulationSettings.areScreensSwapped,
                             isMotionEnabled = emulationSettings.isMotionEnabled,
+                            isMotionXInverted = emulationSettings.isMotionXInverted,
+                            isMotionYInverted = emulationSettings.isMotionYInverted,
                         )
                     }
                 }
@@ -170,7 +177,9 @@ class EmulationViewModel(
             oldState.isPadOnExternalDisplay != sideMenuState.isPadOnExternalDisplay ||
             oldState.isExternalScreenRotatedLeft != sideMenuState.isExternalScreenRotatedLeft ||
             oldState.areScreensSwapped != sideMenuState.areScreensSwapped ||
-            oldState.isMotionEnabled != sideMenuState.isMotionEnabled
+            oldState.isMotionEnabled != sideMenuState.isMotionEnabled ||
+            oldState.isMotionXInverted != sideMenuState.isMotionXInverted ||
+            oldState.isMotionYInverted != sideMenuState.isMotionYInverted
         ) {
             viewModelScope.launch {
                 dataStore.updateData {
@@ -181,6 +190,8 @@ class EmulationViewModel(
                             isExternalScreenRotatedLeft = sideMenuState.isExternalScreenRotatedLeft,
                             areScreensSwapped = sideMenuState.areScreensSwapped,
                             isMotionEnabled = sideMenuState.isMotionEnabled,
+                            isMotionXInverted = sideMenuState.isMotionXInverted,
+                            isMotionYInverted = sideMenuState.isMotionYInverted,
                         )
                     )
                 }
@@ -205,9 +216,10 @@ class EmulationViewModel(
     private val _isSettingsOpen = MutableStateFlow(false)
     val isSettingsOpen = _isSettingsOpen.asStateFlow()
 
-    // the settings opened from the frame generation setup dialog start at the frame generation screen
-    private val _settingsStartAtFrameGen = MutableStateFlow(false)
-    val settingsStartAtFrameGen = _settingsStartAtFrameGen.asStateFlow()
+    // the settings opened from the frame generation setup dialog start at the frame generation screen, and the
+    // input shortcuts of the quick menu at the input screens
+    private val _settingsStartScreen = MutableStateFlow<SettingsStartScreen>(SettingsStartScreen.Home)
+    val settingsStartScreen = _settingsStartScreen.asStateFlow()
 
     // shown when a frame generation button of the panel is tapped before Lossless.dll is added
     private val _isFrameGenSetupDialogVisible = MutableStateFlow(false)
@@ -219,7 +231,7 @@ class EmulationViewModel(
 
     fun openFrameGenSettings() {
         _isFrameGenSetupDialogVisible.value = false
-        openSettings(startAtFrameGen = true)
+        openSettings(SettingsStartScreen.FrameGen)
     }
 
     private var pauseJob: Job? = null
@@ -243,11 +255,11 @@ class EmulationViewModel(
         }
     }
 
-    fun openSettings(startAtFrameGen: Boolean = false) {
+    fun openSettings(startScreen: SettingsStartScreen = SettingsStartScreen.Home) {
         if (_isSettingsOpen.value) {
             return
         }
-        _settingsStartAtFrameGen.value = startAtFrameGen
+        _settingsStartScreen.value = startScreen
         pausedForSettings = !_isPaused.value
         // set before pausing so the panel gets drawn with the close button
         NativeEmulation.setOverlaySettingsOpen(true)
