@@ -240,7 +240,7 @@ fun GamesListScreen(
                 GameListLayout.GRID -> WiiUGameGrid(
                     games = games,
                     gridSize = gridSize ?: DEFAULT_GAME_GRID_SIZE,
-                    selectedGamePath = selectedGamePath,
+                    selectedGamePath = if (showsSettingsOnSecondScreen) selectedGamePath else null,
                     onGameSelected = { selectedGamePath = it.path },
                     onGameTapped = onGameTapped,
                     startGame = startGame,
