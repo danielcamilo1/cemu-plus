@@ -61,8 +61,8 @@ import info.cemu.cemu.common.ui.wiiu.WiiURowIcon
 import info.cemu.cemu.common.ui.wiiu.WiiUSectionTitle
 import info.cemu.cemu.common.ui.wiiu.WiiUSwitchRow
 import info.cemu.cemu.common.ui.wiiu.WiiUTheme
-import info.cemu.cemu.games.getLastPlayedDate
-import info.cemu.cemu.games.getTimePlayed
+import info.cemu.cemu.games.details.getLastPlayedDate
+import info.cemu.cemu.games.details.getTimePlayed
 import info.cemu.cemu.nativeinterface.NativeEmulation
 import info.cemu.cemu.nativeinterface.NativeGameTitles
 import info.cemu.cemu.nativeinterface.NativeGameTitles.DriverSettingMode
