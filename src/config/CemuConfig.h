@@ -517,6 +517,7 @@ struct CemuConfig
 		OverlayPlacement placement = OverlayPlacement::kBlackBars;
 		OverlayStyle style = OverlayStyle::kGamePad;
 		OverlayTheme theme = OverlayTheme::kBlack;
+		bool hidden = false; // the panel over gameplay is hidden into a small bubble, a panel in a black bar is always shown
 		uint32 text_color = 0xFFFFFFFF;
 		sint32 text_scale = 100;
 		bool fps = true;

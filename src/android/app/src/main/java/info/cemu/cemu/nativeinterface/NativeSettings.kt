@@ -172,6 +172,13 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayTheme(value: Int)
 
+    // the toolbar drawn over gameplay is hidden into a small bubble, it is always shown in a black bar
+    @JvmStatic
+    external fun isOverlayHidden(): Boolean
+
+    @JvmStatic
+    external fun setOverlayHidden(hidden: Boolean)
+
     object PadScreenAlignment {
         const val CENTER: Int = 0
         const val TOP: Int = 1

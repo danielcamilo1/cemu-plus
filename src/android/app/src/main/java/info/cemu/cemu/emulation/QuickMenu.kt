@@ -213,6 +213,7 @@ fun QuickMenuContent(
         QuickMenuToggle(
             label = tr("Swap screens"),
             checked = sideMenuState.areScreensSwapped,
+            enabled = sideMenuState.isPadOnExternalDisplay || sideMenuState.isPadVisible,
             onCheckedChange = { updateState(sideMenuState.copy(areScreensSwapped = it)) },
         )
         // with a second screen the GamePad always goes there, this splits a single screen

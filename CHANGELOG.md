@@ -2,6 +2,17 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.3.3 - 2026-11-03
+
+### Swap screens
+- **Swap screens** in the setup wizard and in **Screen layout**, for devices where the second screen is found the other way around, like the Dual Screen add-on of the Retroid Pocket Mini. It puts the GamePad on the main screen and the TV image on the second screen
+- The choice is remembered, including when it is changed from the quick menu
+- Fix: the toolbar buttons work with swapped screens when the toolbar fills the black bar
+
+### Toolbar over the game
+- When the toolbar is drawn over the game instead of in a black bar, it has a hide button in its top right corner
+- A hidden toolbar becomes a small bubble with the frame rate in the same corner. Tap the bubble to bring the toolbar back. The choice is remembered
+
 ## 0.3.2 - 2026-11-02
 
 ### Wii U style quick menu

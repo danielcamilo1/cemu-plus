@@ -927,6 +927,7 @@ struct PanelLayout
 	sint32 cols{}, rows{};
 	float tileW{}, tileH{}, gap{}, pad{};
 	float headerH{}; // header row with the power LED, holds the shader status
+	float hideH{}; // top row of the panel over gameplay with the button that hides it
 	float statusH{}; // separate shader status row when there is no header
 	ImVec2 size{};
 };
@@ -935,7 +936,7 @@ static void LatteOverlay_updatePanelSize(PanelLayout& l)
 {
 	const float gridH = l.rows > 0 ? (float)l.rows * l.tileH + (float)(l.rows - 1) * l.gap : 0.0f;
 	l.size.x = 2.0f * l.pad + (float)l.cols * l.tileW + (float)(l.cols - 1) * l.gap;
-	l.size.y = 2.0f * l.pad + l.headerH + gridH + l.statusH;
+	l.size.y = 2.0f * l.pad + l.hideH + l.headerH + gridH + l.statusH;
 }
 
 static PanelLayout LatteOverlay_measurePanel(float f, sint32 tileCount, sint32 cols, bool header, bool statusRow)
@@ -1416,6 +1417,28 @@ static void LatteOverlay_drawPanel(const PanelLayout& l, ImVec2 pmin, const std:
 	const float x1 = pmax.x - l.pad;
 	float y = pmin.y + l.pad;
 
+	if (l.hideH > 0.0f)
+	{
+		// the speaker grille of the GamePad on the left, the hide button on the right. The button is small to look at,
+		// its touch area takes the whole corner so it is easy to hit
+		const float cy = y + l.hideH * 0.5f - l.pad * 0.25f;
+		const float r = f * 0.62f;
+		const ImVec2 c{ x1 - r, cy };
+		const bool pressed = g_pressed_action.load() == (sint32)OverlayAction::kHide;
+		dl->AddCircleFilled(c, r, pressed ? s_panel->keyPressed : s_panel->key);
+		dl->AddCircle(c, r, pressed ? s_panel->accent : s_panel->tileBorder, 0, pressed ? std::max(1.5f, f * 0.08f) : 1.0f);
+		const float bar = r * 0.48f;
+		dl->AddLine({ c.x - bar, c.y }, { c.x + bar, c.y }, s_panel->keyIcon, std::max(1.5f, f * 0.12f));
+		buttons.push_back(OverlayButton{ OverlayAction::kHide, { x1 - f * 3.4f, pmin.y }, { pmax.x, y + l.hideH } });
+
+		const float dot = f * 0.07f;
+		const float spacing = f * 0.26f;
+		for (sint32 row = 0; row < 2; ++row)
+			for (sint32 col = 0; col < 7; ++col)
+				dl->AddCircleFilled({ x0 + dot + (float)col * spacing, cy + ((float)row - 0.5f) * spacing }, dot, s_panel->grille);
+		y += l.hideH;
+	}
+
 	bool volumeSlider = false;
 	float volumeMinX = 0.0f, volumeCy = 0.0f;
 	const float sliderW = f * 5.6f;
@@ -1536,8 +1559,53 @@ enum class OverlayBar
 	kPillarbox, // bars left and right of the image
 };
 
+// the panel over gameplay when it is hidden: a small bubble with the frame rate where the panel was, tapping it brings
+// the panel back. Leaving a bubble instead of nothing keeps the way back to the panel and its buttons visible
+static bool LatteOverlay_renderHiddenPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
+{
+	const float f = std::floor(fontSize);
+	const float textSize = std::floor(f * 1.1f);
+	ImFont* font = ImGui_GetFont(textSize);
+	if (!font)
+		return false;
+
+	std::string fps;
+	if (GetConfig().overlay.fps)
+		fps = fmt::format("{:.0f}", g_state.frame_gen_active ? g_state.presented_fps : g_state.fps);
+	const float h = f * 2.4f;
+	const float pad = f * 0.7f;
+	const float iconW = font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, kIconTachometer).x;
+	const float fpsW = fps.empty() ? 0.0f : font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, fps.c_str()).x + f * 0.4f;
+	const float w = std::max(h, iconW + fpsW + 2.0f * pad);
+	const ImVec2 pmin{ position.x - w * pivot.x, position.y - h * pivot.y };
+	const ImVec2 pmax{ pmin.x + w, pmin.y + h };
+
+	ImDrawList* dl = ImGui::GetForegroundDrawList();
+	const bool pressed = g_pressed_action.load() == (sint32)OverlayAction::kHide;
+	const float rounding = h * 0.5f;
+	const float rim = std::max(1.5f, f * 0.08f);
+	dl->AddRectFilled({ pmin.x, pmin.y + f * 0.15f }, { pmax.x, pmax.y + f * 0.3f }, s_panel->shadow, rounding);
+	dl->AddRectFilled(pmin, pmax, pressed ? s_panel->keyPressed : s_panel->body, rounding);
+	dl->AddRect(pmin, pmax, pressed ? s_panel->accent : s_panel->rim, rounding, 0, rim);
+	const float x = pmin.x + (w - iconW - fpsW) * 0.5f;
+	const float ty = pmin.y + (h - textSize) * 0.5f;
+	dl->AddText(font, textSize, { x, ty }, s_panel->accent, kIconTachometer);
+	if (!fps.empty())
+	{
+		const uint32 textColor = GetConfig().overlay.text_color;
+		dl->AddText(font, textSize, { x + iconW + f * 0.4f, ty }, textColor == 0xFFFFFFFF ? s_panel->text : textColor, fps.c_str());
+	}
+
+	// a little bigger to touch than it looks
+	const float grow = f * 0.4f;
+	buttons.push_back(OverlayButton{ OverlayAction::kHide, { pmin.x - grow, pmin.y - grow }, { pmax.x + grow, pmax.y + grow } });
+	panelRect = { pmin.x, pmin.y, pmax.x, pmax.y };
+	position.y += (h + 10.0f) * (float)direction;
+	return false;
+}
+
 // renders the stats as a GamePad styled panel. When a black bar was found the panel fills all of it, otherwise a
-// compact panel is drawn over gameplay. Returns true if the panel was placed in the black bar
+// compact panel is drawn over gameplay, which can be hidden. Returns true if the panel was placed in the black bar
 static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint32 direction, float fontSize, const ImVec2& areaMin, const ImVec2& areaSize, OverlayBar bar, std::vector<OverlayButton>& buttons, ImVec4& panelRect)
 {
 	s_panel = GetConfig().overlay.theme == OverlayTheme::kWhite ? &kWhitePanel : &kBlackPanel;
@@ -1588,11 +1656,15 @@ static bool LatteOverlay_renderPanel(ImVec2& position, const ImVec2& pivot, sint
 			pmin = { areaMin.x + margin, areaMin.y + margin };
 		}
 	}
+	if (!inBar && GetConfig().overlay.hidden)
+		return LatteOverlay_renderHiddenPanel(position, pivot, direction, fontSize, buttons, panelRect);
 	if (!inBar)
 	{
-		// compact panel over gameplay
+		// compact panel over gameplay, it can be hidden as it covers the game
 		const sint32 cols = count <= 3 ? std::max(count, 1) : std::min((count + 1) / 2, 4);
 		layout = LatteOverlay_measurePanel(std::floor(fontSize), count, cols, false, statusEnabled);
+		layout.hideH = layout.f * 1.5f;
+		LatteOverlay_updatePanelSize(layout);
 		pmin = { position.x - layout.size.x * pivot.x, position.y - layout.size.y * pivot.y };
 	}
 

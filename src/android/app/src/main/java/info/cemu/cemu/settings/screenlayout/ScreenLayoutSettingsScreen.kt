@@ -265,6 +265,14 @@ fun ScreenLayoutSettingsScreen(
                 applyToolbar(screen = if (it) NativeSettings.OverlayScreen.PAD else NativeSettings.OverlayScreen.TV)
             },
         )
+        if (useSecondScreen) {
+            Toggle(
+                label = tr("Swap screens"),
+                description = tr("The GamePad on this screen and the TV image on the second screen. For devices where the screens are found the other way around"),
+                checked = emulationSettings.areScreensSwapped,
+                onCheckedChanged = viewModel::setScreensSwapped,
+            )
+        }
 
         if (useSecondScreen) {
             SecondScreenLayout(

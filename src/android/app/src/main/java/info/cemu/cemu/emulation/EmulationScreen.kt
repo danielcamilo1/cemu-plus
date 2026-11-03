@@ -156,10 +156,6 @@ fun EmulationScreen(
         }
     }
 
-    LaunchedEffect(sideMenuState.areScreensSwapped) {
-        NativeEmulation.setSwapScreens(sideMenuState.areScreensSwapped)
-    }
-
     LaunchedEffect(sideMenuState.isExternalScreenRotatedLeft) {
         NativeEmulation.setExternalScreenRotatedLeft(sideMenuState.isExternalScreenRotatedLeft)
     }
@@ -431,22 +427,31 @@ private fun EmulationSurfaces(
     val padTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
     val padPresentationTouchListener = remember(viewModel) { CanvasOnTouchListener(viewModel::onOverlayAction) }
 
-    val isMainTargetingTV = !sideMenuState.areScreensSwapped
+    // the swap is remembered, but only used while there is a GamePad screen to swap with
+    val areScreensSwapped = sideMenuState.areScreensSwapped && (usePadPresentation || isPadVisibleEffective)
+    LaunchedEffect(areScreensSwapped) {
+        NativeEmulation.setSwapScreens(areScreensSwapped)
+    }
+
+    val isMainTargetingTV = !areScreensSwapped
     val mainTargetDimensions =
         if (isMainTargetingTV) mainSurfaceDimensions else padSurfaceDimensions
 
-    val isPadTargetingTV = sideMenuState.areScreensSwapped
+    val isPadTargetingTV = areScreensSwapped
     val padTargetDimensions =
         if (isPadTargetingTV) mainSurfaceDimensions else padSurfaceDimensions
 
     val rotatePresentationTouch = usePadPresentation && sideMenuState.isExternalScreenRotatedLeft
 
-    LaunchedEffect(isPadTargetingTV, padTargetDimensions, rotatePresentationTouch) {
+    LaunchedEffect(isPadTargetingTV, padTargetDimensions, padSurfaceDimensions, rotatePresentationTouch) {
         padPresentationTouchListener.updateConfiguration(
             isTv = isPadTargetingTV,
             surfaceWidth = padTargetDimensions.width,
             surfaceHeight = padTargetDimensions.height,
             rotateLeft = rotatePresentationTouch,
+            isPadWindow = true,
+            windowWidth = padSurfaceDimensions.width,
+            windowHeight = padSurfaceDimensions.height,
         )
     }
 
@@ -475,13 +480,15 @@ private fun EmulationSurfaces(
     LinearLayout(currentGamePadPosition) { itemModifier ->
         EmulationSurface(
             modifier = itemModifier.onGloballyPositioned {
-                viewModel.setSurfaceLayout(true, isMainTargetingTV, it.boundsInRoot(), mainTargetDimensions)
+                viewModel.setSurfaceLayout(true, it.boundsInRoot(), mainSurfaceDimensions)
             },
             holderCallback = viewModel.mainHolderCallback,
             touchListener = mainTouchListener,
             touchIsTv = isMainTargetingTV,
             touchSurfaceWidth = mainTargetDimensions.width,
             touchSurfaceHeight = mainTargetDimensions.height,
+            isPadWindow = false,
+            windowDimensions = mainSurfaceDimensions,
             afterInit = { viewModel.initializeEmulation() },
         )
 
@@ -491,13 +498,15 @@ private fun EmulationSurfaces(
             }
             EmulationSurface(
                 modifier = itemModifier.onGloballyPositioned {
-                    viewModel.setSurfaceLayout(false, isPadTargetingTV, it.boundsInRoot(), padTargetDimensions)
+                    viewModel.setSurfaceLayout(false, it.boundsInRoot(), padSurfaceDimensions)
                 },
                 holderCallback = viewModel.padHolderCallback,
                 touchListener = padTouchListener,
                 touchIsTv = isPadTargetingTV,
                 touchSurfaceWidth = padTargetDimensions.width,
                 touchSurfaceHeight = padTargetDimensions.height,
+                isPadWindow = true,
+                windowDimensions = padSurfaceDimensions,
             )
         }
     }
@@ -538,6 +547,8 @@ private fun EmulationSurface(
     touchIsTv: Boolean,
     touchSurfaceWidth: Int,
     touchSurfaceHeight: Int,
+    isPadWindow: Boolean,
+    windowDimensions: SurfaceDimensions,
     rotateLeft: Boolean = false,
     afterInit: () -> Unit = {}
 ) {
@@ -573,6 +584,9 @@ private fun EmulationSurface(
                 surfaceWidth = touchSurfaceWidth,
                 surfaceHeight = touchSurfaceHeight,
                 rotateLeft = rotateLeft,
+                isPadWindow = isPadWindow,
+                windowWidth = windowDimensions.width,
+                windowHeight = windowDimensions.height,
             )
         },
     )

@@ -69,6 +69,7 @@ object NativeEmulation {
         const val FRAME_GEN_MODE: Int = 4
         const val MENU: Int = 5
         const val VOLUME: Int = 6
+        const val HIDE: Int = 7
     }
 
     // finger down or moving on the GamePad volume slider of the panel, sets the GamePad volume

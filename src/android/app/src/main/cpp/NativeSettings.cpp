@@ -65,6 +65,18 @@ Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayTheme([[maybe_unuse
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_isOverlayHidden([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().overlay.hidden;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeSettings_setOverlayHidden([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean hidden)
+{
+	GetConfig().overlay.hidden = hidden;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeSettings_isOverlayGPUUsageEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return GetConfig().overlay.gpu_usage;

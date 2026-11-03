@@ -246,6 +246,15 @@ internal fun ControlsStep(
                 reapplyToolbar(useSecondScreen = it, isPadVisible = emulationSettings.isPadVisible)
             },
         )
+        if (emulationSettings.isPadOnExternalDisplay) {
+            WiiUSwitchRow(
+                icon = R.drawable.ic_swap_vert,
+                label = tr("Swap screens"),
+                description = tr("The GamePad on this screen and the TV image on {0}. For devices where the screens are found the other way around", secondScreen.name),
+                checked = emulationSettings.areScreensSwapped,
+                onCheckedChange = screenLayoutViewModel::setScreensSwapped,
+            )
+        }
     } else if (controllerType == EmulatedControllerType.VPAD) {
         WiiUSwitchRow(
             icon = R.drawable.ic_tablet,
