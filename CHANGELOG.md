@@ -2,7 +2,7 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
-## 0.3.6-beta.2 - 2026-11-03
+## 0.3.6 - 2026-11-03
 
 ### Input settings, redone
 - Each controller has all its settings on one page, the ones used most first: what it emulates, the controller in use with **Set up all inputs**, its buttons and sticks, motion, rumble, profiles, and the stick and trigger sensitivity at the end under **Advanced**. The **Controller settings** dialog and the separate **Device settings** screen are gone
@@ -30,8 +30,6 @@ What changed in each Cemu Plus release. The release page of each version shows i
 - A guide in the corner of the library shows what the buttons do once a controller is used: **A** starts the game, **Y** opens its game settings, **X** the settings of Cemu and **Start** its options. It works in the grid and in the list
 - With the second screen on, **Y** moves the controller to the game settings shown there, so they can be changed without touching the screen. **B** goes back to the games
 - In the list, the second screen shows the game the controller is on, not only the one that was tapped
-
-## 0.3.6-beta.1 - 2026-11-03
 
 ### Motion controls
 - **Invert motion X axis** and **Invert motion Y axis** flip turning left and right, and tilting up and down. They work for the motion of the device and of controllers, and can be found in **Input settings** and in the quick menu under Controls
