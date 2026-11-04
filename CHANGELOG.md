@@ -27,8 +27,9 @@ What changed in each Cemu Plus release. The release page of each version shows i
 - Press A on a slider to change it with left and right, A again keeps the value and B puts the old one back. Left and right also change it right away
 
 ### Game library with a controller
-- A guide in the corner of the library shows what the buttons do once a controller is used: **A** starts the game, **Y** opens its settings, **X** all of its settings and **Start** its menu
+- A guide in the corner of the library shows what the buttons do once a controller is used: **A** starts the game, **Y** opens its game settings, **X** the settings of Cemu and **Start** its options. It works in the grid and in the list
 - With the second screen on, **Y** moves the controller to the game settings shown there, so they can be changed without touching the screen. **B** goes back to the games
+- In the list, the second screen shows the game the controller is on, not only the one that was tapped
 
 ## 0.3.6-beta.1 - 2026-11-03
 
