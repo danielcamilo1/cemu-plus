@@ -12,10 +12,7 @@ ControllerPtr CreateDefaultDeviceController()
 	return controller;
 }
 
-EmulatedControllerManager::EmulatedControllerManager(size_t index) : m_index(index)
-{
-	m_emulatedController = InputManager::instance().get_controller(m_index);
-}
+EmulatedControllerManager::EmulatedControllerManager(size_t index) : m_index(index) {}
 
 EmulatedControllerManager& EmulatedControllerManager::GetController(size_t index)
 {
@@ -31,68 +28,84 @@ EmulatedControllerManager& EmulatedControllerManager::GetController(size_t index
 
 void EmulatedControllerManager::SetButtonValue(uint64 mappingId, bool value)
 {
-	if (!m_emulatedController)
+	auto emulatedController = GetControllerPtr();
+	if (!emulatedController)
 	{
 		return;
 	}
 
-	m_emulatedController->setButtonValue(mappingId, value);
+	emulatedController->setButtonValue(mappingId, value);
 }
 
 void EmulatedControllerManager::SetAxisValue(uint64 mappingId, float value)
 {
-	if (!m_emulatedController)
+	auto emulatedController = GetControllerPtr();
+	if (!emulatedController)
 	{
 		return;
 	}
 
-	m_emulatedController->setAxisValue(mappingId, value);
+	emulatedController->setAxisValue(mappingId, value);
 }
 
 void EmulatedControllerManager::SetType(EmulatedController::Type type)
 {
-	if (m_emulatedController && m_emulatedController->type() == type)
+	auto emulatedController = GetControllerPtr();
+	if (emulatedController && emulatedController->type() == type)
 	{
 		return;
 	}
 
-	m_emulatedController = InputManager::instance().set_controller(m_index, type);
+	auto newEmulatedController = InputManager::instance().set_controller(m_index, type);
+
+	// the touch screen, sensors and vibration of the device stay with the controller when its type changes
+	if (emulatedController && newEmulatedController)
+	{
+		for (const auto& controller : emulatedController->get_controllers())
+		{
+			if (controller->api() == InputAPI::Device)
+				newEmulatedController->add_controller(controller);
+		}
+	}
 }
 
 void EmulatedControllerManager::SetMapping(uint64 mappingId, ControllerPtr controller, uint64 buttonId)
 {
-	if (!m_emulatedController || !controller)
+	auto emulatedController = GetControllerPtr();
+	if (!emulatedController || !controller)
 	{
 		return;
 	}
 
-	const auto& controllers = m_emulatedController->get_controllers();
+	const auto& controllers = emulatedController->get_controllers();
 	auto controllerIt = std::find_if(controllers.begin(), controllers.end(), [&](const ControllerPtr& c) { return c->api() == controller->api() && c->uuid() == controller->uuid(); });
 	if (controllerIt == controllers.end())
-		m_emulatedController->add_controller(controller);
+		emulatedController->add_controller(controller);
 	else
 		controller = *controllerIt;
-	m_emulatedController->set_mapping(mappingId, controller, buttonId);
+	emulatedController->set_mapping(mappingId, controller, buttonId);
 }
 
 std::optional<std::string> EmulatedControllerManager::GetMapping(uint64 mapping) const
 {
-	if (!m_emulatedController)
+	auto emulatedController = GetControllerPtr();
+	if (!emulatedController)
 		return {};
-	auto controller = m_emulatedController->get_mapping_controller(mapping);
+	auto controller = emulatedController->get_mapping_controller(mapping);
 	if (!controller)
 		return {};
-	auto mappingName = m_emulatedController->get_mapping_name(mapping);
+	auto mappingName = emulatedController->get_mapping_name(mapping);
 	return fmt::format("{}: {}", controller->display_name(), mappingName);
 }
 
 std::map<uint64, std::string> EmulatedControllerManager::GetMappings() const
 {
-	if (!m_emulatedController)
+	auto emulatedController = GetControllerPtr();
+	if (!emulatedController)
 		return {};
 
 	std::map<uint64, std::string> mappings;
-	EmulatedController::Type type = m_emulatedController->type();
+	EmulatedController::Type type = emulatedController->type();
 	uint64 mapping = 0;
 	uint64 maxMapping = 0;
 
@@ -131,20 +144,21 @@ std::map<uint64, std::string> EmulatedControllerManager::GetMappings() const
 void EmulatedControllerManager::SetDisabled()
 {
 	InputManager::instance().delete_controller(m_index, true);
-	m_emulatedController.reset();
 }
 
+// not kept here, loading a profile replaces the controller
 EmulatedControllerPtr EmulatedControllerManager::GetControllerPtr() const
 {
-	return m_emulatedController;
+	return InputManager::instance().get_controller(m_index);
 }
 
 void EmulatedControllerManager::ClearMapping(uint64 mapping)
 {
-	if (!m_emulatedController)
+	auto emulatedController = GetControllerPtr();
+	if (!emulatedController)
 	{
 		return;
 	}
 
-	m_emulatedController->delete_mapping(mapping);
+	emulatedController->delete_mapping(mapping);
 }

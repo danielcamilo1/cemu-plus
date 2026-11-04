@@ -69,6 +69,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import info.cemu.cemu.R
 import info.cemu.cemu.common.ui.localization.tr
+import info.cemu.cemu.common.ui.wiiu.ButtonGuideItem
+import info.cemu.cemu.common.ui.wiiu.WiiUButtonGuide
 import info.cemu.cemu.nativeinterface.NativeGameTitles.Game
 import kotlinx.coroutines.launch
 
@@ -97,8 +99,9 @@ private fun Modifier.wiiUMenuBackground() = drawBehind {
     }
 }
 
-// the games as icons on pages of slots like the Wii U Menu. A tap goes to onGameTapped, A starts the game and a long
-// press opens its menu. The picked game is drawn like the focused one
+// the games as icons on pages of slots like the Wii U Menu. A tap goes to onGameTapped and a long press opens its
+// menu. With a controller the buttons of onGameButton do their thing for the focused game. The picked game is drawn
+// like the focused one
 @Composable
 fun WiiUGameGrid(
     games: List<Game>,
@@ -107,6 +110,10 @@ fun WiiUGameGrid(
     onGameSelected: (Game) -> Unit,
     onGameTapped: (Game) -> Unit,
     startGame: (Game) -> Unit,
+    openGameSettings: (Game) -> Unit,
+    openSettings: () -> Unit,
+    // the controller is on the second screen, the grid waits for it
+    isSecondScreenControlled: Boolean,
     gameMenu: @Composable (game: Game, expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
 ) {
     BoxWithConstraints(
@@ -202,6 +209,8 @@ fun WiiUGameGrid(
                                         },
                                         onTap = { onGameTapped(game) },
                                         onStart = { startGame(game) },
+                                        onGameSettings = { openGameSettings(game) },
+                                        onSettings = openSettings,
                                         onPreviousPage = if (column == 0) {
                                             { goToPage(page - 1, index - pageSize + columns - 1) }
                                         } else null,
@@ -243,7 +252,58 @@ fun WiiUGameGrid(
                 currentPage = pagerState.currentPage,
             )
         }
+
+        if (isSecondScreenControlled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MenuBackgroundTop.copy(alpha = 0.6f))
+            )
+        }
+        GameButtonGuide(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 12.dp),
+            isSecondScreenControlled = isSecondScreenControlled,
+        )
     }
+}
+
+// A starts the game, Y opens its settings, X the settings of Cemu and Start its menu, the same in the grid and the
+// list. True when the key was one of them
+internal fun onGameButton(
+    keyCode: Int,
+    start: () -> Unit,
+    openGameSettings: () -> Unit,
+    openSettings: () -> Unit,
+    openMenu: () -> Unit,
+): Boolean {
+    when (keyCode) {
+        AndroidKeyEvent.KEYCODE_BUTTON_A -> start()
+        AndroidKeyEvent.KEYCODE_BUTTON_Y -> openGameSettings()
+        AndroidKeyEvent.KEYCODE_BUTTON_X -> openSettings()
+        AndroidKeyEvent.KEYCODE_BUTTON_START, AndroidKeyEvent.KEYCODE_MENU -> openMenu()
+        else -> return false
+    }
+    return true
+}
+
+// what the buttons of onGameButton do, or how to come back while the controller is on the second screen
+@Composable
+internal fun GameButtonGuide(isSecondScreenControlled: Boolean, modifier: Modifier = Modifier) {
+    WiiUButtonGuide(
+        modifier = modifier,
+        message = if (isSecondScreenControlled) tr("Controller on the second screen") else null,
+        alwaysShown = isSecondScreenControlled,
+        items = if (isSecondScreenControlled) {
+            listOf(ButtonGuideItem("B", tr("Back to games")))
+        } else listOf(
+            ButtonGuideItem("A", tr("Start")),
+            ButtonGuideItem("Y", tr("Game settings")),
+            ButtonGuideItem("X", tr("Settings")),
+            ButtonGuideItem("START", tr("Options")),
+        ),
+    )
 }
 
 @Composable
@@ -256,6 +316,8 @@ private fun GameTile(
     onFocusChanged: (Boolean) -> Unit,
     onTap: () -> Unit,
     onStart: () -> Unit,
+    onGameSettings: () -> Unit,
+    onSettings: () -> Unit,
     onPreviousPage: (() -> Unit)?,
     onNextPage: (() -> Unit)?,
     onPreviousPageShoulder: () -> Unit,
@@ -293,13 +355,11 @@ private fun GameTile(
                     if (event.type != KeyEventType.KeyDown) {
                         return@onPreviewKeyEvent false
                     }
-                    when (event.nativeKeyEvent.keyCode) {
-                        AndroidKeyEvent.KEYCODE_BUTTON_A -> onStart().let { true }
-                        AndroidKeyEvent.KEYCODE_BUTTON_X, AndroidKeyEvent.KEYCODE_BUTTON_Y -> {
-                            menuExpanded = true
-                            true
-                        }
-
+                    val keyCode = event.nativeKeyEvent.keyCode
+                    if (onGameButton(keyCode, onStart, onGameSettings, onSettings) { menuExpanded = true }) {
+                        return@onPreviewKeyEvent true
+                    }
+                    when (keyCode) {
                         AndroidKeyEvent.KEYCODE_BUTTON_L1 -> onPreviousPageShoulder().let { true }
                         AndroidKeyEvent.KEYCODE_BUTTON_R1 -> onNextPageShoulder().let { true }
                         AndroidKeyEvent.KEYCODE_DPAD_LEFT -> onPreviousPage?.invoke() != null

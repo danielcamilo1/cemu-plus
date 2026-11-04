@@ -8,8 +8,12 @@ import android.content.Context
 import android.content.Intent
 import android.provider.DocumentsContract
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +55,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +69,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import info.cemu.cemu.R
+import info.cemu.cemu.common.android.display.SecondScreenControl
 import info.cemu.cemu.common.android.display.SecondScreenPresentation
 import info.cemu.cemu.common.android.display.rememberSecondScreen
 import info.cemu.cemu.common.settings.AppSettingsStore
@@ -73,6 +81,7 @@ import info.cemu.cemu.common.ui.components.FilledSearchToolbar
 import info.cemu.cemu.common.ui.extensions.showMessage
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.games.GameIcon
+import info.cemu.cemu.games.profile.EditGameControls
 import info.cemu.cemu.games.profile.GameSettingsSecondScreen
 import info.cemu.cemu.nativeinterface.NativeActiveSettings
 import info.cemu.cemu.nativeinterface.NativeGameTitles
@@ -89,6 +98,7 @@ fun GamesListScreen(
     gamesListViewModel: GamesListViewModel = viewModel(),
     goToGameDetails: (Game) -> Unit,
     goToGameEditProfile: (Game) -> Unit,
+    goToGameControls: EditGameControls,
     startGame: (Game) -> Unit,
     goToSettings: () -> Unit,
     goToTitleManager: () -> Unit,
@@ -126,12 +136,26 @@ fun GamesListScreen(
         }
     }
 
+    val secondScreenControl = remember { SecondScreenControl() }
     SecondScreenPresentation(
         // gone once a game starts or another screen opens, so the GamePad can use the second screen
         enabled = showsSettingsOnSecondScreen && lifecycleState.isAtLeast(Lifecycle.State.RESUMED),
         touchable = true,
+        control = secondScreenControl,
     ) {
-        GameSettingsSecondScreen(game = selectedGame, startGame = startGame)
+        GameSettingsSecondScreen(
+            game = selectedGame,
+            startGame = startGame,
+            editControls = goToGameControls,
+            isControlled = secondScreenControl.isActive,
+        )
+    }
+    // Y opens the game settings on the second screen when they are shown there
+    val openGameSettings: (Game) -> Unit = { game ->
+        selectedGamePath = game.path
+        if (!showsSettingsOnSecondScreen || !secondScreenControl.enter()) {
+            goToGameEditProfile(game)
+        }
     }
 
     LaunchedEffect(lifecycleState) {
@@ -244,6 +268,9 @@ fun GamesListScreen(
                     onGameSelected = { selectedGamePath = it.path },
                     onGameTapped = onGameTapped,
                     startGame = startGame,
+                    openGameSettings = openGameSettings,
+                    openSettings = goToSettings,
+                    isSecondScreenControlled = secondScreenControl.isActive,
                     gameMenu = { game, expanded, onDismissRequest ->
                         GameMenu(game, expanded, onDismissRequest, gameActions)
                     },
@@ -252,7 +279,12 @@ fun GamesListScreen(
                 GameListLayout.LIST -> GameList(
                     games = games,
                     selectedGamePath = if (showsSettingsOnSecondScreen) selectedGamePath else null,
+                    onGameSelected = { selectedGamePath = it.path },
                     onGameTapped = onGameTapped,
+                    startGame = startGame,
+                    openGameSettings = openGameSettings,
+                    openSettings = goToSettings,
+                    isSecondScreenControlled = secondScreenControl.isActive,
                     gameActions = gameActions,
                 )
 
@@ -336,30 +368,57 @@ private fun LayoutToggleButton(layout: GameListLayout, onLayoutChanged: (GameLis
     }
 }
 
+// the games one per row, with the same controller buttons as the grid
 @Composable
 private fun GameList(
     games: List<Game>,
     selectedGamePath: String?,
+    onGameSelected: (Game) -> Unit,
     onGameTapped: (Game) -> Unit,
+    startGame: (Game) -> Unit,
+    openGameSettings: (Game) -> Unit,
+    openSettings: () -> Unit,
+    isSecondScreenControlled: Boolean,
     gameActions: GameActions,
 ) {
-    LazyVerticalGrid(
-        modifier = Modifier
-            .padding(8.dp)
-            .fillMaxSize(),
-        columns = GridCells.Adaptive(620.dp),
-    ) {
-        items(items = games, key = { it.path }) { game ->
-            GameListItem(
-                modifier = Modifier.animateItem(),
-                game = game,
-                isSelected = game.path == selectedGamePath,
-                onTap = onGameTapped,
-                gameMenu = { expanded, onDismissRequest ->
-                    GameMenu(game, expanded, onDismissRequest, gameActions)
-                },
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .fillMaxSize(),
+            columns = GridCells.Adaptive(620.dp),
+            // the last games can be scrolled above the button guide
+            contentPadding = PaddingValues(top = 8.dp, bottom = 56.dp),
+        ) {
+            items(items = games, key = { it.path }) { game ->
+                GameListItem(
+                    modifier = Modifier.animateItem(),
+                    game = game,
+                    isSelected = game.path == selectedGamePath,
+                    onFocused = { onGameSelected(game) },
+                    onTap = onGameTapped,
+                    onStart = { startGame(game) },
+                    onGameSettings = { openGameSettings(game) },
+                    onSettings = openSettings,
+                    gameMenu = { expanded, onDismissRequest ->
+                        GameMenu(game, expanded, onDismissRequest, gameActions)
+                    },
+                )
+            }
+        }
+        if (isSecondScreenControlled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f))
             )
         }
+        GameButtonGuide(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 12.dp),
+            isSecondScreenControlled = isSecondScreenControlled,
+        )
     }
 }
 
@@ -380,19 +439,36 @@ private fun ShaderCachesConfirmationDialog(
 
 @Composable
 private fun GameListItem(
+    onFocused: () -> Unit,
     onTap: (Game) -> Unit,
+    onStart: () -> Unit,
+    onGameSettings: () -> Unit,
+    onSettings: () -> Unit,
     gameMenu: @Composable (expanded: Boolean, onDismissRequest: () -> Unit) -> Unit,
     game: Game,
     isSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var contextMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    // the second screen follows the game the controller is on, like a tap on it
+    LaunchedEffect(isFocused) { if (isFocused) onFocused() }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .background(
+                if (isSelected || isFocused) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+            )
+            .onPreviewKeyEvent { event ->
+                event.type == KeyEventType.KeyDown && onGameButton(
+                    event.nativeKeyEvent.keyCode, onStart, onGameSettings, onSettings,
+                ) { contextMenuExpanded = true }
+            }
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
                 onClick = { onTap(game) },
                 onLongClick = {
                     contextMenuExpanded = true

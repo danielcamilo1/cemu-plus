@@ -2,6 +2,35 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.3.6-beta.2 - 2026-11-03
+
+### Input settings, redone
+- Each controller has all its settings on one page, the ones used most first: what it emulates, the controller in use with **Set up all inputs**, its buttons and sticks, motion, rumble, profiles, and the stick and trigger sensitivity at the end under **Advanced**. The **Controller settings** dialog and the separate **Device settings** screen are gone
+- The controller in use is picked from the connected ones right on the page, and **Set up all inputs** binds that one directly
+- **Invert motion X axis** and **Invert motion Y axis** are next to **Use motion** on each controller's page
+- The touch screen, sensors and vibration of the device can be moved to a controller from its page, and the vibration strength of the device is set there too
+- The inputs are shown as a grid of tiles that say **Not set** when nothing is bound
+- The input settings list the controllers in use, with **Add a controller** for the next free one, then **Hotkeys** and **On-screen controls**
+
+### Controller profiles per game
+- A controller can be saved as a named profile, and loaded or deleted again, from its page
+- The game settings start with a new **Controls** section. Each controller uses your global controls until you tap **Customize for this game**, which gives the game its own copy of them and opens it to change. **Edit controls** opens it again later and **Use global controls** goes back. Profiles saved in the input settings can be picked there too. Changes made while that game runs are saved to its controls
+- The game settings show the most used settings first: **Controls**, **GamePad screen crop** and **Graphics**, with **Thread quantum** last under **Advanced**
+
+### Wii U style settings
+- Every settings screen has the white and silver look of the Wii U settings, with panels, round switches and a cyan highlight, like the game settings on the second screen
+- The settings home has an icon for each section
+- **Overlay settings** are now **Toolbar settings**, the name used everywhere else
+
+### Sliders with a gamepad
+- Up and down on the D-pad move past a slider to the next setting instead of changing it
+- Press A on a slider to change it with left and right, A again keeps the value and B puts the old one back. Left and right also change it right away
+
+### Game library with a controller
+- A guide in the corner of the library shows what the buttons do once a controller is used: **A** starts the game, **Y** opens its game settings, **X** the settings of Cemu and **Start** its options. It works in the grid and in the list
+- With the second screen on, **Y** moves the controller to the game settings shown there, so they can be changed without touching the screen. **B** goes back to the games
+- In the list, the second screen shows the game the controller is on, not only the one that was tapped
+
 ## 0.3.6-beta.1 - 2026-11-03
 
 ### Motion controls

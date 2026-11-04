@@ -459,9 +459,23 @@ void InputManager::save() noexcept
 
 bool InputManager::save(size_t player_index, std::string_view filename)
 {
+#if BOOST_PLAT_ANDROID
+	if (filename.empty() && !m_edited_profile[player_index].empty())
+		filename = m_edited_profile[player_index];
+#endif
 	// dont overwrite files if set by gameprofile
-	if (m_is_gameprofile_set[player_index])
+	if (m_is_gameprofile_set[player_index] && filename.empty())
+	{
+#if BOOST_PLAT_ANDROID
+		// changes made while the game runs go to the profile it uses
+		const auto& profile = g_current_game_profile->GetControllerProfile()[player_index];
+		if (!profile || profile->empty())
+			return true;
+		filename = profile.value();
+#else
 		return true;
+#endif
+	}
 
 	auto emulated_controller = get_controller(player_index);
 	if (!emulated_controller)
@@ -695,9 +709,16 @@ EmulatedControllerPtr InputManager::delete_controller(size_t player_index, bool 
 		{
 			controller = {};
 
-			std::error_code ec{};
-			fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
-			fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
+#if BOOST_PLAT_ANDROID
+			// like the GamePad, changing the type of a controller keeps its file. Its settings may be saved to a
+			// game profile at that moment and the global ones must stay
+			if (delete_profile)
+#endif
+			{
+				std::error_code ec{};
+				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
+				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
+			}
 
 			return result;
 		}
@@ -783,8 +804,32 @@ void InputManager::apply_game_profile()
 	{
 		if (profiles[i] && !profiles[i]->empty())
 		{
+#if BOOST_PLAT_ANDROID
+			// the touch screen, sensors and vibration of the device stay with the controller if the profile has none
+			std::vector<ControllerPtr> deviceControllers;
+			if (const auto previous = get_controller(i))
+			{
+				for (const auto& controller : previous->get_controllers())
+				{
+					if (controller->api() == InputAPI::Device)
+						deviceControllers.emplace_back(controller);
+				}
+			}
+#endif
 			if (load(i, profiles[i].value()))
 			{
+#if BOOST_PLAT_ANDROID
+				if (const auto loaded = get_controller(i))
+				{
+					const auto& loadedControllers = loaded->get_controllers();
+					const bool hasDeviceController = std::ranges::any_of(loadedControllers, [](const ControllerPtr& c) { return c->api() == InputAPI::Device; });
+					if (!hasDeviceController)
+					{
+						for (const auto& controller : deviceControllers)
+							loaded->add_controller(controller);
+					}
+				}
+#endif
 				m_is_gameprofile_set[i] = true;
 				if (const auto controller = get_controller(i))
 				{

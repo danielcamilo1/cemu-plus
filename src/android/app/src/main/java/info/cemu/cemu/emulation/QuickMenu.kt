@@ -274,7 +274,7 @@ fun QuickMenuContent(
             onCheckedChange = { updateState(sideMenuState.copy(isMotionYInverted = it)) },
         )
         QuickMenuToggle(
-            label = tr("Show input overlay"),
+            label = tr("Show on-screen controls"),
             checked = sideMenuState.isInputOverlayVisible,
             onCheckedChange = { updateState(sideMenuState.copy(isInputOverlayVisible = it)) },
         )
@@ -284,7 +284,7 @@ fun QuickMenuContent(
             onClick = onEditInputOverlay,
         )
         QuickMenuAction(
-            label = tr("Reset input overlay"),
+            label = tr("Reset on-screen controls"),
             enabled = sideMenuState.isInputOverlayVisible,
             onClick = onResetInputOverlay,
         )

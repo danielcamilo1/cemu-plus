@@ -18,7 +18,6 @@ import info.cemu.cemu.settings.gamespath.GamePathsScreen
 import info.cemu.cemu.settings.general.GeneralSettingsScreen
 import info.cemu.cemu.settings.graphics.GraphicsSettingsScreen
 import info.cemu.cemu.settings.input.controller.ControllerInputSettingsScreen
-import info.cemu.cemu.settings.input.device.DeviceInputSettingsScreen
 import info.cemu.cemu.settings.input.hotkeys.HotkeySettingsScreen
 import info.cemu.cemu.settings.input.InputSettingsScreen
 import info.cemu.cemu.settings.inputoverlay.InputOverlaySettingsScreen
@@ -80,9 +79,6 @@ private object SettingsRoutes {
 
     @Serializable
     object InputOverlaySettingsScreenRoute
-
-    @Serializable
-    object DeviceInputSettingsScreenRoute
 
     @Serializable
     object HotkeySettingsScreenRoute
@@ -202,12 +198,6 @@ fun NavGraphBuilder.settingsNavigation(
                 )
             }
 
-            composable<SettingsRoutes.DeviceInputSettingsScreenRoute> {
-                DeviceInputSettingsScreen(
-                    navigateBack = { navController.popBackStack() }
-                )
-            }
-
             composable<SettingsRoutes.InputSettingsScreenRoute> {
                 InputSettingsScreen(
                     navigateBack = { navController.popBackStack() },
@@ -223,9 +213,6 @@ fun NavGraphBuilder.settingsNavigation(
                                 controllerIndex
                             )
                         )
-                    },
-                    goToHostInputSettings = {
-                        navController.navigate(SettingsRoutes.DeviceInputSettingsScreenRoute)
                     },
                 )
             }

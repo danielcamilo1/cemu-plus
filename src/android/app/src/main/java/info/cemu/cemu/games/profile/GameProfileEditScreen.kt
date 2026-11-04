@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -36,6 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +55,9 @@ import info.cemu.cemu.common.ui.localization.regionToString
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.common.ui.wiiu.WiiUBackground
 import info.cemu.cemu.common.ui.wiiu.WiiUBar
+import info.cemu.cemu.common.ui.wiiu.ButtonGuideItem
 import info.cemu.cemu.common.ui.wiiu.WiiUBodyText
+import info.cemu.cemu.common.ui.wiiu.WiiUButtonGuide
 import info.cemu.cemu.common.ui.wiiu.WiiUButton
 import info.cemu.cemu.common.ui.wiiu.WiiUCard
 import info.cemu.cemu.common.ui.wiiu.WiiUChip
@@ -65,7 +71,11 @@ import info.cemu.cemu.games.details.getLastPlayedDate
 import info.cemu.cemu.games.details.getTimePlayed
 import info.cemu.cemu.nativeinterface.NativeEmulation
 import info.cemu.cemu.nativeinterface.NativeGameTitles
+import info.cemu.cemu.nativeinterface.NativeInput
 import info.cemu.cemu.nativeinterface.NativeGameTitles.DriverSettingMode
+
+// opens the controller settings for one game, the changes go to the given profile
+typealias EditGameControls = (game: NativeGameTitles.Game, controllerIndex: Int, profile: String) -> Unit
 
 // wide enough to show the game beside its settings instead of above them
 private val TwoPaneWidth = 760.dp
@@ -75,6 +85,7 @@ private val SettingsMaxWidth = 760.dp
 fun GameProfileEditScreen(
     game: NativeGameTitles.Game,
     navigateBack: () -> Unit,
+    editControls: EditGameControls,
 ) {
     WiiUTheme {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -90,6 +101,7 @@ fun GameProfileEditScreen(
                 )
                 GameSettingsContent(
                     game = game,
+                    editControls = editControls,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -98,9 +110,24 @@ fun GameProfileEditScreen(
 }
 
 // the settings of the game picked in the library, shown on the second screen like the Wii U Menu shows the picked
-// title on the TV. They can be changed there with touch
+// title on the TV. They can be changed there with touch, or with the controller while isControlled
 @Composable
-fun GameSettingsSecondScreen(game: NativeGameTitles.Game?, startGame: (NativeGameTitles.Game) -> Unit) {
+fun GameSettingsSecondScreen(
+    game: NativeGameTitles.Game?,
+    startGame: (NativeGameTitles.Game) -> Unit,
+    editControls: EditGameControls,
+    isControlled: Boolean = false,
+) {
+    val focusManager = LocalFocusManager.current
+    val settingsFocus = remember { FocusRequester() }
+    LaunchedEffect(isControlled, game?.path) {
+        if (isControlled) {
+            // the first setting, the game can be started with Start right above it
+            runCatching { settingsFocus.requestFocus() }
+        } else {
+            focusManager.clearFocus(force = true)
+        }
+    }
     WiiUTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             WiiUBackground()
@@ -113,12 +140,25 @@ fun GameSettingsSecondScreen(game: NativeGameTitles.Game?, startGame: (NativeGam
                     key(game.path) {
                         GameSettingsContent(
                             game = game,
+                            editControls = editControls,
                             startGame = { startGame(game) },
+                            settingsFocus = settingsFocus,
                             modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
+            WiiUButtonGuide(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 12.dp),
+                alwaysShown = true,
+                visible = isControlled,
+                items = listOf(
+                    ButtonGuideItem("A", tr("Select")),
+                    ButtonGuideItem("B", tr("Back to games")),
+                ),
+            )
         }
     }
 }
@@ -181,8 +221,10 @@ private fun NoGameSelected(modifier: Modifier) {
 @Composable
 private fun GameSettingsContent(
     game: NativeGameTitles.Game,
+    editControls: EditGameControls,
     modifier: Modifier = Modifier,
     startGame: (() -> Unit)? = null,
+    settingsFocus: FocusRequester? = null,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         if (maxWidth >= TwoPaneWidth) {
@@ -202,12 +244,16 @@ private fun GameSettingsContent(
                 }
                 GameSettingsList(
                     game = game,
+                    editControls = editControls,
+                    settingsFocus = settingsFocus,
                     modifier = Modifier.weight(1f),
                 )
             }
         } else {
             GameSettingsList(
                 game = game,
+                editControls = editControls,
+                settingsFocus = settingsFocus,
                 header = { GameCard(game = game, isWide = false, startGame = startGame) },
             )
         }
@@ -355,8 +401,11 @@ private fun GameIconTile(game: NativeGameTitles.Game, size: Dp) {
 @Composable
 private fun GameSettingsList(
     game: NativeGameTitles.Game,
+    editControls: EditGameControls,
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
+    // takes the focus to the first setting
+    settingsFocus: FocusRequester? = null,
 ) {
     val viewModel: GameProfileEditViewModel = viewModel(
         key = "GameProfileEditViewModel:${game.path}",
@@ -394,6 +443,14 @@ private fun GameSettingsList(
         ) {
             header?.invoke()
 
+            WiiUSectionTitle(tr("Controls"))
+            Column(
+                modifier = if (settingsFocus != null) Modifier.focusRequester(settingsFocus) else Modifier,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ControllerProfileSettings(game, editControls)
+            }
+
             WiiUSectionTitle(tr("GamePad screen crop"))
             PadCropSettings(titleId)
 
@@ -428,18 +485,6 @@ private fun GameSettingsList(
                     NativeGameTitles.setCpuModeForTitle(titleId, it)
                 },
             )
-            ChoiceCard(
-                icon = R.drawable.ic_restart,
-                title = tr("Thread quantum"),
-                description = tr("How long each emulated CPU thread runs before the next one gets its turn"),
-                choices = NativeGameTitles.THREAD_QUANTUM_VALUES,
-                selected = threadQuantum,
-                choiceToString = { it.toString() },
-                onChoiceSelected = {
-                    threadQuantum = it
-                    NativeGameTitles.setThreadQuantumForTitle(titleId, it)
-                },
-            )
             WiiUSwitchRow(
                 label = tr("Shader multiplication accuracy"),
                 description = tr("Controls the accuracy of floating point multiplication in shaders"),
@@ -460,8 +505,141 @@ private fun GameSettingsList(
                     NativeGameTitles.setLoadingSharedLibrariesForTitleEnabled(titleId, it)
                 },
             )
+            ChoiceCard(
+                icon = R.drawable.ic_restart,
+                title = tr("Thread quantum"),
+                description = tr("How long each emulated CPU thread runs before the next one gets its turn"),
+                choices = NativeGameTitles.THREAD_QUANTUM_VALUES,
+                selected = threadQuantum,
+                choiceToString = { it.toString() },
+                onChoiceSelected = {
+                    threadQuantum = it
+                    NativeGameTitles.setThreadQuantumForTitle(titleId, it)
+                },
+            )
         }
     }
+}
+
+// the controllers the game starts with. Each one uses the global input settings until it is customized, which
+// gives the game its own profile, a copy of the global settings to change. Saved profiles can be picked too.
+// Controller 1 and the ones in use are shown, and any other one this game already has a profile for
+@Composable
+private fun ControllerProfileSettings(game: NativeGameTitles.Game, editControls: EditGameControls) {
+    val titleId = game.titleId
+    val profiles = remember { NativeInput.getControllerProfiles().sorted() }
+    var controllerProfiles by remember(titleId) {
+        mutableStateOf(
+            (0..<NativeInput.MAX_CONTROLLERS).associateWith { NativeGameTitles.getControllerProfileForTitle(titleId, it) }
+        )
+    }
+    val shownControllers = remember(titleId) {
+        (0..<NativeInput.MAX_CONTROLLERS).filter {
+            it == 0 || !NativeInput.isControllerDisabled(it) || controllerProfiles[it] != null
+        }
+    }
+
+    fun setProfile(controllerIndex: Int, profile: String?) {
+        controllerProfiles = controllerProfiles + (controllerIndex to profile)
+        NativeGameTitles.setControllerProfileForTitle(titleId, controllerIndex, profile)
+    }
+
+    for (controllerIndex in shownControllers) {
+        val selected = controllerProfiles[controllerIndex]
+        val ownProfile = gameControllerProfileName(game, controllerIndex)
+        // the profiles of other games and the ones saved in the input settings, a deleted one stays until changed
+        val otherProfiles = (profiles + listOfNotNull(selected)).distinct().filter { it != ownProfile }
+        WiiUCard(modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WiiURowIcon(R.drawable.ic_controller)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 14.dp)
+                ) {
+                    Text(
+                        text = tr("Controller {0}", controllerIndex + 1),
+                        color = WiiUColors.Text,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = when (selected) {
+                            null -> tr("Uses your global controls from Settings, Input settings")
+                            ownProfile -> tr("Has its own controls for this game")
+                            else -> tr("Uses the saved profile {0}", selected)
+                        },
+                        color = WiiUColors.TextSecondary,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+            FlowRow(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (selected == null) {
+                    WiiUButton(
+                        text = tr("Customize for this game"),
+                        icon = R.drawable.ic_tune,
+                        primary = true,
+                        onClick = {
+                            setProfile(controllerIndex, ownProfile)
+                            editControls(game, controllerIndex, ownProfile)
+                        },
+                    )
+                } else {
+                    WiiUButton(
+                        text = tr("Edit controls"),
+                        icon = R.drawable.ic_tune,
+                        primary = true,
+                        onClick = { editControls(game, controllerIndex, selected) },
+                    )
+                    WiiUButton(
+                        text = tr("Use global controls"),
+                        icon = R.drawable.ic_restart,
+                        onClick = { setProfile(controllerIndex, null) },
+                    )
+                }
+            }
+            if (otherProfiles.isNotEmpty()) {
+                Text(
+                    text = tr("Or use a saved profile"),
+                    color = WiiUColors.TextSecondary,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                FlowRow(
+                    modifier = Modifier.padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (profile in otherProfiles) {
+                        WiiUChip(
+                            label = profile,
+                            selected = profile == selected,
+                            onClick = { setProfile(controllerIndex, if (profile == selected) null else profile) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// the profile a game gets once its controls are customized, named after the game so it can be told apart in the
+// list of profiles. Only the characters a profile name can have are kept
+private fun gameControllerProfileName(game: NativeGameTitles.Game, controllerIndex: Int): String {
+    val titleIdName = "%016X".format(game.titleId)
+    val gameName = game.name.orEmpty()
+        .filter { it.isLetterOrDigit() || it in " -_'()&!,+" }
+        .replace(Regex(" +"), " ")
+        .trim()
+    val base = gameName.ifEmpty { titleIdName }
+    val name = if (controllerIndex == 0) base else "$base (Controller ${controllerIndex + 1})"
+    return if (NativeInput.isValidControllerProfileName(name)) name else "$titleIdName-${controllerIndex + 1}"
 }
 
 // a setting with a few values, all of them shown as pills so one tap picks one

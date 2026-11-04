@@ -310,4 +310,32 @@ object NativeInput {
 
     @JvmStatic
     external fun saveInputs()
+
+    // named copies of the settings of a controller, games can start with one of them instead of the global settings
+    @JvmStatic
+    external fun getControllerProfiles(): Array<String>
+
+    @JvmStatic
+    external fun isValidControllerProfileName(name: String): Boolean
+
+    @JvmStatic
+    external fun saveControllerProfile(index: Int, name: String): Boolean
+
+    @JvmStatic
+    external fun loadControllerProfile(index: Int, name: String): Boolean
+
+    @JvmStatic
+    external fun deleteControllerProfile(name: String)
+
+    // until the edit ends the controller is set up from the profile and changes are saved to it, a new profile
+    // starts as a copy of the global settings of the controller
+    @JvmStatic
+    external fun beginControllerProfileEdit(index: Int, name: String): Boolean
+
+    @JvmStatic
+    external fun endControllerProfileEdit(index: Int)
+
+    // the profile the running game uses for the controller, null when it uses the global settings
+    @JvmStatic
+    external fun getGameControllerProfile(index: Int): String?
 }
