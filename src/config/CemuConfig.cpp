@@ -123,7 +123,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 
 	// graphics
 	auto graphic = parser.get("Graphic");
-	graphic_api = graphic.get("api", kOpenGL);
+	graphic_api = graphic.get("api", kDefaultGraphicsAPI);
 	graphic.get("device", legacy_graphic_device_uuid);
 	if (graphic.get("vkDevice").valid())
 		graphic.get("vkDevice", vk_graphic_device_uuid);
@@ -145,7 +145,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 	fullscreen_scaling = graphic.get("FullscreenScaling", kKeepAspectRatio);
 	async_compile = graphic.get("AsyncCompile", async_compile);
 	vk_accurate_barriers = graphic.get("vkAccurateBarriers", true); // this used to be "VulkanAccurateBarriers" but because we changed the default to true in 1.27.1 the option name had to be changed
-#if ENABLE_METAL
+#ifdef ENABLE_METAL
 	force_mesh_shaders = graphic.get("ForceMeshShaders", false);
 #endif
 
@@ -300,7 +300,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 	crash_dump = debug.get("CrashDumpUnix", crash_dump);
 #endif
 	gdb_port = debug.get("GDBPort", 1337);
-#if ENABLE_METAL
+#ifdef ENABLE_METAL
 	gpu_capture_dir = debug.get("GPUCaptureDir", "");
 	framebuffer_fetch = debug.get("FramebufferFetch", true);
 #endif
@@ -334,6 +334,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	config.set("mlc_path", mlc_path.GetValue().c_str());
 	config.set<bool>("permanent_storage", permanent_storage);
 	config.set("proxy_server", proxy_server.GetValue().c_str());
+	config.set<bool>("disable_screensaver", disable_screensaver);
 	config.set<bool>("play_boot_sound", play_boot_sound);
 
 	// config.set("cpu_mode", cpu_mode.GetValue());
@@ -400,7 +401,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	graphic.set("OverrideGammaValue", overrideGammaValue);
 	graphic.set("UserDisplayGamma", userDisplayGamma);
 	graphic.set("GX2DrawdoneSync", gx2drawdone_sync);
-#if ENABLE_METAL
+#ifdef ENABLE_METAL
 	graphic.set("ForceMeshShaders", force_mesh_shaders);
 #endif
 	//graphic.set("PrecompiledShaders", precompiled_shaders.GetValue());
@@ -493,7 +494,7 @@ XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 	debug.set("CrashDumpUnix", crash_dump.GetValue());
 #endif
 	debug.set("GDBPort", gdb_port);
-#if ENABLE_METAL
+#ifdef ENABLE_METAL
 	debug.set("GPUCaptureDir", gpu_capture_dir);
 	debug.set("FramebufferFetch", framebuffer_fetch);
 #endif

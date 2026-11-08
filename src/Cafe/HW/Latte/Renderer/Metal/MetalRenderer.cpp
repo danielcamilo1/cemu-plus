@@ -33,7 +33,7 @@ extern bool hasValidFramebufferAttached;
 
 float supportBufferData[512 * 4];
 
-// Defined in the OpenGL renderer
+// Defined in the Common renderer
 void LatteDraw_handleSpecialState8_clearAsDepth();
 
 std::vector<MetalRenderer::DeviceInfo> MetalRenderer::GetDevices()
@@ -50,7 +50,7 @@ std::vector<MetalRenderer::DeviceInfo> MetalRenderer::GetDevices()
     return result;
 }
 
-MetalRenderer::MetalRenderer()
+MetalRenderer::MetalRenderer() : Renderer(RendererAPI::Metal)
 {
     // Options
 
@@ -163,6 +163,8 @@ MetalRenderer::MetalRenderer()
         m_vendor = GfxVendor::Nvidia;
     else
         m_vendor = GfxVendor::Generic;
+
+    m_selectedDeviceName = deviceName;
 
     // Feature support
     m_isAppleGPU = m_device->supportsFamily(MTL::GPUFamilyApple1);
@@ -745,6 +747,31 @@ void MetalRenderer::texture_clearSlice(LatteTexture* hostTexture, sint32 sliceIn
     }
 }
 
+MTL::BlitOption GetBlitOptionForTexture(const LatteTextureMtl* texture) {
+    switch (texture->GetTexture()->pixelFormat()) {
+        case MTL::PixelFormatDepth16Unorm:
+        case MTL::PixelFormatDepth32Float:
+            return MTL::BlitOptionDepthFromDepthStencil;
+
+        case MTL::PixelFormatStencil8:
+            return MTL::BlitOptionStencilFromDepthStencil;
+
+        case MTL::PixelFormatDepth24Unorm_Stencil8:
+        case MTL::PixelFormatDepth32Float_Stencil8:
+            // Can't copy both in one call — caller must specify.
+            // Default to depth
+            return MTL::BlitOptionDepthFromDepthStencil;
+
+        default:
+            return MTL::BlitOptionNone;
+    }
+}
+
+bool IsDepthStencilFormat(MTL::PixelFormat format) {
+    return format == MTL::PixelFormatDepth24Unorm_Stencil8 ||
+           format == MTL::PixelFormatDepth32Float_Stencil8;
+}
+
 // TODO: do a cpu copy on Apple Silicon?
 void MetalRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, sint32 height, sint32 depth, void* pixelData, sint32 sliceIndex, sint32 mipIndex, uint32 compressedImageSize)
 {
@@ -774,9 +801,14 @@ void MetalRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, s
     memcpy(allocation.memPtr, pixelData, compressedImageSize);
     bufferAllocator.FlushReservation(allocation);
 
-    // TODO: specify blit options when copying to a depth stencil texture?
     // Copy the data from the temporary buffer to the texture
-    blitCommandEncoder->copyFromBuffer(allocation.mtlBuffer, allocation.bufferOffset, bytesPerRow, 0, MTL::Size(width, height, 1), textureMtl->GetTexture(), sliceIndex, mipIndex, MTL::Origin(0, 0, offsetZ));
+	if (IsDepthStencilFormat(textureMtl->GetTexture()->pixelFormat())) {
+        // Metal doesn't allow copying depth and stencil data at the same time, so we need to do two copies for combined depth/stencil formats
+        blitCommandEncoder->copyFromBuffer(allocation.mtlBuffer, allocation.bufferOffset, bytesPerRow, 0, MTL::Size(width, height, 1), textureMtl->GetTexture(), sliceIndex, mipIndex, MTL::Origin(0, 0, offsetZ), MTL::BlitOptionDepthFromDepthStencil);
+        blitCommandEncoder->copyFromBuffer(allocation.mtlBuffer, allocation.bufferOffset, bytesPerRow, 0, MTL::Size(width, height, 1), textureMtl->GetTexture(), sliceIndex, mipIndex, MTL::Origin(0, 0, offsetZ), MTL::BlitOptionStencilFromDepthStencil);
+    } else {
+        blitCommandEncoder->copyFromBuffer(allocation.mtlBuffer, allocation.bufferOffset, bytesPerRow, 0, MTL::Size(width, height, 1), textureMtl->GetTexture(), sliceIndex, mipIndex, MTL::Origin(0, 0, offsetZ), GetBlitOptionForTexture(textureMtl));
+    }
     //}
 }
 
@@ -933,7 +965,13 @@ void MetalRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, s
 
 LatteTextureReadbackInfo* MetalRenderer::texture_createReadback(LatteTextureView* textureView)
 {
-    size_t uploadSize = static_cast<LatteTextureMtl*>(textureView->baseTexture)->GetTexture()->allocatedSize();
+    auto* baseTexture = static_cast<LatteTextureMtl*>(textureView->baseTexture);
+    if (baseTexture->m_isAlternateFormat)
+    {
+        cemuLog_logDebug(LogType::Force, "Metal does not support readback of texture format 0x{:x}", (uint32)baseTexture->format);
+        return nullptr;
+    }
+    size_t uploadSize = baseTexture->GetTexture()->allocatedSize();
 
     if ((m_readbackBufferWriteOffset + uploadSize) > TEXTURE_READBACK_SIZE)
 	{
@@ -981,12 +1019,14 @@ void MetalRenderer::bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint
     CopyBufferToBuffer(GetXfbRingBuffer(), srcOffset, m_memoryManager->GetBufferCache(), dstOffset, size, MTL::RenderStageVertex | MTL::RenderStageMesh, ALL_MTL_RENDER_STAGES);
 }
 
-void MetalRenderer::buffer_bindVertexBuffer(uint32 bufferIndex, uint32 offset, uint32 size)
+void MetalRenderer::buffer_bindVertexBuffers(std::span<BindBufferParam> bindings)
 {
     cemu_assert_debug(!m_memoryManager->UseHostMemoryForCache());
-    cemu_assert_debug(bufferIndex < LATTE_MAX_VERTEX_BUFFERS);
-
-    m_state.m_vertexBufferOffsets[bufferIndex] = offset;
+    for (const auto& binding : bindings)
+    {
+        cemu_assert_debug(binding.index < LATTE_MAX_VERTEX_BUFFERS);
+        m_state.m_vertexBufferOffsets[binding.index] = binding.bindOffset;
+    }
 }
 
 void MetalRenderer::buffer_bindUniformBuffer(LatteConst::ShaderType shaderType, uint32 bufferIndex, uint32 offset, uint32 size)
@@ -1067,7 +1107,7 @@ void MetalRenderer::draw_beginSequence()
 		m_state.m_skipDrawSequence = true;
 }
 
-void MetalRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, bool isFirst)
+void MetalRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext)
 {
     if (m_state.m_skipDrawSequence)
 	{
@@ -1142,10 +1182,9 @@ void MetalRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 
 	// Index buffer
 	Renderer::INDEX_TYPE hostIndexType;
 	uint32 hostIndexCount;
-	uint32 indexMin = 0;
 	uint32 indexMax = 0;
 	Renderer::IndexAllocation indexAllocation;
-	LatteIndices_decode(memory_getPointerFromVirtualOffset(indexDataMPTR), indexType, count, primitiveMode, indexMin, indexMax, hostIndexType, hostIndexCount, indexAllocation);
+	LatteIndices_decode(memory_getPointerFromVirtualOffset(indexDataMPTR), indexType, count, primitiveMode, indexMax, hostIndexType, hostIndexCount, indexAllocation);
 	auto indexAllocationMtl = static_cast<MetalSynchronizedHeapAllocator::AllocatorReservation*>(indexAllocation.rendererInternal);
 
 	// Buffer cache
@@ -1164,7 +1203,8 @@ void MetalRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 
 	{
     	// synchronize vertex and uniform cache and update buffer bindings
     	// We need to call this before getting the render command encoder, since it can cause buffer copies
-    	LatteBufferCache_Sync(indexMin + baseVertex, indexMax + baseVertex, baseInstance, instanceCount);
+		uint8 stageUniformModifiedMask = 0;
+    	LatteBufferCache_Sync(indexMax + baseVertex, baseInstance, instanceCount, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, stageUniformModifiedMask);
 	}
 
 	// Render pass
@@ -1996,7 +2036,7 @@ void MetalRenderer::BindStageResources(MTL::RenderCommandEncoder* renderCommandE
     sint32 textureCount = shader->resourceMapping.getTextureCount();
 	for (int i = 0; i < textureCount; ++i)
 	{
-		const auto relative_textureUnit = shader->resourceMapping.getTextureUnitFromBindingPoint(i);
+		const auto relative_textureUnit = shader->resourceMapping.getRelativeTextureUnitFromRelativeBindingPoint(i);
 		auto hostTextureUnit = relative_textureUnit;
 
 		// Don't bind textures that are accessed with a framebuffer fetch
@@ -2138,7 +2178,7 @@ void MetalRenderer::BindStageResources(MTL::RenderCommandEncoder* renderCommandE
 		}
 		if (shader->uniform.loc_remapped >= 0)
 		{
-			LatteBufferCache_LoadRemappedUniforms(shader, GET_UNIFORM_DATA_PTR(shader->uniform.loc_remapped));
+			LatteBufferCache_LoadRemappedUniforms(shader, GET_UNIFORM_DATA_PTR(shader->uniform.loc_remapped), true, (1<<LATTE_NUM_MAX_UNIFORM_BUFFERS)-1);
 		}
 		if (shader->uniform.loc_uniformRegister >= 0)
 		{
@@ -2157,6 +2197,15 @@ void MetalRenderer::BindStageResources(MTL::RenderCommandEncoder* renderCommandE
 		if (shader->uniform.loc_fragCoordScale >= 0)
 		{
 			LatteMRT::GetCurrentFragCoordScale(GET_UNIFORM_DATA_PTR(shader->uniform.loc_fragCoordScale));
+		}
+		for (sint32 t = 0; t < LATTE_NUM_MAX_TEX_UNITS; t++)
+		{
+			if (shader->uniform.loc_framebufferFetchSize[t] < 0)
+				continue;
+			const auto& texture = LatteGPUState.contextNew.SQ_TEX_START_PS[t];
+			sint32* size = reinterpret_cast<sint32*>(GET_UNIFORM_DATA_PTR(shader->uniform.loc_framebufferFetchSize[t]));
+			size[0] = texture.word0.get_WIDTH() + 1;
+			size[1] = texture.word1.get_HEIGHT() + 1;
 		}
 		if (shader->uniform.loc_verticesPerInstance >= 0)
 		{

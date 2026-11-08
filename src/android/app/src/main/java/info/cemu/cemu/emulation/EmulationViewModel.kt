@@ -19,6 +19,7 @@ import info.cemu.cemu.common.framegen.FrameGenMultiplierChoices
 import info.cemu.cemu.common.framegen.hasLosslessDll
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
+import info.cemu.cemu.common.settings.DEFAULT_MOTION_SENSITIVITY
 import info.cemu.cemu.common.settings.InputOverlayRect
 import info.cemu.cemu.common.settings.InputOverlaySettings
 import info.cemu.cemu.common.settings.OverlayInputConfig
@@ -48,6 +49,8 @@ data class SideMenuState(
     val isMotionEnabled: Boolean = false,
     val isMotionXInverted: Boolean = false,
     val isMotionYInverted: Boolean = false,
+    val motionSensitivityX: Int = DEFAULT_MOTION_SENSITIVITY,
+    val motionSensitivityY: Int = DEFAULT_MOTION_SENSITIVITY,
     val isTVReplacedWithPad: Boolean = false,
     val isPadVisible: Boolean = false,
     val isPadOnExternalDisplay: Boolean = false,
@@ -119,6 +122,8 @@ class EmulationViewModel(
                     isMotionEnabled = settings.emulationSettings.isMotionEnabled,
                     isMotionXInverted = settings.emulationSettings.isMotionXInverted,
                     isMotionYInverted = settings.emulationSettings.isMotionYInverted,
+                    motionSensitivityX = settings.emulationSettings.motionSensitivityX,
+                    motionSensitivityY = settings.emulationSettings.motionSensitivityY,
                     isInputOverlayVisible = settings.inputOverlaySettings.isOverlayEnabled,
                 )
             }
@@ -135,6 +140,8 @@ class EmulationViewModel(
                             isMotionEnabled = emulationSettings.isMotionEnabled,
                             isMotionXInverted = emulationSettings.isMotionXInverted,
                             isMotionYInverted = emulationSettings.isMotionYInverted,
+                            motionSensitivityX = emulationSettings.motionSensitivityX,
+                            motionSensitivityY = emulationSettings.motionSensitivityY,
                         )
                     }
                 }
@@ -179,7 +186,9 @@ class EmulationViewModel(
             oldState.areScreensSwapped != sideMenuState.areScreensSwapped ||
             oldState.isMotionEnabled != sideMenuState.isMotionEnabled ||
             oldState.isMotionXInverted != sideMenuState.isMotionXInverted ||
-            oldState.isMotionYInverted != sideMenuState.isMotionYInverted
+            oldState.isMotionYInverted != sideMenuState.isMotionYInverted ||
+            oldState.motionSensitivityX != sideMenuState.motionSensitivityX ||
+            oldState.motionSensitivityY != sideMenuState.motionSensitivityY
         ) {
             viewModelScope.launch {
                 dataStore.updateData {
@@ -192,6 +201,8 @@ class EmulationViewModel(
                             isMotionEnabled = sideMenuState.isMotionEnabled,
                             isMotionXInverted = sideMenuState.isMotionXInverted,
                             isMotionYInverted = sideMenuState.isMotionYInverted,
+                            motionSensitivityX = sideMenuState.motionSensitivityX,
+                            motionSensitivityY = sideMenuState.motionSensitivityY,
                         )
                     )
                 }

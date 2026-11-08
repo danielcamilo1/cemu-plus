@@ -272,7 +272,7 @@ void DebugPPCThreadsWindow::RefreshThreadList()
 void DebugPPCThreadsWindow::DumpStackTrace(OSThread_t* thread)
 {
 	cemuLog_log(LogType::Force, "Dumping stack trace for thread {0:08x} LR: {1:08x}", memory_getVirtualOffsetFromPointer(thread), _swapEndianU32(thread->context.lr));
-	DebugLogStackTrace(thread, _swapEndianU32(thread->context.gpr[1]), true);
+	DebugLogStackTrace(thread, _swapEndianU32(thread->context.gpr[1]));
 }
 
 void DebugPPCThreadsWindow::PresentProfileResults(OSThread_t* thread, const std::unordered_map<VAddr, uint32>& samples)
@@ -456,7 +456,7 @@ void DebugPPCThreadsWindow::OnThreadListRightClick(wxMouseEvent& event)
 	menu.AppendSeparator();
 	menu.Append(THREADLIST_MENU_DUMP_STACK_TRACE, _("Write stack trace to log"));
 	menu.Append(THREADLIST_MENU_PROFILE_THREAD, _("Profile thread"));
-	menu.Bind(wxEVT_COMMAND_MENU_SELECTED, &DebugPPCThreadsWindow::OnThreadListPopupClick, this);
+	menu.Bind(wxEVT_MENU, &DebugPPCThreadsWindow::OnThreadListPopupClick, this);
 	PopupMenu(&menu);
 }
 

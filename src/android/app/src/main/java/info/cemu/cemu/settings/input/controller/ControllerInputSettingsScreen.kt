@@ -60,6 +60,9 @@ import info.cemu.cemu.R
 import info.cemu.cemu.common.android.context.getDeviceVibrator
 import info.cemu.cemu.common.android.inputdevice.tryUseVibrator
 import info.cemu.cemu.common.input.GamepadInputSource
+import info.cemu.cemu.common.settings.MAX_MOTION_SENSITIVITY
+import info.cemu.cemu.common.settings.MIN_MOTION_SENSITIVITY
+import info.cemu.cemu.common.settings.MOTION_SENSITIVITY_STEP
 import info.cemu.cemu.common.ui.components.Header
 import info.cemu.cemu.common.ui.components.ScreenContent
 import info.cemu.cemu.common.ui.components.Slider
@@ -118,6 +121,7 @@ fun ControllerInputSettingsScreen(
     val activeController by viewModel.activeController.collectAsState()
     val isDeviceMotionEnabled by viewModel.isDeviceMotionEnabled.collectAsState()
     val motionInversion by viewModel.motionInversion.collectAsState()
+    val motionSensitivity by viewModel.motionSensitivity.collectAsState()
     val deviceControllerIndex by viewModel.deviceControllerIndex.collectAsState()
     val deviceRumble by viewModel.deviceRumble.collectAsState()
     val profiles by viewModel.profiles.collectAsState()
@@ -264,6 +268,26 @@ fun ControllerInputSettingsScreen(
             description = tr("Tilting up and down goes the other way, for every controller"),
             checked = motionInversion.isYInverted,
             onCheckedChanged = viewModel::setMotionYInverted,
+        )
+        Slider(
+            label = tr("Motion sensitivity X axis"),
+            description = tr("How fast turning left and right goes, for every controller"),
+            value = motionSensitivity.x,
+            valueFrom = MIN_MOTION_SENSITIVITY,
+            valueTo = MAX_MOTION_SENSITIVITY,
+            steps = (MAX_MOTION_SENSITIVITY - MIN_MOTION_SENSITIVITY) / MOTION_SENSITIVITY_STEP - 1,
+            labelFormatter = { "$it%" },
+            onValueChange = viewModel::setMotionSensitivityX,
+        )
+        Slider(
+            label = tr("Motion sensitivity Y axis"),
+            description = tr("How fast tilting up and down goes, for every controller"),
+            value = motionSensitivity.y,
+            valueFrom = MIN_MOTION_SENSITIVITY,
+            valueTo = MAX_MOTION_SENSITIVITY,
+            steps = (MAX_MOTION_SENSITIVITY - MIN_MOTION_SENSITIVITY) / MOTION_SENSITIVITY_STEP - 1,
+            labelFormatter = { "$it%" },
+            onValueChange = viewModel::setMotionSensitivityY,
         )
 
         Header(tr("Rumble"))

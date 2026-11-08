@@ -26,7 +26,15 @@ data class EmulationSettings(
     // for every motion source, X turns the GamePad left and right and Y tilts it up and down
     val isMotionXInverted: Boolean = false,
     val isMotionYInverted: Boolean = false,
+    // how much the turning speed is scaled, in percent, for every motion source like the inversion above
+    val motionSensitivityX: Int = DEFAULT_MOTION_SENSITIVITY,
+    val motionSensitivityY: Int = DEFAULT_MOTION_SENSITIVITY,
 )
+
+const val DEFAULT_MOTION_SENSITIVITY = 100
+const val MIN_MOTION_SENSITIVITY = 25
+const val MAX_MOTION_SENSITIVITY = 500
+const val MOTION_SENSITIVITY_STEP = 5
 
 enum class GameListLayout {
     GRID,

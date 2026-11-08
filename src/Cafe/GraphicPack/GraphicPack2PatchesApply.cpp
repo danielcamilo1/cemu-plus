@@ -8,19 +8,19 @@
 
 bool _relocateAddress(PatchGroup* group, PatchContext_t* ctx, uint32 addr, uint32& relocatedAddress)
 {
-	if (addr >= 0 && addr <= 1024 * 1024 * 8)
+	if (addr <= PatchGroup::CODECAVE_MAX_OFFSET)
 	{
 		// codecave address
 		relocatedAddress = group->getCodeCaveBase() + addr;
 		return true;
 	}
 	// check if address is within module section
-	for (sint32 i = 0; i < ctx->matchedModule->rplHeader.sectionTableEntryCount; i++)
+	for (sint32 i = 0; i < ctx->matchedModule->sectionTable.size(); i++)
 	{
-		auto sect = ctx->matchedModule->sectionTablePtr + i;
-		if (addr >= sect->virtualAddress && addr < (sect->virtualAddress + sect->sectionSize))
+		const RPLFileSectionEntry& sect = ctx->matchedModule->sectionTable[i];
+		if (addr >= sect.virtualAddress && addr < (sect.virtualAddress + sect.sectionSize))
 		{
-			relocatedAddress = addr - sect->virtualAddress + memory_getVirtualOffsetFromPointer(ctx->matchedModule->sectionAddressTable2[i].ptr);
+			relocatedAddress = addr - sect.virtualAddress + memory_getVirtualOffsetFromPointer(ctx->matchedModule->sectionAddressTable[i].ptr);
 			return true;
 		}
 	}
@@ -50,30 +50,6 @@ bool GraphicPack2::ResolvePresetConstant(const std::string& varname, double& val
 }
 
 template<typename T>
-T _expressionFuncHA(T input)
-{
-	uint32 u32 = (uint32)input;
-	u32 = (((u32 >> 16) + ((u32 & 0x8000) ? 1 : 0)) & 0xffff);
-	return (T)u32;
-}
-
-template<typename T>
-T _expressionFuncHI(T input)
-{
-	uint32 u32 = (uint32)input;
-	u32 = (u32 >> 16) & 0xffff;
-	return (T)u32;
-}
-
-template<typename T>
-T _expressionFuncLO(T input)
-{
-	uint32 u32 = (uint32)input;
-	u32 &= 0xffff;
-	return (T)u32;
-}
-
-template<typename T>
 T _expressionFuncReloc(T input)
 {
 	uint32 addr = (uint32)input;
@@ -89,18 +65,7 @@ T _expressionFuncReloc(T input)
 double _cbResolveConstant(std::string_view varname)
 {
 	std::string varnameOnly;
-	std::string tokenOnly;
-	// detect suffix
-	bool hasSuffix = false;
-	const auto idx = varname.find('@');
-	if (idx != std::string_view::npos)
-	{
-		hasSuffix = true;
-		varnameOnly = varname.substr(0, idx);
-		tokenOnly = varname.substr(idx + 1);
-	}
-	else
-		varnameOnly = varname;
+	varnameOnly = varname;
 
 	double value;
 	if (varnameOnly.length() >= 1 && varnameOnly[0] == '$')
@@ -172,37 +137,6 @@ double _cbResolveConstant(std::string_view varname)
 		}
 		value = v->second;
 	}
-	if (hasSuffix)
-	{
-		std::transform(tokenOnly.cbegin(), tokenOnly.cend(), tokenOnly.begin(), tolower);
-		if (tokenOnly == "ha")
-		{
-			value = _expressionFuncHA<double>(value);
-		}
-		else if (tokenOnly == "h" || tokenOnly == "hi")
-		{
-			value = _expressionFuncHI<double>(value);
-		}
-		else if (tokenOnly == "l" || tokenOnly == "lo")
-		{
-			value = _expressionFuncLO<double>(value);
-		}
-		else
-		{
-			// we treat unknown suffixes as unresolveable symbols
-			resolverState.hasUnknownVariable = true;
-			if (resolverState.captureUnresolvedSymbols)
-			{
-				std::string detailedSymbolName;
-				detailedSymbolName.assign(varnameOnly);
-				detailedSymbolName.append("@");
-				detailedSymbolName.append(tokenOnly);
-				detailedSymbolName.append(" (invalid suffix)");
-				resolverState.activePatchContext->unresolvedSymbols.emplace(resolverState.lineNumber, resolverState.currentGroup, detailedSymbolName);
-			}
-			return 0.0;
-		}
-	}
 	return value;
 }
 
@@ -212,11 +146,11 @@ double _cbResolveFunction(std::string_view funcname, double input)
 	std::transform(funcnameLC.cbegin(), funcnameLC.cend(), funcnameLC.begin(), tolower);
 	double value = input;
 	if (funcnameLC == "ha" || funcnameLC == "ha16")
-		value = _expressionFuncHA<double>(value);
+		value = TExpressionParser<double>::ExpressionFuncHA(value);
 	else if (funcnameLC == "hi" || funcnameLC == "hi16")
-		value = _expressionFuncHI<double>(value);
+		value = TExpressionParser<double>::ExpressionFuncHI(value);
 	else if (funcnameLC == "lo" || funcnameLC == "lo16")
-		value = _expressionFuncLO<double>(value);
+		value = TExpressionParser<double>::ExpressionFuncLO(value);
 	else if (funcnameLC == "reloc")
 		value = _expressionFuncReloc<double>(value);
 	else
@@ -486,7 +420,7 @@ void PatchEntryInstruction::undoPatch()
 	uint8* patchAddr = (uint8*)memory_base + addr;
 	memcpy(patchAddr, m_dataBackup, m_length);
 	PPCRecompiler_invalidateRange(addr, addr + m_length);
-	rplSymbolStorage_removeRange(addr, m_length);
+	rplSymbolStorage_removeRange(addr, m_length, RPL_STORED_SYMBOL_PATCH);
 	DebugSymbolStorage::ClearRange(addr, m_length);
 }
 
@@ -500,7 +434,7 @@ bool registerU32Variable(PatchContext_t& ctx, std::string& name, uint32 value, P
 	}
 	ctx.map_values[name] = value;
 	// keep track of address symbols for the debugger
-	rplSymbolStorage_store(ctx.graphicPack->GetName().data(), name.data(), value);
+	rplSymbolStorage_store(ctx.graphicPack->GetName().data(), name.data(), value, RPL_STORED_SYMBOL_PATCH);
 
 	return true;
 }
@@ -580,36 +514,31 @@ bool _resolverPass(PatchContext_t& patchContext, std::vector<UnresolvedPatches_t
 	{
 		resolverState.currentGroup = unresolvedGroup.patchGroup;
 		auto& list_unresolvedPatches = unresolvedGroup.list_unresolvedPatches;
-		for (auto it = list_unresolvedPatches.begin(); it != list_unresolvedPatches.end();)
+		std::erase_if(list_unresolvedPatches, [&](PatchEntry* entry)
 		{
-			auto r = (*it)->resolve(patchContext);
+			auto r = entry->resolve(patchContext);
 			if (r == PATCH_RESOLVE_RESULT::RESOLVED)
 			{
-				// remove from list
-				it = list_unresolvedPatches.erase(it);
 				numResolvedEntries++;
-				continue;
+				return true;
 			}
 			else if (r == PATCH_RESOLVE_RESULT::UNKNOWN_VARIABLE)
 			{
 				// dependency on other not yet resolved entry, continue iterating
-				it++;
-				continue;
 			}
 			else if (r == PATCH_RESOLVE_RESULT::INVALID_ADDRESS ||
 				r == PATCH_RESOLVE_RESULT::VARIABLE_CONFLICT)
 			{
 				// errors handled and printed inside resolve()
-				it++;
-				continue;
 			}
 			else
 			{
 				// unknown error
-				patchContext.errorHandler.printError(resolverState.currentGroup, -1, "Internal error");
-				it++;
+				sint32 lineNumber = entry->getLineNumber();
+				patchContext.errorHandler.printError(resolverState.currentGroup, lineNumber, "Unable to parse expression or other internal error");
 			}
-		}
+			return false;
+		});
 	}
 	return numResolvedEntries;
 }
@@ -639,6 +568,12 @@ void GraphicPack2::ApplyPatchGroups(std::vector<PatchGroup*>& groups, const RPLM
 		if (patchGroup->codeCaveSize > 0)
 		{
 			auto codeCaveMem = RPLLoader_AllocateCodeCaveMem(256, patchGroup->codeCaveSize);
+			if (!codeCaveMem)
+			{
+				patchContext.errorHandler.printError(patchGroup, -1, fmt::format("Not enough code cave memory for {} bytes, the code caves of all graphic packs share {} bytes", patchGroup->codeCaveSize, MEMORY_CODECAVEAREA_SIZE));
+				patchContext.errorHandler.showStageErrorMessageBox();
+				return;
+			}
 			cemuLog_log(LogType::Force, "Applying patch group \'{}\' (Codecave: {:08x}-{:08x})", patchGroup->name, codeCaveMem.GetMPTR(), codeCaveMem.GetMPTR() + patchGroup->codeCaveSize);
 			patchGroup->codeCaveMem = codeCaveMem;
 		}
@@ -753,7 +688,7 @@ void GraphicPack2::UndoPatchGroups(std::vector<PatchGroup*>& groups, const RPLMo
 
 void GraphicPack2::NotifyModuleLoaded(const RPLModule* rpl)
 {
-	cemuLog_log(LogType::Force, "Loaded module \'{}\' with checksum 0x{:08x}", rpl->moduleName2, rpl->patchCRC);
+	cemuLog_log(LogType::Force, "Loaded module \'{}\' with checksum 0x{:08x}", rpl->moduleName, rpl->patchCRC);
 
 	std::lock_guard<std::recursive_mutex> lock(mtx_patches);
 	list_modules.emplace_back(rpl);
