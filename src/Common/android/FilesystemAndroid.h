@@ -1,8 +1,5 @@
 #pragma once
 
-#include <chrono>
-#include <cstdint>
-
 namespace FilesystemAndroid
 {
 	class FilesystemCallbacks
@@ -28,8 +25,6 @@ namespace FilesystemAndroid
 	bool Exists(const fs::path& uri);
 
 	bool IsContentUri(std::string_view uri);
-
-	void DiagRecordRead(std::chrono::steady_clock::time_point start, uint64_t bytes); // DIAGNOSTIC (temporary)
 
 	inline bool IsContentUri(const fs::path& path)
 	{

@@ -149,46 +149,8 @@ namespace GX2
 		texture->regTexWord6 = newRegWord6;
 	}
 
-	// DIAGNOSTIC (temporary): logs textures whose mip chain points outside of mapped memory, once per GX2Texture
-	static void _GX2DiagLogBadTexture(GX2Texture* tex, uint32 textureUnitIndex, Latte::REGADDR baseRegister)
-	{
-		if (tex->surface.numLevels <= 1 && tex->viewNumMips <= 1)
-			return;
-		MPTR mipPtr = tex->surface.mipPtr;
-		if (mipPtr == MPTR_NULL || memory_isAddressRangeAccessible(mipPtr & ~0xFFFF, 1))
-			return;
-		static std::mutex s_mtx;
-		static std::unordered_set<MPTR> s_logged;
-		MPTR texAddr = memory_getVirtualOffsetFromPointer(tex);
-		std::unique_lock _l(s_mtx);
-		if (!s_logged.emplace(texAddr).second)
-			return;
-		_l.unlock();
-		PPCInterpreter_t* hCPU = PPCInterpreter_getCurrentInstance();
-		uint32 lr = hCPU ? hCPU->spr.LR : 0;
-		cemuLog_log(LogType::Force, "DIAG GX2SetTexture: tex {:08x} unit {} stage {:x} LR {:08x} dim {} {}x{}x{} levels {} fmt {:04x} aa {} resFlag {:08x} imageSize {:08x} imagePtr {:08x} mipSize {:08x} mipPtr {:08x} tm {} swizzle {:08x} pitch {} viewMips {}+{} viewSlices {}+{}",
-			texAddr, textureUnitIndex, (uint32)baseRegister, lr, (uint32)tex->surface.dim.value(), (uint32)tex->surface.width, (uint32)tex->surface.height, (uint32)tex->surface.depth, (uint32)tex->surface.numLevels, (uint32)tex->surface.format.value(), (uint32)tex->surface.aa, (uint32)tex->surface.resFlag, (uint32)tex->surface.imageSize, (uint32)tex->surface.imagePtr, (uint32)tex->surface.mipSize, (uint32)tex->surface.mipPtr, (uint32)tex->surface.tileMode.value(), (uint32)tex->surface.swizzle, (uint32)tex->surface.pitch, (uint32)tex->viewFirstMip, (uint32)tex->viewNumMips, (uint32)tex->viewFirstSlice, (uint32)tex->viewNumSlices);
-		// raw dump of the struct and the 0x40 bytes before it, to tell what kind of object the pointer points at
-		uint8* raw = (uint8*)tex - 0x40;
-		for (uint32 off = 0; off < 0x40 + sizeof(GX2Texture); off += 0x20)
-		{
-			std::string line = fmt::format("DIAG   {:08x}:", texAddr - 0x40 + off);
-			for (uint32 i = 0; i < 0x20; i += 4)
-				line += fmt::format(" {:08x}", _swapEndianU32(*(uint32*)(raw + off + i)));
-			cemuLog_log(LogType::Force, line);
-		}
-		if (hCPU)
-		{
-			std::string line = "DIAG   GPRs:";
-			for (uint32 i = 0; i < 32; i++)
-				line += fmt::format(" r{}={:08x}", i, hCPU->gpr[i]);
-			cemuLog_log(LogType::Force, line);
-		}
-	}
-
 	void _GX2SetTexture(GX2Texture* tex, Latte::REGADDR baseRegister, uint32 textureUnitIndex)
 	{
-		_GX2DiagLogBadTexture(tex, textureUnitIndex, baseRegister);
 		GX2ReserveCmdSpace(2 + 7);
 
 		MPTR imagePtr = tex->surface.imagePtr;
