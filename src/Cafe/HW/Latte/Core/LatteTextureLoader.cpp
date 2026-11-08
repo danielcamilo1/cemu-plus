@@ -627,6 +627,22 @@ void LatteTextureLoader_UpdateTextureSliceData(LatteTexture* tex, uint32 sliceIn
 	if (texDecoder == nullptr)
 		return;
 
+	// a game can bind a texture whose data pointer is outside of the mapped guest memory (e.g. a stale or uninitialized pointer, seen in Sonic Lost World when leaving the title screen)
+	// the console would sample garbage there but reading it on the host crashes, so the slice is cleared instead
+	// texDataPtrLow/High are left untouched so the change tracker doesn't read that memory either
+	// first and last byte are checked separately since some mapped ranges are adjacent (e.g. MEM1 and RPLLOADER) and a texture may span both
+	MPTR inputAddr = memory_getVirtualOffsetFromPointer(textureLoader.inputData);
+	uint32 inputSize = std::max<sint32>(textureLoader.maxOffsetOutdated, 1);
+	if (!memory_isAddressRangeAccessible(inputAddr, 1) || !memory_isAddressRangeAccessible(inputAddr + inputSize - 1, 1))
+	{
+		cemuLog_log(LogType::Force, "Texture data at {:08x}-{:08x} (fmt {:04x} {}x{} slice {} mip {}) is outside of mapped memory, clearing it instead", inputAddr, inputAddr + inputSize, (uint32)format, width, height, sliceIndex, mipIndex);
+		if (tex->isDepth)
+			g_renderer->texture_clearDepthSlice(tex, sliceIndex, mipIndex, true, tex->hasStencil, 0.0f, 0);
+		else
+			g_renderer->texture_clearColorSlice(tex, sliceIndex, mipIndex, 0.0f, 0.0f, 0.0f, 0.0f);
+		return;
+	}
+
 	textureLoader.decodedTexelCountX = texDecoder->getTexelCountX(&textureLoader);
 	textureLoader.decodedTexelCountY = texDecoder->getTexelCountY(&textureLoader);
 
