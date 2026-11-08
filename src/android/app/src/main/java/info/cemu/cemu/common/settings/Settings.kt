@@ -33,7 +33,7 @@ data class EmulationSettings(
 
 const val DEFAULT_MOTION_SENSITIVITY = 100
 const val MIN_MOTION_SENSITIVITY = 25
-const val MAX_MOTION_SENSITIVITY = 300
+const val MAX_MOTION_SENSITIVITY = 500
 const val MOTION_SENSITIVITY_STEP = 5
 
 enum class GameListLayout {

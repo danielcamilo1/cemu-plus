@@ -5,7 +5,7 @@ What changed in each Cemu Plus release. The release page of each version shows i
 ## 0.4.0 - 2026-11-08
 
 ### Motion sensitivity
-- **Motion sensitivity X axis** and **Motion sensitivity Y axis** set how fast turning left and right, and tilting up and down go, from 25% to 300%. They are next to the motion inversion on each controller's page in **Input settings** and in the quick menu under Controls, and work for the motion of the device and of controllers
+- **Motion sensitivity X axis** and **Motion sensitivity Y axis** set how fast turning left and right, and tilting up and down go, from 25% to 500%. They are next to the motion inversion on each controller's page in **Input settings** and in the quick menu under Controls, and work for the motion of the device and of controllers
 - They scale the turning speed the game gets, which is what aiming with motion uses. A tilt that is held still settles at the real angle of the device
 
 ### Updated to the latest Cemu
