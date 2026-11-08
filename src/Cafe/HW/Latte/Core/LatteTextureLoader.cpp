@@ -635,7 +635,7 @@ void LatteTextureLoader_UpdateTextureSliceData(LatteTexture* tex, uint32 sliceIn
 	uint32 inputSize = std::max<sint32>(textureLoader.maxOffsetOutdated, 1);
 	if (!memory_isAddressRangeAccessible(inputAddr, 1) || !memory_isAddressRangeAccessible(inputAddr + inputSize - 1, 1))
 	{
-		cemuLog_log(LogType::Force, "Texture data at {:08x}-{:08x} (fmt {:04x} {}x{} slice {} mip {}) is outside of mapped memory, clearing it instead", inputAddr, inputAddr + inputSize, (uint32)format, width, height, sliceIndex, mipIndex);
+		cemuLog_log(LogType::Force, "Texture data at {:08x}-{:08x} (base {:08x} mipPtr {:08x} fmt {:04x} dim {} tm {} {}x{}x{} pitch {} slice {} mip {}/{}) is outside of mapped memory, clearing it instead", inputAddr, inputAddr + inputSize, physImagePtr, physMipPtr, (uint32)format, (uint32)dim, (uint32)tileMode, width, height, depth, pitch, sliceIndex, mipIndex, mipLevels);
 		if (tex->isDepth)
 			g_renderer->texture_clearDepthSlice(tex, sliceIndex, mipIndex, true, tex->hasStencil, 0.0f, 0);
 		else
