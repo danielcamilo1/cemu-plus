@@ -188,7 +188,16 @@ void LatteTexture_updateTexturesForStage(LatteDecompilerShader* shaderContext, u
 		if (!textureView)
 		{
 			// view not found, create a new mapping which will also create a new texture if necessary
+			auto diagStart = std::chrono::steady_clock::now(); // DIAGNOSTIC (temporary)
 			textureView = LatteTexture_CreateMapping(physAddr, physMipAddr, width, height, depth, pitch, tileMode, swizzle, viewFirstMip, viewNumMips, viewFirstSlice, viewNumSlices, format, dim, dim, isDepthSampler);
+			{
+				auto diagMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - diagStart).count();
+				bool badMip = (viewFirstMip + viewNumMips) > 1 && !memory_isAddressRangeAccessible(physMipAddr, 1);
+				if (badMip || diagMs >= 50)
+					cemuLog_log(LogType::Force, "DIAG CreateMapping took {}ms: {} shader {:016x}_{:016x} unit {} base {:08x} mip {:08x} {}x{}x{} fmt {:04x} tm {} mips {}+{} badMip {}",
+						diagMs, shaderContext->shaderType == LatteConst::ShaderType::Pixel ? "ps" : (shaderContext->shaderType == LatteConst::ShaderType::Vertex ? "vs" : "gs"),
+						shaderContext->baseHash, shaderContext->auxHash, textureIndex, physAddr, physMipAddr, width, height, depth, (uint32)format, (uint32)tileMode, viewFirstMip, viewNumMips, badMip);
+			}
 			if (textureView == nullptr)
 				continue;
 			LatteGPUState.repeatTextureInitialization = true;
