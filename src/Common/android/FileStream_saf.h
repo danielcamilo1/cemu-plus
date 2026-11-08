@@ -1,7 +1,5 @@
 #pragma once
 
-#include "FdStream.h"
-
 class FileStreamSAF
 {
   public:
@@ -31,8 +29,13 @@ class FileStreamSAF
 	void writeLine(const char* str);
 	void Flush();
 
+	~FileStreamSAF();
+
   private:
 	FileStreamSAF(const fs::path& uri);
-	FdStream m_stream;
+	// reads go straight to the file descriptor with pread() at m_position
+	// a std::istream on the fd (used before) gets stuck in its fail state after an interrupted or failed read, and every later read then returns 0 bytes without the caller noticing
+	int m_fd = -1;
+	uint64 m_position = 0;
 	bool m_isValid = false;
 };
