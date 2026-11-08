@@ -42,7 +42,7 @@ namespace
     }
 }
 
-void DiagRecordRead(std::chrono::steady_clock::time_point start, uint64 bytes)
+void DiagRecordRead(std::chrono::steady_clock::time_point start, uint64_t bytes)
 {
     DiagRecord(DIAG_READ, start, nullptr, bytes);
 }
