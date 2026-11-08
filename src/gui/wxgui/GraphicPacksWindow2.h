@@ -1,9 +1,9 @@
 #pragma once
 
-#include <wx/frame.h>
 #include <wx/dialog.h>
 #include <wx/scrolwin.h>
 #include <wx/infobar.h>
+#include <wx/hyperlink.h>
 
 #include "wxcomponents/checktree.h"
 
@@ -28,6 +28,8 @@ private:
 	bool m_filter_installed_games;
 	std::vector<uint64_t> m_installed_games;
 
+	void UpdateAppearance();
+	void UpdateOptionsLayout();
 	void ClearPresets();
 	void FillGraphicPackList() const;
 	void GetChildren(const wxTreeItemId& id, std::vector<wxTreeItemId>& children) const;
@@ -46,11 +48,11 @@ private:
 	wxBoxSizer* m_preset_sizer;
 	std::vector<wxChoice*> m_active_preset;
 	wxButton* m_reload_shaders;
+	wxHyperlinkCtrl* m_download_from_url;
 	wxButton* m_update_graphicPacks;
 	wxInfoBar* m_info_bar;
 
 	GraphicPackPtr m_shown_graphic_pack;
-	std::string m_gp_name, m_gp_description;
 
 	float m_ratio = 0.55f;
 	wxColour m_default_colour = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
@@ -64,6 +66,7 @@ private:
 	void OnTreeChoiceChanged(wxTreeEvent& event);
 	void OnActivePresetChanged(wxCommandEvent& event);
 	void OnReloadShaders(wxCommandEvent& event);
+	void OnClickCustomDownload(wxCommandEvent& event);
 	void OnCheckForUpdates(wxCommandEvent& event);
 	void OnSizeChanged(wxSizeEvent& event);
 	void SashPositionChanged(wxEvent& event);

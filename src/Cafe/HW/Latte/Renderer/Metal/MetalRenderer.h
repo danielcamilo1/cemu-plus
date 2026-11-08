@@ -153,11 +153,6 @@ public:
     MetalRenderer();
 	~MetalRenderer() override;
 
-	RendererAPI GetType() override
-	{
-	    return RendererAPI::Metal;
-	}
-
 	static MetalRenderer* GetInstance() {
 	    return static_cast<MetalRenderer*>(g_renderer.get());
 	}
@@ -237,7 +232,7 @@ public:
 	void bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32 size) override;
 	void bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint32 dstOffset, uint32 size) override;
 
-	void buffer_bindVertexBuffer(uint32 bufferIndex, uint32 offset, uint32 size) override;
+	void buffer_bindVertexBuffers(std::span<BindBufferParam> bindings) override;
 	void buffer_bindUniformBuffer(LatteConst::ShaderType shaderType, uint32 bufferIndex, uint32 offset, uint32 size) override;
 
 	// shader
@@ -250,7 +245,7 @@ public:
 
 	// core drawing logic
 	void draw_beginSequence() override;
-	void draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, bool isFirst) override;
+	void draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext) override;
 	void draw_endSequence() override;
 
 	void draw_updateVertexBuffersDirectAccess();
