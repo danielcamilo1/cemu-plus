@@ -2,6 +2,27 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.4.0 - 2026-11-08
+
+### Updated to the latest Cemu
+Cemu Plus now includes everything the main Cemu project added since April 2026:
+- **Wii U CPU on ARM:** fixes in the ARM64 recompiler that runs every game, for single-precision float stores (now faster too), division by zero, carry flags and a few wrong instructions. The default NaN mode of ARM is turned off to match the Wii U
+- **Performance:** smaller Vulkan and GPU optimizations, like checking only the render state that changed, caching shader lookups and using the fast draw path more often
+- **Rendering:** better texture readback (e.g. Color Splash and Xenoblade Chronicles X), textures are refreshed when a game invalidates their memory, mip and slice handling, offsets of some texture sampling modes and many shader corrections
+- **Videos:** the colors of in-game videos are right on ARM devices, and video decoding handles interrupted streams better
+- **Audio:** more accurate sound mixing and sampling
+- **Compatibility:** more Wii U system functions, like the dynamic library notifications, alarm queues, `exit()` and date conversions, and more of the software keyboard
+- **Stability:** more state is reset when a game closes, so starting another game afterwards is more reliable, and fixes for crashes when a game exits or the app closes while a game boots
+- **Online:** reworked network code
+- **Graphic packs:** patches load faster and their code caves get the full size
+
+### Fixes
+- Games that point a texture at memory that doesn't exist no longer crash the emulator. The texture is cleared instead. Sonic Lost World crashed this way when Start was pressed on the title screen
+- Games in a folder picked with the file picker are read more reliably. After one failed read, every later read of that file came back empty
+
+### Logs
+- The emulator log is also written to logcat, so it can be read with adb while a game runs
+
 ## 0.3.6 - 2026-11-03
 
 ### Input settings, redone
