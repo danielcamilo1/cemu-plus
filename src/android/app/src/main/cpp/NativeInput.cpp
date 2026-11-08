@@ -10,8 +10,6 @@
 
 #include <android/sensor.h>
 #include <atomic>
-#include <android/log.h> // DIAGNOSTIC (temporary)
-#include <chrono> // DIAGNOSTIC (temporary)
 
 namespace NativeInput
 {
@@ -207,18 +205,6 @@ namespace NativeInput
 	// Y flips tilting up and down, the rotation around x and the part of gravity it moves into z
 	void ApplyMotionSettings(float& gyroX, float& gyroY, float& gyroZ, float& accelX, [[maybe_unused]] float& accelY, float& accelZ)
 	{
-		// DIAGNOSTIC (temporary): what the motion settings do to a sample, every 2 seconds
-		{
-			static std::atomic<int64_t> s_lastLog{0};
-			const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-			if (now - s_lastLog > 2000)
-			{
-				s_lastLog = now;
-				__android_log_print(ANDROID_LOG_INFO, "CemuMotion", "apply invX=%d invY=%d sensX=%.2f sensY=%.2f in gyro=(%.3f %.3f %.3f) acc=(%.3f %.3f %.3f)",
-					(int)s_isMotionXInverted.load(), (int)s_isMotionYInverted.load(), s_motionSensitivityX.load(), s_motionSensitivityY.load(),
-					gyroX, gyroY, gyroZ, accelX, accelY, accelZ);
-			}
-		}
 		if (s_isMotionXInverted)
 		{
 			gyroY = -gyroY;
@@ -441,7 +427,6 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setMotionInverted([[maybe_unused
 {
 	NativeInput::s_isMotionXInverted = invertX;
 	NativeInput::s_isMotionYInverted = invertY;
-	__android_log_print(ANDROID_LOG_INFO, "CemuMotion", "setMotionInverted x=%d y=%d", (int)invertX, (int)invertY); // DIAGNOSTIC (temporary)
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
@@ -449,7 +434,6 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setMotionSensitivity([[maybe_unu
 {
 	NativeInput::s_motionSensitivityX = sensitivityX;
 	NativeInput::s_motionSensitivityY = sensitivityY;
-	__android_log_print(ANDROID_LOG_INFO, "CemuMotion", "setMotionSensitivity x=%.2f y=%.2f", sensitivityX, sensitivityY); // DIAGNOSTIC (temporary)
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
