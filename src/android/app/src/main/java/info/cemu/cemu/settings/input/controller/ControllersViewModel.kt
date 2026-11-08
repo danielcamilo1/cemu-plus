@@ -15,6 +15,7 @@ import info.cemu.cemu.common.android.inputdevice.listGameControllers
 import info.cemu.cemu.common.android.inputdevice.toControllerInfo
 import info.cemu.cemu.common.settings.AppSettings
 import info.cemu.cemu.common.settings.AppSettingsStore
+import info.cemu.cemu.common.settings.DEFAULT_MOTION_SENSITIVITY
 import info.cemu.cemu.common.settings.HotkeyAction
 import info.cemu.cemu.common.settings.HotkeyCombo
 import info.cemu.cemu.nativeinterface.NativeInput
@@ -41,6 +42,12 @@ data class InputController(
 data class MotionInversion(
     val isXInverted: Boolean = false,
     val isYInverted: Boolean = false,
+)
+
+// in percent, 100 keeps the turning speed of the sensors
+data class MotionSensitivity(
+    val x: Int = DEFAULT_MOTION_SENSITIVITY,
+    val y: Int = DEFAULT_MOTION_SENSITIVITY,
 )
 
 data class ActiveController(
@@ -86,6 +93,27 @@ class ControllersViewModel(
         viewModelScope.launch {
             dataStore.updateData {
                 it.copy(emulationSettings = it.emulationSettings.copy(isMotionYInverted = inverted))
+            }
+        }
+    }
+
+    // how fast turning or tilting goes, for every controller like the inversion
+    val motionSensitivity = dataStore.data.map {
+        MotionSensitivity(it.emulationSettings.motionSensitivityX, it.emulationSettings.motionSensitivityY)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MotionSensitivity())
+
+    fun setMotionSensitivityX(sensitivity: Int) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(emulationSettings = it.emulationSettings.copy(motionSensitivityX = sensitivity))
+            }
+        }
+    }
+
+    fun setMotionSensitivityY(sensitivity: Int) {
+        viewModelScope.launch {
+            dataStore.updateData {
+                it.copy(emulationSettings = it.emulationSettings.copy(motionSensitivityY = sensitivity))
             }
         }
     }

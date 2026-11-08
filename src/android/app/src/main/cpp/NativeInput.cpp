@@ -195,11 +195,15 @@ namespace NativeInput
 	// set from the app settings, applied to the motion of the device and of every controller
 	std::atomic_bool s_isMotionXInverted{false};
 	std::atomic_bool s_isMotionYInverted{false};
+	// scales the turning speed the game gets, 1.0 keeps it. The tilt the accelerometer reports isn't scaled, so the
+	// orientation the motion handler fuses from both still settles at the real angle
+	std::atomic<float> s_motionSensitivityX{1.0f};
+	std::atomic<float> s_motionSensitivityY{1.0f};
 
 	// the values are in the frame of the screen, x to the right, y up and z out of it.
 	// X mirrors left and right, so turning and rolling both go the other way and gravity still matches.
 	// Y flips tilting up and down, the rotation around x and the part of gravity it moves into z
-	void InvertMotion(float& gyroX, float& gyroY, float& gyroZ, float& accelX, [[maybe_unused]] float& accelY, float& accelZ)
+	void ApplyMotionSettings(float& gyroX, float& gyroY, float& gyroZ, float& accelX, [[maybe_unused]] float& accelY, float& accelZ)
 	{
 		if (s_isMotionXInverted)
 		{
@@ -212,6 +216,12 @@ namespace NativeInput
 			gyroX = -gyroX;
 			accelZ = -accelZ;
 		}
+		// X is turning and rolling, Y is tilting up and down, the same axes as the inversion
+		const float sensitivityX = s_motionSensitivityX;
+		const float sensitivityY = s_motionSensitivityY;
+		gyroY *= sensitivityX;
+		gyroZ *= sensitivityX;
+		gyroX *= sensitivityY;
 	}
 } // namespace NativeInput
 
@@ -240,7 +250,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_onControllerMotion(
 	jfloat accelY,
 	jfloat accelZ)
 {
-	NativeInput::InvertMotion(gyroX, gyroY, gyroZ, accelX, accelY, accelZ);
+	NativeInput::ApplyMotionSettings(gyroX, gyroY, gyroZ, accelX, accelY, accelZ);
 	ControllerManager::instance().process_motion(
 		JNIUtils::FromJString(env, deviceDescriptor),
 		std::chrono::steady_clock::time_point{std::chrono::nanoseconds(timestamp)},
@@ -401,7 +411,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_onTouchMove([[maybe_unused]] JNI
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeInput_onDeviceMotion([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong timestamp, jfloat gyroX, jfloat gyroY, jfloat gyroZ, jfloat accelX, jfloat accelY, jfloat accelZ)
 {
-	NativeInput::InvertMotion(gyroX, gyroY, gyroZ, accelX, accelY, accelZ);
+	NativeInput::ApplyMotionSettings(gyroX, gyroY, gyroZ, accelX, accelY, accelZ);
 	DeviceController::process_motion(
 		std::chrono::steady_clock::time_point{std::chrono::nanoseconds(timestamp)},
 		gyroX,
@@ -417,6 +427,13 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setMotionInverted([[maybe_unused
 {
 	NativeInput::s_isMotionXInverted = invertX;
 	NativeInput::s_isMotionYInverted = invertY;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeInput_setMotionSensitivity([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat sensitivityX, jfloat sensitivityY)
+{
+	NativeInput::s_motionSensitivityX = sensitivityX;
+	NativeInput::s_motionSensitivityY = sensitivityY;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL

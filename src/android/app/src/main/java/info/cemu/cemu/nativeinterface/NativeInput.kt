@@ -244,6 +244,9 @@ object NativeInput {
     @JvmStatic
     external fun setMotionInverted(invertX: Boolean, invertY: Boolean)
 
+    // 1.0 keeps the turning speed of the sensors
+    external fun setMotionSensitivity(sensitivityX: Float, sensitivityY: Float)
+
     @JvmStatic
     external fun setDeviceRumble(rumble: Float)
 

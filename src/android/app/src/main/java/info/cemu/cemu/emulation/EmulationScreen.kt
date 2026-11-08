@@ -154,6 +154,10 @@ fun EmulationScreen(
         NativeInput.setMotionInverted(sideMenuState.isMotionXInverted, sideMenuState.isMotionYInverted)
     }
 
+    LaunchedEffect(sideMenuState.motionSensitivityX, sideMenuState.motionSensitivityY) {
+        NativeInput.setMotionSensitivity(sideMenuState.motionSensitivityX / 100f, sideMenuState.motionSensitivityY / 100f)
+    }
+
     LaunchedEffect(Unit) {
         viewModel.menuRequests.collect {
             if (!drawerState.isAnimationRunning) {

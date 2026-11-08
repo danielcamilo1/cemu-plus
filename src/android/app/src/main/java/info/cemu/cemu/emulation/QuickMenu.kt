@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -35,7 +38,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +48,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -59,6 +65,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import info.cemu.cemu.R
+import info.cemu.cemu.common.settings.MAX_MOTION_SENSITIVITY
+import info.cemu.cemu.common.settings.MIN_MOTION_SENSITIVITY
+import info.cemu.cemu.common.settings.MOTION_SENSITIVITY_STEP
+import info.cemu.cemu.common.ui.components.gamepadAdjustable
+import info.cemu.cemu.common.ui.components.rememberGamepadAdjustState
 import info.cemu.cemu.common.ui.localization.controllerTypeToString
 import info.cemu.cemu.common.ui.localization.tr
 import info.cemu.cemu.nativeinterface.NativeInput
@@ -67,6 +78,7 @@ import info.cemu.cemu.settings.screenlayout.applyToolbarSettings
 import info.cemu.cemu.settings.screenlayout.areScreensSwappedEffective
 import info.cemu.cemu.settings.screenlayout.isToolbarEnabled
 import info.cemu.cemu.settings.screenlayout.toolbarScreenFor
+import kotlin.math.roundToInt
 
 // the quick menu follows the toolbar theme, white like the Wii U Basic or black like the Deluxe
 internal class QuickMenuColors(
@@ -272,6 +284,26 @@ fun QuickMenuContent(
             description = tr("Tilting up and down"),
             checked = sideMenuState.isMotionYInverted,
             onCheckedChange = { updateState(sideMenuState.copy(isMotionYInverted = it)) },
+        )
+        QuickMenuSlider(
+            label = tr("Motion sensitivity X axis"),
+            description = tr("How fast turning left and right goes"),
+            value = sideMenuState.motionSensitivityX,
+            valueFrom = MIN_MOTION_SENSITIVITY,
+            valueTo = MAX_MOTION_SENSITIVITY,
+            step = MOTION_SENSITIVITY_STEP,
+            valueToString = { "$it%" },
+            onValueChange = { updateState(sideMenuState.copy(motionSensitivityX = it)) },
+        )
+        QuickMenuSlider(
+            label = tr("Motion sensitivity Y axis"),
+            description = tr("How fast tilting up and down goes"),
+            value = sideMenuState.motionSensitivityY,
+            valueFrom = MIN_MOTION_SENSITIVITY,
+            valueTo = MAX_MOTION_SENSITIVITY,
+            step = MOTION_SENSITIVITY_STEP,
+            valueToString = { "$it%" },
+            onValueChange = { updateState(sideMenuState.copy(motionSensitivityY = it)) },
         )
         QuickMenuToggle(
             label = tr("Show on-screen controls"),
@@ -601,6 +633,92 @@ internal fun <T> QuickMenuChoices(
                 }
             }
         }
+    }
+}
+
+// a slider like the ones of the settings. With a controller, left and right change it right away, A also starts
+// changing it, A again keeps the value and B puts the old one back
+@Composable
+internal fun QuickMenuSlider(
+    label: String,
+    value: Int,
+    valueFrom: Int,
+    valueTo: Int,
+    step: Int,
+    valueToString: (Int) -> String,
+    onValueChange: (Int) -> Unit,
+    enabled: Boolean = true,
+    description: String? = null,
+) {
+    val colors = LocalQuickMenuColors.current
+    var sliderValue by remember(value) { mutableFloatStateOf(value.toFloat()) }
+    val adjustState = rememberGamepadAdjustState()
+    var valueBeforeAdjusting by remember { mutableFloatStateOf(sliderValue) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    fun snap(newValue: Float): Int =
+        (((newValue - valueFrom) / step).roundToInt() * step + valueFrom).coerceIn(valueFrom, valueTo)
+
+    fun setValue(newValue: Int) {
+        sliderValue = newValue.toFloat()
+        onValueChange(newValue)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
+            .clip(QuickMenuItemShape)
+            .then(
+                if (isFocused) Modifier.border(BorderStroke(3.dp, colors.focus), QuickMenuItemShape)
+                else Modifier
+            )
+            .gamepadAdjustable(
+                state = adjustState,
+                enabled = enabled,
+                onStart = { valueBeforeAdjusting = sliderValue },
+                onStep = { setValue(snap(sliderValue + it * step)) },
+                onCancel = { if (sliderValue != valueBeforeAdjusting) setValue(snap(valueBeforeAdjusting)) },
+            )
+            .focusable(enabled = enabled, interactionSource = interactionSource)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = label, modifier = Modifier.weight(1f), fontSize = 16.sp)
+            Text(
+                text = valueToString(snap(sliderValue)),
+                color = colors.accent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        if (description != null) {
+            Text(text = description, color = colors.secondaryText, fontSize = 13.sp)
+        }
+        if (isFocused) {
+            Text(
+                text = if (adjustState.isAdjusting) tr("◀ ▶ change   Ⓐ done   Ⓑ cancel") else tr("Ⓐ change"),
+                color = colors.accent,
+                fontSize = 13.sp,
+            )
+        }
+        Slider(
+            modifier = Modifier.focusProperties { canFocus = false },
+            value = sliderValue,
+            valueRange = valueFrom.toFloat()..valueTo.toFloat(),
+            steps = ((valueTo - valueFrom) / step - 1).coerceAtLeast(0),
+            enabled = enabled,
+            onValueChange = { sliderValue = it },
+            onValueChangeFinished = { setValue(snap(sliderValue)) },
+            colors = SliderDefaults.colors(
+                thumbColor = colors.accent,
+                activeTrackColor = colors.accent,
+                activeTickColor = colors.onAccent,
+                inactiveTrackColor = colors.control,
+                inactiveTickColor = colors.secondaryText,
+            ),
+        )
     }
 }
 
