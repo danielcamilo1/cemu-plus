@@ -26,6 +26,8 @@ namespace FilesystemAndroid
 
 	bool IsContentUri(std::string_view uri);
 
+	void DiagRecordRead(std::chrono::steady_clock::time_point start, uint64 bytes); // DIAGNOSTIC (temporary)
+
 	inline bool IsContentUri(const fs::path& path)
 	{
 		return IsContentUri(std::string_view{path.native()});

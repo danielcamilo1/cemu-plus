@@ -53,6 +53,7 @@ uint32 FileStreamSAF::readData(void* data, uint32 length)
 {
 	if (!m_isValid)
 		return 0;
+	auto diagStart = std::chrono::steady_clock::now(); // DIAGNOSTIC (temporary)
 	uint8* out = (uint8*)data;
 	uint32 totalRead = 0;
 	while (totalRead < length)
@@ -70,6 +71,7 @@ uint32 FileStreamSAF::readData(void* data, uint32 length)
 		totalRead += (uint32)r;
 	}
 	m_position += totalRead;
+	FilesystemAndroid::DiagRecordRead(diagStart, totalRead);
 	return totalRead;
 }
 
