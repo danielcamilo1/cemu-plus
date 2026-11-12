@@ -746,6 +746,16 @@ namespace CafeSystem
 			cemuLog_log(LogType::Force, "Mounting failed");
 			return PREPARE_STATUS_CODE::UNABLE_TO_MOUNT;
 		}
+		// some updates don't work in Cemu (ZombiU v32 stays on a black screen after the Ubisoft logo), their game profile tells Cemu to run the base version
+		if (sGameInfo_ForegroundTitle.HasUpdate())
+		{
+			GameProfile titleProfile;
+			if (titleProfile.Load(titleId) && titleProfile.ShouldIgnoreUpdate())
+			{
+				cemuLog_log(LogType::Force, "Update: v{} ignored by the game profile (ignoreUpdate)", sGameInfo_ForegroundTitle.GetUpdate().GetAppTitleVersion());
+				sGameInfo_ForegroundTitle.RemoveUpdate();
+			}
+		}
 		// check update
 		TitleInfo& titleUpdate = sGameInfo_ForegroundTitle.GetUpdate();
 		if (titleUpdate.IsValid())

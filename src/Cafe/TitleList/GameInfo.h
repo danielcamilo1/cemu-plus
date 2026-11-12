@@ -39,6 +39,12 @@ public:
 		return m_update.IsValid();
 	}
 
+	// the title then runs as its base version, as if no update was installed
+	void RemoveUpdate()
+	{
+		m_update = TitleInfo();
+	}
+
 	void AddAOC(const TitleInfo& titleInfo)
 	{
 		TitleId aocTitleId = titleInfo.GetAppTitleId();

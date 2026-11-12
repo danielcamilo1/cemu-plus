@@ -217,6 +217,7 @@ bool GameProfile::Load(uint64_t title_id)
 		{
 			gameProfile_loadBooleanOption2(iniParser, "loadSharedLibraries", m_loadSharedLibraries);
 			gameProfile_loadBooleanOption2(iniParser, "startWithPadView", m_startWithPadView);
+			gameProfile_loadBooleanOption2(iniParser, "ignoreUpdate", m_ignoreUpdate);
 		}
 		else if (boost::iequals(iniParser.GetCurrentSectionName(), "Graphics"))
 		{
@@ -323,6 +324,8 @@ void GameProfile::Save(uint64_t title_id)
 	fs->writeLine("[General]");
 	WRITE_OPTIONAL_ENTRY(loadSharedLibraries);
 	WRITE_ENTRY(startWithPadView);
+	if (m_ignoreUpdate)
+		WRITE_ENTRY(ignoreUpdate);
 	fs->writeLine("");
 
 	fs->writeLine("[CPU]");
@@ -379,6 +382,7 @@ void GameProfile::ResetOptional()
 	// general settings
 	m_loadSharedLibraries.reset(); // true;
 	m_startWithPadView = false;
+	m_ignoreUpdate = false;
 
 	// graphic settings
 	m_accurateShaderMul = AccurateShaderMulOption::True;
@@ -410,6 +414,7 @@ void GameProfile::Reset()
 	// general settings
 	m_loadSharedLibraries = true;
 	m_startWithPadView = false;
+	m_ignoreUpdate = false;
 
 	// graphic settings
 	m_accurateShaderMul = AccurateShaderMulOption::True;

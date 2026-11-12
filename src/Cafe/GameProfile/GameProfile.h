@@ -27,6 +27,8 @@ public:
 	[[nodiscard]] const std::optional<bool>& ShouldLoadSharedLibraries() const { return m_loadSharedLibraries; }
 	void SetShouldLoadSharedLibraries(bool shouldLoadSharedLibraries) { m_loadSharedLibraries = shouldLoadSharedLibraries; }
 	[[nodiscard]] bool StartWithGamepadView() const { return m_startWithPadView; }
+	// the installed update is not mounted and the game runs as its base version
+	[[nodiscard]] bool ShouldIgnoreUpdate() const { return m_ignoreUpdate; }
 
 	[[nodiscard]] const std::optional<GraphicAPI>& GetGraphicsAPI() const { return m_graphics_api; }
 	[[nodiscard]] const AccurateShaderMulOption& GetAccurateShaderMul() const { return m_accurateShaderMul; }
@@ -102,6 +104,7 @@ public:
 	// general settings
 	std::optional<bool> m_loadSharedLibraries{}; // = true;
 	bool m_startWithPadView = false;
+	bool m_ignoreUpdate = false;
 
 	// graphic settings
 	std::optional<GraphicAPI> m_graphics_api{};
