@@ -52,6 +52,23 @@ object NativeGameTitles {
     @JvmStatic
     external fun setThreadQuantumForTitle(gameTitleId: Long, threadQuantum: Int)
 
+    // version of the installed update, -1 without one
+    @JvmStatic
+    external fun getUpdateVersionForTitle(gameTitleId: Long): Int
+
+    @JvmStatic
+    external fun getBaseVersionForTitle(gameTitleId: Long): Int
+
+    // why the profile bundled with Cemu turns the update off, empty without a reason, null when it doesn't
+    @JvmStatic
+    external fun getRecommendedUpdateOffReasonForTitle(gameTitleId: Long): String?
+
+    @JvmStatic
+    external fun isUpdateEnabledForTitle(gameTitleId: Long): Boolean
+
+    @JvmStatic
+    external fun setUpdateEnabledForTitle(gameTitleId: Long, enabled: Boolean)
+
     @JvmStatic
     external fun isShaderMultiplicationAccuracyForTitleEnabled(gameTitleId: Long): Boolean
 

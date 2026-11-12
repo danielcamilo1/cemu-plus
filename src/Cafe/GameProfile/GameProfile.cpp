@@ -178,11 +178,13 @@ void gameProfile_load()
 		cemuLog_log(LogType::Force, "Thread quantum set to {}", ppcThreadQuantum);
 }
 
-bool GameProfile::Load(uint64_t title_id)
+bool GameProfile::Load(uint64_t title_id, bool defaultOnly)
 {
 	auto gameProfilePath = ActiveSettings::GetConfigPath("gameProfiles/{:016x}.ini", title_id);
 
-	std::optional<std::vector<uint8>> profileContents = FileStream::LoadIntoMemory(gameProfilePath);
+	std::optional<std::vector<uint8>> profileContents;
+	if (!defaultOnly)
+		profileContents = FileStream::LoadIntoMemory(gameProfilePath);
 	if (!profileContents)
 	{
 		gameProfilePath = ActiveSettings::GetDataPath("gameProfiles/default/{:016x}.ini", title_id);
@@ -217,6 +219,15 @@ bool GameProfile::Load(uint64_t title_id)
 		{
 			gameProfile_loadBooleanOption2(iniParser, "loadSharedLibraries", m_loadSharedLibraries);
 			gameProfile_loadBooleanOption2(iniParser, "startWithPadView", m_startWithPadView);
+			gameProfile_loadBooleanOption2(iniParser, "ignoreUpdate", m_ignoreUpdate);
+			if (auto reason = iniParser.FindOption("ignoreUpdateReason"))
+			{
+				// quoted so that # and ; aren't read as comments
+				std::string_view text = *reason;
+				if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
+					text = text.substr(1, text.size() - 2);
+				m_ignoreUpdateReason = std::string(text);
+			}
 		}
 		else if (boost::iequals(iniParser.GetCurrentSectionName(), "Graphics"))
 		{
@@ -323,6 +334,8 @@ void GameProfile::Save(uint64_t title_id)
 	fs->writeLine("[General]");
 	WRITE_OPTIONAL_ENTRY(loadSharedLibraries);
 	WRITE_ENTRY(startWithPadView);
+	if (m_ignoreUpdate)
+		WRITE_ENTRY(ignoreUpdate);
 	fs->writeLine("");
 
 	fs->writeLine("[CPU]");
@@ -379,6 +392,8 @@ void GameProfile::ResetOptional()
 	// general settings
 	m_loadSharedLibraries.reset(); // true;
 	m_startWithPadView = false;
+	m_ignoreUpdate = false;
+	m_ignoreUpdateReason.reset();
 
 	// graphic settings
 	m_accurateShaderMul = AccurateShaderMulOption::True;
@@ -410,6 +425,8 @@ void GameProfile::Reset()
 	// general settings
 	m_loadSharedLibraries = true;
 	m_startWithPadView = false;
+	m_ignoreUpdate = false;
+	m_ignoreUpdateReason.reset();
 
 	// graphic settings
 	m_accurateShaderMul = AccurateShaderMulOption::True;

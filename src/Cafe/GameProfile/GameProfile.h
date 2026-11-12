@@ -14,7 +14,8 @@ class GameProfile
 public:
 	static const uint32 kThreadQuantumDefault = 45000;
 
-	bool Load(uint64_t title_id);
+	// defaultOnly reads the profile bundled with Cemu even when the user has their own
+	bool Load(uint64_t title_id, bool defaultOnly = false);
 	void Save(uint64_t title_id);
 	void ResetOptional();
 	void Reset();
@@ -27,6 +28,11 @@ public:
 	[[nodiscard]] const std::optional<bool>& ShouldLoadSharedLibraries() const { return m_loadSharedLibraries; }
 	void SetShouldLoadSharedLibraries(bool shouldLoadSharedLibraries) { m_loadSharedLibraries = shouldLoadSharedLibraries; }
 	[[nodiscard]] bool StartWithGamepadView() const { return m_startWithPadView; }
+	// the installed update is not mounted and the game runs as its base version
+	[[nodiscard]] bool ShouldIgnoreUpdate() const { return m_ignoreUpdate; }
+	void SetIgnoreUpdate(bool ignoreUpdate) { m_ignoreUpdate = ignoreUpdate; }
+	// why the bundled profile turns the update off, shown to the user. Only read from the profile, never saved
+	[[nodiscard]] const std::optional<std::string>& GetIgnoreUpdateReason() const { return m_ignoreUpdateReason; }
 
 	[[nodiscard]] const std::optional<GraphicAPI>& GetGraphicsAPI() const { return m_graphics_api; }
 	[[nodiscard]] const AccurateShaderMulOption& GetAccurateShaderMul() const { return m_accurateShaderMul; }
@@ -102,6 +108,8 @@ public:
 	// general settings
 	std::optional<bool> m_loadSharedLibraries{}; // = true;
 	bool m_startWithPadView = false;
+	bool m_ignoreUpdate = false;
+	std::optional<std::string> m_ignoreUpdateReason{};
 
 	// graphic settings
 	std::optional<GraphicAPI> m_graphics_api{};

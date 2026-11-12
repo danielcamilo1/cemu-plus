@@ -2,6 +2,15 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.4.1 - 2026-11-12
+
+### Game updates
+- **Use update** in the settings of a game, under Update, turns its installed update off, and the game runs as its base version. It's only shown for games with an update, and applies the next time the game starts. The game card shows the version the game runs as
+- Games whose update doesn't work in Cemu have it off by default, with a note under the switch saying it's recommended off. **Why?** opens the reason
+
+### Fixes
+- ZombiU no longer stays on a black screen after the Ubisoft logo. Its update (v32) doesn't work in Cemu, so it's off by default and ZombiU runs as its base version
+
 ## 0.4.0 - 2026-11-08
 
 ### Motion sensitivity

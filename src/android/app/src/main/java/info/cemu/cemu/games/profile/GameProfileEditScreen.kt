@@ -1,7 +1,13 @@
 package info.cemu.cemu.games.profile
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -218,6 +225,30 @@ private fun NoGameSelected(modifier: Modifier) {
     }
 }
 
+// the installed update of a game and whether the game runs with it, shared by the game card and the settings
+private class GameUpdateState(
+    val updateVersion: Int?,
+    val baseVersion: Int,
+    val enabled: Boolean,
+    // the profile bundled with Cemu turns the update off for this game: why, empty without a reason. Null when it doesn't
+    val recommendedOffReason: String?,
+    val setEnabled: (Boolean) -> Unit,
+) {
+    val runningVersion: Int get() = if (updateVersion != null && enabled) updateVersion else baseVersion
+}
+
+@Composable
+private fun rememberGameUpdate(titleId: Long): GameUpdateState {
+    val updateVersion = remember(titleId) { NativeGameTitles.getUpdateVersionForTitle(titleId).takeIf { it >= 0 } }
+    val baseVersion = remember(titleId) { NativeGameTitles.getBaseVersionForTitle(titleId) }
+    val recommendedOffReason = remember(titleId) { NativeGameTitles.getRecommendedUpdateOffReasonForTitle(titleId) }
+    var enabled by rememberSaveable(titleId) { mutableStateOf(NativeGameTitles.isUpdateEnabledForTitle(titleId)) }
+    return GameUpdateState(updateVersion, baseVersion, enabled, recommendedOffReason) {
+        enabled = it
+        NativeGameTitles.setUpdateEnabledForTitle(titleId, it)
+    }
+}
+
 @Composable
 private fun GameSettingsContent(
     game: NativeGameTitles.Game,
@@ -226,6 +257,7 @@ private fun GameSettingsContent(
     startGame: (() -> Unit)? = null,
     settingsFocus: FocusRequester? = null,
 ) {
+    val update = rememberGameUpdate(game.titleId)
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         if (maxWidth >= TwoPaneWidth) {
             Row(
@@ -240,11 +272,12 @@ private fun GameSettingsContent(
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 20.dp)
                 ) {
-                    GameCard(game = game, isWide = true, startGame = startGame)
+                    GameCard(game = game, version = update.runningVersion, isWide = true, startGame = startGame)
                 }
                 GameSettingsList(
                     game = game,
                     editControls = editControls,
+                    update = update,
                     settingsFocus = settingsFocus,
                     modifier = Modifier.weight(1f),
                 )
@@ -253,8 +286,9 @@ private fun GameSettingsContent(
             GameSettingsList(
                 game = game,
                 editControls = editControls,
+                update = update,
                 settingsFocus = settingsFocus,
-                header = { GameCard(game = game, isWide = false, startGame = startGame) },
+                header = { GameCard(game = game, version = update.runningVersion, isWide = false, startGame = startGame) },
             )
         }
     }
@@ -262,7 +296,7 @@ private fun GameSettingsContent(
 
 // the game like its icon on the Wii U Menu, with what the library knows about it
 @Composable
-private fun GameCard(game: NativeGameTitles.Game, isWide: Boolean, startGame: (() -> Unit)?) {
+private fun GameCard(game: NativeGameTitles.Game, version: Int, isWide: Boolean, startGame: (() -> Unit)?) {
     WiiUCard(modifier = Modifier.fillMaxWidth()) {
         if (isWide) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -279,7 +313,7 @@ private fun GameCard(game: NativeGameTitles.Game, isWide: Boolean, startGame: ((
                     modifier = Modifier.padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    GameFacts(game)
+                    GameFacts(game, version)
                 }
                 if (startGame != null) {
                     StartButton(startGame, modifier = Modifier.padding(top = 16.dp))
@@ -302,7 +336,7 @@ private fun GameCard(game: NativeGameTitles.Game, isWide: Boolean, startGame: ((
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    GameFacts(game)
+                    GameFacts(game, version)
                 }
             }
             if (startGame != null) {
@@ -329,12 +363,12 @@ private fun StartButton(startGame: () -> Unit, modifier: Modifier) {
 }
 
 @Composable
-private fun GameFacts(game: NativeGameTitles.Game) {
+private fun GameFacts(game: NativeGameTitles.Game, version: Int) {
     GameFact(icon = R.drawable.ic_videogame, text = getTimePlayed(game))
     GameFact(icon = R.drawable.ic_date_range, text = tr("Last played: {0}", getLastPlayedDate(game)))
     GameFact(
         icon = R.drawable.ic_package_2,
-        text = tr("{0}, version {1}", regionToString(game.region), game.version.toString()),
+        text = tr("{0}, version {1}", regionToString(game.region), version.toString()),
     )
 }
 
@@ -402,6 +436,7 @@ private fun GameIconTile(game: NativeGameTitles.Game, size: Dp) {
 private fun GameSettingsList(
     game: NativeGameTitles.Game,
     editControls: EditGameControls,
+    update: GameUpdateState,
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
     // takes the focus to the first setting
@@ -467,6 +502,25 @@ private fun GameSettingsList(
                 )
             }
 
+            // only shown with an update installed. Some updates don't work in Cemu, their game profile turns it off
+            if (update.updateVersion != null) {
+                WiiUSectionTitle(tr("Update"))
+                WiiUSwitchRow(
+                    label = tr("Use update v{0}", update.updateVersion.toString()),
+                    description = if (update.enabled) {
+                        tr("The game runs with its installed update. Applies the next time the game starts")
+                    } else {
+                        tr("The game runs as its base version v{0}, without the update. Applies the next time the game starts", update.baseVersion.toString())
+                    },
+                    icon = R.drawable.ic_download,
+                    checked = update.enabled,
+                    onCheckedChange = update.setEnabled,
+                    footer = update.recommendedOffReason?.let { reason ->
+                        { UpdateRecommendation(titleId, reason, updateEnabled = update.enabled) }
+                    },
+                )
+            }
+
             WiiUSectionTitle(tr("Advanced"))
             ChoiceCard(
                 icon = R.drawable.ic_build,
@@ -517,6 +571,81 @@ private fun GameSettingsList(
                     NativeGameTitles.setThreadQuantumForTitle(titleId, it)
                 },
             )
+        }
+    }
+}
+
+// a quiet note under the update switch of games whose update is known not to work, so nobody wonders why it's off.
+// "Why?" opens the reason from the game profile. It warns when the update was turned back on
+@Composable
+private fun UpdateRecommendation(titleId: Long, reason: String, updateEnabled: Boolean) {
+    var expanded by rememberSaveable(titleId) { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(if (expanded) 90f else 0f, label = "whyChevron")
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier = Modifier
+            .padding(top = 14.dp)
+            .fillMaxWidth()
+            .clip(shape)
+            .background(WiiUColors.AccentTint)
+            .border(if (isFocused) 3.dp else 0.dp, if (isFocused) WiiUColors.AccentLight else Color.Transparent, shape)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    enabled = reason.isNotEmpty(),
+                    interactionSource = interactionSource,
+                    indication = null,
+                ) { expanded = !expanded }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(if (updateEnabled) R.drawable.ic_warning else R.drawable.ic_question_mark),
+                contentDescription = null,
+                tint = WiiUColors.AccentDark,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = tr("Recommended off for this game"),
+                color = WiiUColors.Text,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp, end = 8.dp),
+            )
+            if (reason.isNotEmpty()) {
+                Text(
+                    text = if (expanded) tr("Less") else tr("Why?"),
+                    color = WiiUColors.AccentDark,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = WiiUColors.AccentDark,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(chevronRotation),
+                )
+            }
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(start = 42.dp, end = 14.dp, bottom = 12.dp)) {
+                Text(text = reason, color = WiiUColors.TextSecondary, fontSize = 14.sp)
+                if (updateEnabled) {
+                    Text(
+                        text = tr("Turn the update off if the game doesn't start."),
+                        color = WiiUColors.Text,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
         }
     }
 }
