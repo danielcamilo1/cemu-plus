@@ -1,7 +1,13 @@
 package info.cemu.cemu.games.profile
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -223,6 +230,8 @@ private class GameUpdateState(
     val updateVersion: Int?,
     val baseVersion: Int,
     val enabled: Boolean,
+    // the profile bundled with Cemu turns the update off for this game: why, empty without a reason. Null when it doesn't
+    val recommendedOffReason: String?,
     val setEnabled: (Boolean) -> Unit,
 ) {
     val runningVersion: Int get() = if (updateVersion != null && enabled) updateVersion else baseVersion
@@ -232,8 +241,9 @@ private class GameUpdateState(
 private fun rememberGameUpdate(titleId: Long): GameUpdateState {
     val updateVersion = remember(titleId) { NativeGameTitles.getUpdateVersionForTitle(titleId).takeIf { it >= 0 } }
     val baseVersion = remember(titleId) { NativeGameTitles.getBaseVersionForTitle(titleId) }
+    val recommendedOffReason = remember(titleId) { NativeGameTitles.getRecommendedUpdateOffReasonForTitle(titleId) }
     var enabled by rememberSaveable(titleId) { mutableStateOf(NativeGameTitles.isUpdateEnabledForTitle(titleId)) }
-    return GameUpdateState(updateVersion, baseVersion, enabled) {
+    return GameUpdateState(updateVersion, baseVersion, enabled, recommendedOffReason) {
         enabled = it
         NativeGameTitles.setUpdateEnabledForTitle(titleId, it)
     }
@@ -505,6 +515,9 @@ private fun GameSettingsList(
                     icon = R.drawable.ic_download,
                     checked = update.enabled,
                     onCheckedChange = update.setEnabled,
+                    footer = update.recommendedOffReason?.let { reason ->
+                        { UpdateRecommendation(titleId, reason, updateEnabled = update.enabled) }
+                    },
                 )
             }
 
@@ -558,6 +571,81 @@ private fun GameSettingsList(
                     NativeGameTitles.setThreadQuantumForTitle(titleId, it)
                 },
             )
+        }
+    }
+}
+
+// a quiet note under the update switch of games whose update is known not to work, so nobody wonders why it's off.
+// "Why?" opens the reason from the game profile. It warns when the update was turned back on
+@Composable
+private fun UpdateRecommendation(titleId: Long, reason: String, updateEnabled: Boolean) {
+    var expanded by rememberSaveable(titleId) { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(if (expanded) 90f else 0f, label = "whyChevron")
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier = Modifier
+            .padding(top = 14.dp)
+            .fillMaxWidth()
+            .clip(shape)
+            .background(WiiUColors.AccentTint)
+            .border(if (isFocused) 3.dp else 0.dp, if (isFocused) WiiUColors.AccentLight else Color.Transparent, shape)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    enabled = reason.isNotEmpty(),
+                    interactionSource = interactionSource,
+                    indication = null,
+                ) { expanded = !expanded }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(if (updateEnabled) R.drawable.ic_warning else R.drawable.ic_question_mark),
+                contentDescription = null,
+                tint = WiiUColors.AccentDark,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = tr("Recommended off for this game"),
+                color = WiiUColors.Text,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp, end = 8.dp),
+            )
+            if (reason.isNotEmpty()) {
+                Text(
+                    text = if (expanded) tr("Less") else tr("Why?"),
+                    color = WiiUColors.AccentDark,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = WiiUColors.AccentDark,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(chevronRotation),
+                )
+            }
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(start = 42.dp, end = 14.dp, bottom = 12.dp)) {
+                Text(text = reason, color = WiiUColors.TextSecondary, fontSize = 14.sp)
+                if (updateEnabled) {
+                    Text(
+                        text = tr("Turn the update off if the game doesn't start."),
+                        color = WiiUColors.Text,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
         }
     }
 }

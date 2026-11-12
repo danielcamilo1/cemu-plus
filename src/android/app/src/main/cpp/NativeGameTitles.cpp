@@ -84,6 +84,16 @@ Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getBaseVersionForTitle([[ma
 	return gameInfo.GetBase().GetAppTitleVersion();
 }
 
+// the reason the profile bundled with Cemu turns the update off, empty without one, null when it doesn't turn it off
+extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getRecommendedUpdateOffReasonForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	GameProfile defaultProfile;
+	if (!defaultProfile.Load(game_title_id, true) || !defaultProfile.ShouldIgnoreUpdate())
+		return nullptr;
+	return env->NewStringUTF(defaultProfile.GetIgnoreUpdateReason().value_or("").c_str());
+}
+
 // the update is mounted when the game starts, a change applies the next time it starts
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_info_cemu_cemu_nativeinterface_NativeGameTitles_isUpdateEnabledForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)

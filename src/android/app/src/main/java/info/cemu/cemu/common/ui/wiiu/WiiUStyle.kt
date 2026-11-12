@@ -312,6 +312,8 @@ internal fun WiiUSwitchRow(
     description: String? = null,
     @DrawableRes icon: Int? = null,
     enabled: Boolean = true,
+    // shown under the switch inside the same panel, e.g. a note about this setting
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     WiiUCard(
         modifier = modifier
@@ -346,6 +348,7 @@ internal fun WiiUSwitchRow(
                 ),
             )
         }
+        footer?.invoke(this)
     }
 }
 

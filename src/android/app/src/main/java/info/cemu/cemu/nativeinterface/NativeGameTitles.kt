@@ -59,6 +59,10 @@ object NativeGameTitles {
     @JvmStatic
     external fun getBaseVersionForTitle(gameTitleId: Long): Int
 
+    // why the profile bundled with Cemu turns the update off, empty without a reason, null when it doesn't
+    @JvmStatic
+    external fun getRecommendedUpdateOffReasonForTitle(gameTitleId: Long): String?
+
     @JvmStatic
     external fun isUpdateEnabledForTitle(gameTitleId: Long): Boolean
 
