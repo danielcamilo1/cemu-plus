@@ -217,16 +217,6 @@ jobs:
             fi
           } > release-notes.md
 
-          cat >> release-notes.md <<'EOF'
-          ## Frame generation setup
-          1. Copy `Lossless.dll` from your own copy of Lossless Scaling (its installation folder on Windows) to your device.
-          2. In Cemu Plus open **Settings → Graphics settings → Frame generation (Lossless Scaling)** and tap **Select Lossless.dll**.
-          3. Enable frame generation there or from the in-game menu, where the multiplier, target frame rate and motion estimation resolution can be changed while playing.
-
-          Frame generation requires the Vulkan memory model, float16 and null descriptor support from the GPU driver.
-          The FPS overlay shows the displayed frame rate together with the base frame rate while frame generation is active.
-          EOF
-
           # link to everything since the previous release, prereleases are skipped
           PREVIOUS=$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-*' --exclude "v$VERSION" "$GITHUB_SHA" 2>/dev/null || true)
           if [[ -n "$PREVIOUS" ]]; then
