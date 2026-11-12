@@ -52,6 +52,19 @@ object NativeGameTitles {
     @JvmStatic
     external fun setThreadQuantumForTitle(gameTitleId: Long, threadQuantum: Int)
 
+    // version of the installed update, -1 without one
+    @JvmStatic
+    external fun getUpdateVersionForTitle(gameTitleId: Long): Int
+
+    @JvmStatic
+    external fun getBaseVersionForTitle(gameTitleId: Long): Int
+
+    @JvmStatic
+    external fun isUpdateEnabledForTitle(gameTitleId: Long): Boolean
+
+    @JvmStatic
+    external fun setUpdateEnabledForTitle(gameTitleId: Long, enabled: Boolean)
+
     @JvmStatic
     external fun isShaderMultiplicationAccuracyForTitleEnabled(gameTitleId: Long): Boolean
 

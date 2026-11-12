@@ -7,6 +7,7 @@
 #include "CompressTitleCallbacks.h"
 #include "config/ActiveSettings.h"
 #include "Cafe/CafeSystem.h"
+#include "Cafe/TitleList/TitleList.h"
 
 namespace NativeGameTitles
 {
@@ -61,6 +62,41 @@ Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setLoadingSharedLibrariesFo
 {
 	NativeGameTitles::LoadGameProfile(game_title_id);
 	NativeGameTitles::g_currentGameProfile.SetShouldLoadSharedLibraries(enabled);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+}
+
+// version of the installed update, -1 without one
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getUpdateVersionForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	GameInfo2 gameInfo = CafeTitleList::GetGameInfo(game_title_id);
+	if (!gameInfo.HasUpdate())
+		return -1;
+	return gameInfo.GetUpdate().GetAppTitleVersion();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_getBaseVersionForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	GameInfo2 gameInfo = CafeTitleList::GetGameInfo(game_title_id);
+	if (!gameInfo.IsValid())
+		return 0;
+	return gameInfo.GetBase().GetAppTitleVersion();
+}
+
+// the update is mounted when the game starts, a change applies the next time it starts
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_isUpdateEnabledForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return !NativeGameTitles::g_currentGameProfile.ShouldIgnoreUpdate();
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_info_cemu_cemu_nativeinterface_NativeGameTitles_setUpdateEnabledForTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jboolean enabled)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	NativeGameTitles::g_currentGameProfile.SetIgnoreUpdate(!enabled);
 	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
 }
 

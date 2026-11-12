@@ -218,6 +218,27 @@ private fun NoGameSelected(modifier: Modifier) {
     }
 }
 
+// the installed update of a game and whether the game runs with it, shared by the game card and the settings
+private class GameUpdateState(
+    val updateVersion: Int?,
+    val baseVersion: Int,
+    val enabled: Boolean,
+    val setEnabled: (Boolean) -> Unit,
+) {
+    val runningVersion: Int get() = if (updateVersion != null && enabled) updateVersion else baseVersion
+}
+
+@Composable
+private fun rememberGameUpdate(titleId: Long): GameUpdateState {
+    val updateVersion = remember(titleId) { NativeGameTitles.getUpdateVersionForTitle(titleId).takeIf { it >= 0 } }
+    val baseVersion = remember(titleId) { NativeGameTitles.getBaseVersionForTitle(titleId) }
+    var enabled by rememberSaveable(titleId) { mutableStateOf(NativeGameTitles.isUpdateEnabledForTitle(titleId)) }
+    return GameUpdateState(updateVersion, baseVersion, enabled) {
+        enabled = it
+        NativeGameTitles.setUpdateEnabledForTitle(titleId, it)
+    }
+}
+
 @Composable
 private fun GameSettingsContent(
     game: NativeGameTitles.Game,
@@ -226,6 +247,7 @@ private fun GameSettingsContent(
     startGame: (() -> Unit)? = null,
     settingsFocus: FocusRequester? = null,
 ) {
+    val update = rememberGameUpdate(game.titleId)
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         if (maxWidth >= TwoPaneWidth) {
             Row(
@@ -240,11 +262,12 @@ private fun GameSettingsContent(
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 20.dp)
                 ) {
-                    GameCard(game = game, isWide = true, startGame = startGame)
+                    GameCard(game = game, version = update.runningVersion, isWide = true, startGame = startGame)
                 }
                 GameSettingsList(
                     game = game,
                     editControls = editControls,
+                    update = update,
                     settingsFocus = settingsFocus,
                     modifier = Modifier.weight(1f),
                 )
@@ -253,8 +276,9 @@ private fun GameSettingsContent(
             GameSettingsList(
                 game = game,
                 editControls = editControls,
+                update = update,
                 settingsFocus = settingsFocus,
-                header = { GameCard(game = game, isWide = false, startGame = startGame) },
+                header = { GameCard(game = game, version = update.runningVersion, isWide = false, startGame = startGame) },
             )
         }
     }
@@ -262,7 +286,7 @@ private fun GameSettingsContent(
 
 // the game like its icon on the Wii U Menu, with what the library knows about it
 @Composable
-private fun GameCard(game: NativeGameTitles.Game, isWide: Boolean, startGame: (() -> Unit)?) {
+private fun GameCard(game: NativeGameTitles.Game, version: Int, isWide: Boolean, startGame: (() -> Unit)?) {
     WiiUCard(modifier = Modifier.fillMaxWidth()) {
         if (isWide) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -279,7 +303,7 @@ private fun GameCard(game: NativeGameTitles.Game, isWide: Boolean, startGame: ((
                     modifier = Modifier.padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    GameFacts(game)
+                    GameFacts(game, version)
                 }
                 if (startGame != null) {
                     StartButton(startGame, modifier = Modifier.padding(top = 16.dp))
@@ -302,7 +326,7 @@ private fun GameCard(game: NativeGameTitles.Game, isWide: Boolean, startGame: ((
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    GameFacts(game)
+                    GameFacts(game, version)
                 }
             }
             if (startGame != null) {
@@ -329,12 +353,12 @@ private fun StartButton(startGame: () -> Unit, modifier: Modifier) {
 }
 
 @Composable
-private fun GameFacts(game: NativeGameTitles.Game) {
+private fun GameFacts(game: NativeGameTitles.Game, version: Int) {
     GameFact(icon = R.drawable.ic_videogame, text = getTimePlayed(game))
     GameFact(icon = R.drawable.ic_date_range, text = tr("Last played: {0}", getLastPlayedDate(game)))
     GameFact(
         icon = R.drawable.ic_package_2,
-        text = tr("{0}, version {1}", regionToString(game.region), game.version.toString()),
+        text = tr("{0}, version {1}", regionToString(game.region), version.toString()),
     )
 }
 
@@ -402,6 +426,7 @@ private fun GameIconTile(game: NativeGameTitles.Game, size: Dp) {
 private fun GameSettingsList(
     game: NativeGameTitles.Game,
     editControls: EditGameControls,
+    update: GameUpdateState,
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
     // takes the focus to the first setting
@@ -464,6 +489,22 @@ private fun GameSettingsList(
                     selected = selectedDriverSetting,
                     choiceToString = ::customDriverSettingChoiceToString,
                     onChoiceSelected = viewModel::setSelectedDriverSetting,
+                )
+            }
+
+            // only shown with an update installed. Some updates don't work in Cemu, their game profile turns it off
+            if (update.updateVersion != null) {
+                WiiUSectionTitle(tr("Update"))
+                WiiUSwitchRow(
+                    label = tr("Use update v{0}", update.updateVersion.toString()),
+                    description = if (update.enabled) {
+                        tr("The game runs with its installed update. Applies the next time the game starts")
+                    } else {
+                        tr("The game runs as its base version v{0}, without the update. Applies the next time the game starts", update.baseVersion.toString())
+                    },
+                    icon = R.drawable.ic_download,
+                    checked = update.enabled,
+                    onCheckedChange = update.setEnabled,
                 )
             }
 
