@@ -2,6 +2,11 @@
 
 What changed in each Cemu Plus release. The release page of each version shows its section from this file.
 
+## 0.4.2 - 2026-11-18
+
+### Fixes
+- Batman: Arkham Origins no longer crashes when gameplay loads with Turnip drivers. Cemu ran out of Vulkan descriptors, and now has four times as many. Thanks to @yasht42 (#22)
+
 ## 0.4.1 - 2026-11-12
 
 ### Game updates
